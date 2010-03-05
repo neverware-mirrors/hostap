@@ -397,11 +397,11 @@ static inline int wpa_drv_send_action(struct wpa_supplicant *wpa_s,
 }
 
 static inline int wpa_drv_alloc_interface_addr(struct wpa_supplicant *wpa_s,
-					       u8 *addr)
+					       u8 *addr, char *ifname)
 {
 	if (wpa_s->driver->alloc_interface_addr)
 		return wpa_s->driver->alloc_interface_addr(wpa_s->drv_priv,
-							   addr);
+							   addr, ifname);
 	return -1;
 }
 
@@ -454,6 +454,18 @@ static inline int wpa_drv_deinit_ap(struct wpa_supplicant *wpa_s)
 	if (wpa_s->driver->deinit_ap)
 		return wpa_s->driver->deinit_ap(wpa_s->drv_priv);
 	return 0;
+}
+
+static inline void wpa_drv_suspend(struct wpa_supplicant *wpa_s)
+{
+	if (wpa_s->driver->suspend)
+		wpa_s->driver->suspend(wpa_s->drv_priv);
+}
+
+static inline void wpa_drv_resume(struct wpa_supplicant *wpa_s)
+{
+	if (wpa_s->driver->resume)
+		wpa_s->driver->resume(wpa_s->drv_priv);
 }
 
 #endif /* DRIVER_I_H */
