@@ -35,11 +35,14 @@
 #include <netproto/802_11/ieee80211_ioctl.h>
 #include <netproto/802_11/ieee80211_dragonfly.h>
 #else /* __DragonFly__ */
+#ifdef __GLIBC__
+#include <netinet/ether.h>
+#endif /* __GLIBC__ */
 #include <net80211/ieee80211.h>
 #include <net80211/ieee80211_ioctl.h>
 #include <net80211/ieee80211_crypto.h>
-#endif /* __DragonFly__ */
-#if __FreeBSD__
+#endif /* __DragonFly__ || __GLIBC__ */
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 #include <net80211/ieee80211_freebsd.h>
 #endif
 #if __NetBSD__
@@ -131,7 +134,7 @@ set80211param(struct bsd_driver_data *drv, int op, int arg)
 }
 
 static int
-bsd_get_ssid(const char *ifname, void *priv, u8 *ssid, int len)
+bsd_get_ssid(void *priv, u8 *ssid, int len)
 {
 	struct bsd_driver_data *drv = priv;
 #ifdef SIOCG80211NWID
@@ -152,7 +155,7 @@ bsd_get_ssid(const char *ifname, void *priv, u8 *ssid, int len)
 }
 
 static int
-bsd_set_ssid(const char *ifname, void *priv, const u8 *ssid, int ssid_len)
+bsd_set_ssid(void *priv, const u8 *ssid, int ssid_len)
 {
 	struct bsd_driver_data *drv = priv;
 #ifdef SIOCS80211NWID
@@ -465,8 +468,8 @@ bsd_set_ieee8021x(void *priv, struct wpa_bss_params *params)
 }
 
 static int
-bsd_set_sta_authorized(void *priv, const u8 *addr, int total_flags,
-		       int flags_or, int flags_and)
+bsd_set_sta_authorized(void *priv, const u8 *addr,
+		       int total_flags, int flags_or, int flags_and)
 {
 	int authorized = -1;
 
@@ -555,7 +558,7 @@ bsd_set_freq(void *priv, u16 channel)
 }
 
 static int
-bsd_set_opt_ie(const char *ifname, void *priv, const u8 *ie, size_t ie_len)
+bsd_set_opt_ie(void *priv, const u8 *ie, size_t ie_len)
 {
 #ifdef IEEE80211_IOC_APPIE
 	wpa_printf(MSG_DEBUG, "%s: set WPA+RSN ie (len %lu)", __func__,
@@ -593,7 +596,7 @@ ether_sprintf(const u8 *addr)
 }
 
 static int
-bsd_set_privacy(const char *ifname, void *priv, int enabled)
+bsd_set_privacy(void *priv, int enabled)
 {
 	wpa_printf(MSG_DEBUG, "%s: enabled=%d", __func__, enabled);
 
@@ -870,7 +873,7 @@ static int
 wpa_driver_bsd_get_ssid(void *priv, u8 *ssid)
 {
 	struct bsd_driver_data *drv = priv;
-	return bsd_get_ssid(drv->ifname, drv, ssid, 0);
+	return bsd_get_ssid(drv, ssid, 0);
 }
 
 static int
@@ -878,7 +881,7 @@ wpa_driver_bsd_set_wpa_ie(struct bsd_driver_data *drv, const u8 *wpa_ie,
 			  size_t wpa_ie_len)
 {
 #ifdef IEEE80211_IOC_APPIE
-	return bsd_set_opt_ie(drv->ifname, drv, wpa_ie, wpa_ie_len);
+	return bsd_set_opt_ie(drv, wpa_ie, wpa_ie_len);
 #else /* IEEE80211_IOC_APPIE */
 	return set80211var(drv, IEEE80211_IOC_OPTIE, wpa_ie, wpa_ie_len);
 #endif /* IEEE80211_IOC_APPIE */
@@ -1118,7 +1121,7 @@ wpa_driver_bsd_scan(void *priv, struct wpa_driver_scan_params *params)
 	return set80211var(drv, IEEE80211_IOC_SCAN_REQ, &sr, sizeof(sr));
 #else /* IEEE80211_IOC_SCAN_MAX_SSID */
 	/* set desired ssid before scan */
-	if (bsd_set_ssid(drv->ifname, drv, params->ssids[0].ssid,
+	if (bsd_set_ssid(drv, params->ssids[0].ssid,
 			 params->ssids[0].ssid_len) < 0)
 		return -1;
 
@@ -1160,8 +1163,8 @@ wpa_driver_bsd_event_receive(int sock, void *ctx, void *sock_ctx)
 		ifan = (struct if_announcemsghdr *) rtm;
 		if (ifan->ifan_index != drv->ifindex)
 			break;
-		strlcpy(event.interface_status.ifname, drv->ifname,
-			sizeof(event.interface_status.ifname));
+		os_strlcpy(event.interface_status.ifname, drv->ifname,
+			   sizeof(event.interface_status.ifname));
 		switch (ifan->ifan_what) {
 		case IFAN_DEPARTURE:
 			event.interface_status.ievent = EVENT_INTERFACE_REMOVED;
@@ -1229,8 +1232,8 @@ wpa_driver_bsd_event_receive(int sock, void *ctx, void *sock_ctx)
 		if (ifm->ifm_index != drv->ifindex)
 			break;
 		if ((rtm->rtm_flags & RTF_UP) == 0) {
-			strlcpy(event.interface_status.ifname, drv->ifname,
-				sizeof(event.interface_status.ifname));
+			os_strlcpy(event.interface_status.ifname, drv->ifname,
+				   sizeof(event.interface_status.ifname));
 			event.interface_status.ievent = EVENT_INTERFACE_REMOVED;
 			wpa_printf(MSG_DEBUG, "RTM_IFINFO: Interface '%s' DOWN",
 				   event.interface_status.ifname);

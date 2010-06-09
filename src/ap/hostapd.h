@@ -48,9 +48,7 @@ struct hostapd_frame_info {
 
 
 struct hostapd_driver_ops {
-	int (*set_ap_wps_ie)(struct hostapd_data *hapd,
-			     const struct wpabuf *beacon,
-			     const struct wpabuf *probe);
+	int (*set_ap_wps_ie)(struct hostapd_data *hapd);
 	int (*send_mgmt_frame)(struct hostapd_data *hapd, const void *msg,
 			       size_t len);
 	int (*send_eapol)(struct hostapd_data *hapd, const u8 *addr,
@@ -74,7 +72,7 @@ struct hostapd_driver_ops {
 	int (*set_radius_acl_expire)(struct hostapd_data *hapd,
 				     const u8 *mac);
 	int (*set_bss_params)(struct hostapd_data *hapd, int use_protection);
-	int (*set_beacon)(const char *ifname, struct hostapd_data *hapd,
+	int (*set_beacon)(struct hostapd_data *hapd,
 			  const u8 *head, size_t head_len,
 			  const u8 *tail, size_t tail_len, int dtim_period,
 			  int beacon_int);
@@ -89,7 +87,7 @@ struct hostapd_driver_ops {
 			  int reason);
 	int (*sta_disassoc)(struct hostapd_data *hapd, const u8 *addr,
 			    int reason);
-	int (*sta_add)(const char *ifname, struct hostapd_data *hapd,
+	int (*sta_add)(struct hostapd_data *hapd,
 		       const u8 *addr, u16 aid, u16 capability,
 		       const u8 *supp_rates, size_t supp_rates_len,
 		       u16 listen_interval,
@@ -164,15 +162,23 @@ struct hostapd_data {
 	struct l2_packet_data *l2;
 	struct wps_context *wps;
 
-#ifdef CONFIG_WPS
 	struct wpabuf *wps_beacon_ie;
 	struct wpabuf *wps_probe_resp_ie;
+#ifdef CONFIG_WPS
 	unsigned int ap_pin_failures;
 	struct upnp_wps_device_sm *wps_upnp;
 #endif /* CONFIG_WPS */
 
 	struct hostapd_probereq_cb *probereq_cb;
 	size_t num_probereq_cb;
+
+	void (*public_action_cb)(void *ctx, const u8 *buf, size_t len,
+				 int freq);
+	void *public_action_cb_ctx;
+
+	void (*wps_reg_success_cb)(void *ctx, const u8 *mac_addr,
+				   const u8 *uuid_e);
+	void *wps_reg_success_cb_ctx;
 };
 
 
@@ -202,6 +208,7 @@ struct hostapd_iface {
 	 * current_mode->channels */
 	int num_rates;
 	struct hostapd_rate_data *current_rates;
+	int freq;
 
 	u16 hw_flags;
 

@@ -1282,7 +1282,8 @@ ieee802_1x_receive_auth(struct radius_msg *msg, struct radius_msg *req,
 		}
 #endif /* CONFIG_NO_VLAN */
 
-		ap_sta_bind_vlan(hapd, sta, old_vlanid);
+		if (ap_sta_bind_vlan(hapd, sta, old_vlanid) < 0)
+			break;
 
 		/* RFC 3580, Ch. 3.17 */
 		if (session_timeout_set && termination_action ==
@@ -1612,6 +1613,7 @@ int ieee802_1x_init(struct hostapd_data *hapd)
 	conf.individual_wep_key_len = hapd->conf->individual_wep_key_len;
 	conf.eap_server = hapd->conf->eap_server;
 	conf.ssl_ctx = hapd->ssl_ctx;
+	conf.msg_ctx = hapd->msg_ctx;
 	conf.eap_sim_db_priv = hapd->eap_sim_db_priv;
 	conf.eap_req_id_text = hapd->conf->eap_req_id_text;
 	conf.eap_req_id_text_len = hapd->conf->eap_req_id_text_len;

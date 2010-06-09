@@ -306,6 +306,7 @@ NEED_SHA256=y
 NEED_BASE64=y
 NEED_AES_CBC=y
 NEED_MODEXP=y
+CONFIG_EAP=y
 
 ifdef CONFIG_WPS_UFD
 CFLAGS += -DCONFIG_WPS_UFD
@@ -728,10 +729,10 @@ verify_config:
 	fi
 
 install: all
-	for i in $(ALL); do cp $$i /usr/local/bin/$$i; done
+	for i in $(ALL); do cp -f $$i /usr/local/bin/$$i; done
 
 ../src/drivers/build.hostapd:
-	@if [ -e ../src/drivers/build.wpa_supplicant ]; then \
+	@if [ -f ../src/drivers/build.wpa_supplicant ]; then \
 		$(MAKE) -C ../src/drivers clean; \
 	fi
 	@touch ../src/drivers/build.hostapd

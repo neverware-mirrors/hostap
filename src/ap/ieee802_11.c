@@ -1,6 +1,6 @@
 /*
  * hostapd / IEEE 802.11 Management
- * Copyright (c) 2002-2009, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2002-2010, Jouni Malinen <j@w1.fi>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -681,21 +681,19 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 
 #ifdef CONFIG_WPS
 	sta->flags &= ~(WLAN_STA_WPS | WLAN_STA_MAYBE_WPS);
-	if (hapd->conf->wps_state && wpa_ie == NULL) {
-		if (elems.wps_ie) {
-			wpa_printf(MSG_DEBUG, "STA included WPS IE in "
-				   "(Re)Association Request - assume WPS is "
-				   "used");
-			sta->flags |= WLAN_STA_WPS;
-			wpabuf_free(sta->wps_ie);
-			sta->wps_ie = wpabuf_alloc_copy(elems.wps_ie + 4,
-							elems.wps_ie_len - 4);
-		} else {
-			wpa_printf(MSG_DEBUG, "STA did not include WPA/RSN IE "
-				   "in (Re)Association Request - possible WPS "
-				   "use");
-			sta->flags |= WLAN_STA_MAYBE_WPS;
-		}
+	if (hapd->conf->wps_state && elems.wps_ie) {
+		wpa_printf(MSG_DEBUG, "STA included WPS IE in (Re)Association "
+			   "Request - assume WPS is used");
+		sta->flags |= WLAN_STA_WPS;
+		wpabuf_free(sta->wps_ie);
+		sta->wps_ie = wpabuf_alloc_copy(elems.wps_ie + 4,
+						elems.wps_ie_len - 4);
+		wpa_ie = NULL;
+		wpa_ie_len = 0;
+	} else if (hapd->conf->wps_state && wpa_ie == NULL) {
+		wpa_printf(MSG_DEBUG, "STA did not include WPA/RSN IE in "
+			   "(Re)Association Request - possible WPS use");
+		sta->flags |= WLAN_STA_MAYBE_WPS;
 	} else
 #endif /* CONFIG_WPS */
 	if (hapd->conf->wpa && wpa_ie == NULL) {
@@ -1192,6 +1190,46 @@ void ieee802_11_send_sa_query_req(struct hostapd_data *hapd,
 }
 
 
+static void hostapd_sa_query_request(struct hostapd_data *hapd,
+				     const struct ieee80211_mgmt *mgmt)
+{
+	struct sta_info *sta;
+	struct ieee80211_mgmt resp;
+	u8 *end;
+
+	wpa_printf(MSG_DEBUG, "IEEE 802.11: Received SA Query Request from "
+		   MACSTR, MAC2STR(mgmt->sa));
+	wpa_hexdump(MSG_DEBUG, "IEEE 802.11: SA Query Transaction ID",
+		    mgmt->u.action.u.sa_query_resp.trans_id,
+		    WLAN_SA_QUERY_TR_ID_LEN);
+
+	sta = ap_get_sta(hapd, mgmt->sa);
+	if (sta == NULL || !(sta->flags & WLAN_STA_ASSOC)) {
+		wpa_printf(MSG_DEBUG, "IEEE 802.11: Ignore SA Query Request "
+			   "from unassociated STA " MACSTR, MAC2STR(mgmt->sa));
+		return;
+	}
+
+	wpa_printf(MSG_DEBUG, "IEEE 802.11: Sending SA Query Response to "
+		   MACSTR, MAC2STR(mgmt->sa));
+
+	os_memset(&resp, 0, sizeof(resp));
+	resp.frame_control = IEEE80211_FC(WLAN_FC_TYPE_MGMT,
+					  WLAN_FC_STYPE_ACTION);
+	os_memcpy(resp.da, mgmt->sa, ETH_ALEN);
+	os_memcpy(resp.sa, hapd->own_addr, ETH_ALEN);
+	os_memcpy(resp.bssid, hapd->own_addr, ETH_ALEN);
+	resp.u.action.category = WLAN_ACTION_SA_QUERY;
+	resp.u.action.u.sa_query_req.action = WLAN_SA_QUERY_RESPONSE;
+	os_memcpy(resp.u.action.u.sa_query_req.trans_id,
+		  mgmt->u.action.u.sa_query_req.trans_id,
+		  WLAN_SA_QUERY_TR_ID_LEN);
+	end = resp.u.action.u.sa_query_req.trans_id + WLAN_SA_QUERY_TR_ID_LEN;
+	if (hapd->drv.send_mgmt_frame(hapd, &resp, end - (u8 *) &resp) < 0)
+		perror("hostapd_sa_query_request: send");
+}
+
+
 static void hostapd_sa_query_action(struct hostapd_data *hapd,
 				    const struct ieee80211_mgmt *mgmt,
 				    size_t len)
@@ -1205,6 +1243,11 @@ static void hostapd_sa_query_action(struct hostapd_data *hapd,
 	if (((u8 *) mgmt) + len < end) {
 		wpa_printf(MSG_DEBUG, "IEEE 802.11: Too short SA Query Action "
 			   "frame (len=%lu)", (unsigned long) len);
+		return;
+	}
+
+	if (mgmt->u.action.u.sa_query_resp.action == WLAN_SA_QUERY_REQUEST) {
+		hostapd_sa_query_request(hapd, mgmt);
 		return;
 	}
 
@@ -1310,6 +1353,14 @@ static void handle_action(struct hostapd_data *hapd,
 		hostapd_sa_query_action(hapd, mgmt, len);
 		return;
 #endif /* CONFIG_IEEE80211W */
+	case WLAN_ACTION_PUBLIC:
+		if (hapd->public_action_cb) {
+			hapd->public_action_cb(hapd->public_action_cb_ctx,
+					       (u8 *) mgmt, len,
+					       hapd->iface->freq);
+			return;
+		}
+		break;
 	}
 
 	hostapd_logger(hapd, mgmt->sa, HOSTAPD_MODULE_IEEE80211,
@@ -1522,8 +1573,12 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 	if (sta->flags & WLAN_STA_ASSOC)
 		new_assoc = 0;
 	sta->flags |= WLAN_STA_ASSOC;
-	if (!hapd->conf->ieee802_1x && !hapd->conf->wpa) {
-		/* Open or static WEP; no separate authorization */
+	if ((!hapd->conf->ieee802_1x && !hapd->conf->wpa) ||
+	    sta->auth_alg == WLAN_AUTH_FT) {
+		/*
+		 * Open, static WEP, or FT protocol; no separate authorization
+		 * step.
+		 */
 		sta->flags |= WLAN_STA_AUTHORIZED;
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
 			AP_STA_CONNECTED MACSTR, MAC2STR(sta->addr));
@@ -1550,9 +1605,9 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 		hostapd_get_ht_capab(hapd, sta->ht_capabilities, &ht_cap);
 #endif /* CONFIG_IEEE80211N */
 
-	if (hapd->drv.sta_add(hapd->conf->iface, hapd, sta->addr, sta->aid,
-			      sta->capability, sta->supported_rates,
-			      sta->supported_rates_len, sta->listen_interval,
+	if (hapd->drv.sta_add(hapd, sta->addr, sta->aid, sta->capability,
+			      sta->supported_rates, sta->supported_rates_len,
+			      sta->listen_interval,
 			      sta->flags & WLAN_STA_HT ? &ht_cap : NULL)) {
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_NOTICE,
@@ -1565,10 +1620,12 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 		 * so bind it to the selected VLAN interface now, since the
 		 * interface selection is not going to change anymore.
 		 */
-		ap_sta_bind_vlan(hapd, sta, 0);
+		if (ap_sta_bind_vlan(hapd, sta, 0) < 0)
+			goto fail;
 	} else if (sta->vlan_id) {
 		/* VLAN ID already set (e.g., by PMKSA caching), so bind STA */
-		ap_sta_bind_vlan(hapd, sta, 0);
+		if (ap_sta_bind_vlan(hapd, sta, 0) < 0)
+			goto fail;
 	}
 
 	hapd->drv.set_sta_flags(hapd, sta);

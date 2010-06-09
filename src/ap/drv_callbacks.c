@@ -18,6 +18,8 @@
 #include "radius/radius.h"
 #include "drivers/driver.h"
 #include "common/ieee802_11_defs.h"
+#include "common/ieee802_11_common.h"
+#include "common/wpa_ctrl.h"
 #include "hostapd.h"
 #include "ieee802_11.h"
 #include "sta_info.h"
@@ -36,9 +38,43 @@ int hostapd_notif_assoc(struct hostapd_data *hapd, const u8 *addr,
 {
 	struct sta_info *sta;
 	int new_assoc, res;
+	struct ieee802_11_elems elems;
+
+	if (addr == NULL) {
+		/*
+		 * This could potentially happen with unexpected event from the
+		 * driver wrapper. This was seen at least in one case where the
+		 * driver ended up being set to station mode while hostapd was
+		 * running, so better make sure we stop processing such an
+		 * event here.
+		 */
+		wpa_printf(MSG_DEBUG, "hostapd_notif_assoc: Skip event with "
+			   "no address");
+		return -1;
+	}
 
 	hostapd_logger(hapd, addr, HOSTAPD_MODULE_IEEE80211,
 		       HOSTAPD_LEVEL_INFO, "associated");
+
+	ieee802_11_parse_elems(ie, ielen, &elems, 0);
+	if (elems.wps_ie) {
+		ie = elems.wps_ie - 2;
+		ielen = elems.wps_ie_len + 2;
+		wpa_printf(MSG_DEBUG, "STA included WPS IE in (Re)AssocReq");
+	} else if (elems.rsn_ie) {
+		ie = elems.rsn_ie - 2;
+		ielen = elems.rsn_ie_len + 2;
+		wpa_printf(MSG_DEBUG, "STA included RSN IE in (Re)AssocReq");
+	} else if (elems.wpa_ie) {
+		ie = elems.wpa_ie - 2;
+		ielen = elems.wpa_ie_len + 2;
+		wpa_printf(MSG_DEBUG, "STA included WPA IE in (Re)AssocReq");
+	} else {
+		ie = NULL;
+		ielen = 0;
+		wpa_printf(MSG_DEBUG, "STA did not include WPS/RSN/WPA IE in "
+			   "(Re)AssocReq");
+	}
 
 	sta = ap_get_sta(hapd, addr);
 	if (sta) {
@@ -138,6 +174,8 @@ void hostapd_notif_disassoc(struct hostapd_data *hapd, const u8 *addr)
 	}
 
 	sta->flags &= ~(WLAN_STA_AUTH | WLAN_STA_ASSOC);
+	wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_DISCONNECTED MACSTR,
+		MAC2STR(sta->addr));
 	wpa_auth_sm_event(sta->wpa_sm, WPA_DISASSOC);
 	sta->acct_terminate_cause = RADIUS_ACCT_TERMINATE_CAUSE_USER_REQUEST;
 	ieee802_1x_notify_port_enabled(sta->eapol_sm, 0);

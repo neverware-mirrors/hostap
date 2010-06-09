@@ -58,8 +58,10 @@
 #endif
 
 struct i802_bss {
+	struct wpa_driver_nl80211_data *drv;
 	struct i802_bss *next;
 	int ifindex;
+	char ifname[IFNAMSIZ + 1];
 	unsigned int beacon_set:1;
 };
 
@@ -67,7 +69,6 @@ struct wpa_driver_nl80211_data {
 	void *ctx;
 	struct netlink_data *netlink;
 	int ioctl_sock; /* socket for ioctl() use */
-	char ifname[IFNAMSIZ + 1];
 	char brname[IFNAMSIZ];
 	int ifindex;
 	int if_removed;
@@ -99,7 +100,6 @@ struct wpa_driver_nl80211_data {
 	int probe_req_report;
 	int disable_11b_rates;
 
-	unsigned int beacon_set:1;
 	unsigned int pending_remain_on_chan:1;
 	unsigned int pending_send_action:1;
 	unsigned int added_bridge:1;
@@ -108,14 +108,17 @@ struct wpa_driver_nl80211_data {
 	u64 remain_on_chan_cookie;
 	u64 send_action_cookie;
 
+	struct wpa_driver_scan_filter *filter_ssids;
+	size_t num_filter_ssids;
+
+	struct i802_bss first_bss;
+
 #ifdef HOSTAPD
 	int eapol_sock; /* socket for EAPOL frames */
 
 	int default_if_indices[16];
 	int *if_indices;
 	int num_if_indices;
-
-	struct i802_bss bss;
 
 	int last_freq;
 	int last_freq_ht;
@@ -129,21 +132,26 @@ static int wpa_driver_nl80211_set_mode(void *priv, int mode);
 static int
 wpa_driver_nl80211_finish_drv_init(struct wpa_driver_nl80211_data *drv);
 static int wpa_driver_nl80211_mlme(struct wpa_driver_nl80211_data *drv,
-				   const u8 *addr, int cmd, u16 reason_code);
+				   const u8 *addr, int cmd, u16 reason_code,
+				   int local_state_change);
 static void nl80211_remove_monitor_interface(
 	struct wpa_driver_nl80211_data *drv);
 
 #ifdef HOSTAPD
 static void add_ifidx(struct wpa_driver_nl80211_data *drv, int ifidx);
 static void del_ifidx(struct wpa_driver_nl80211_data *drv, int ifidx);
-static struct i802_bss * get_bss(struct wpa_driver_nl80211_data *drv,
-				 int ifindex);
-static int i802_set_freq(void *priv, struct hostapd_freq_params *freq);
+static int have_ifidx(struct wpa_driver_nl80211_data *drv, int ifidx);
 static int wpa_driver_nl80211_if_remove(void *priv,
 					enum wpa_driver_if_type type,
 					const char *ifname);
+#else /* HOSTAPD */
+static int have_ifidx(struct wpa_driver_nl80211_data *drv, int ifidx)
+{
+	return 0;
+}
 #endif /* HOSTAPD */
 
+static int i802_set_freq(void *priv, struct hostapd_freq_params *freq);
 static void wpa_driver_nl80211_probe_req_report_timeout(void *eloop_ctx,
 							void *timeout_ctx);
 static int nl80211_disable_11b_rates(struct wpa_driver_nl80211_data *drv,
@@ -289,7 +297,8 @@ nla_put_failure:
 
 static int wpa_driver_nl80211_get_bssid(void *priv, u8 *bssid)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	if (!drv->associated)
 		return -1;
 	os_memcpy(bssid, drv->bssid, ETH_ALEN);
@@ -299,7 +308,8 @@ static int wpa_driver_nl80211_get_bssid(void *priv, u8 *bssid)
 
 static int wpa_driver_nl80211_get_ssid(void *priv, u8 *ssid)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	if (!drv->associated)
 		return -1;
 	os_memcpy(ssid, drv->ssid, drv->ssid_len);
@@ -324,7 +334,7 @@ static void wpa_driver_nl80211_event_link(struct wpa_driver_nl80211_data *drv,
 		   event.interface_status.ifname,
 		   del ? "removed" : "added");
 
-	if (os_strcmp(drv->ifname, event.interface_status.ifname) == 0) {
+	if (os_strcmp(drv->first_bss.ifname, event.interface_status.ifname) == 0) {
 		if (del)
 			drv->if_removed = 1;
 		else
@@ -347,7 +357,7 @@ static int wpa_driver_nl80211_own_ifname(struct wpa_driver_nl80211_data *drv,
 	rta_len = RTA_ALIGN(sizeof(struct rtattr));
 	while (RTA_OK(attr, attrlen)) {
 		if (attr->rta_type == IFLA_IFNAME) {
-			if (os_strcmp(((char *) attr) + rta_len, drv->ifname)
+			if (os_strcmp(((char *) attr) + rta_len, drv->first_bss.ifname)
 			    == 0)
 				return 1;
 			else
@@ -367,7 +377,7 @@ static int wpa_driver_nl80211_own_ifindex(struct wpa_driver_nl80211_data *drv,
 		return 1;
 
 	if (drv->if_removed && wpa_driver_nl80211_own_ifname(drv, buf, len)) {
-		drv->ifindex = if_nametoindex(drv->ifname);
+		drv->first_bss.ifindex = if_nametoindex(drv->first_bss.ifname);
 		wpa_printf(MSG_DEBUG, "nl80211: Update ifindex for a removed "
 			   "interface");
 		wpa_driver_nl80211_finish_drv_init(drv);
@@ -385,10 +395,12 @@ static void wpa_driver_nl80211_event_rtm_newlink(void *ctx,
 	struct wpa_driver_nl80211_data *drv = ctx;
 	int attrlen, rta_len;
 	struct rtattr *attr;
+	u32 brid = 0;
 
-	if (!wpa_driver_nl80211_own_ifindex(drv, ifi->ifi_index, buf, len)) {
-		wpa_printf(MSG_DEBUG, "Ignore event for foreign ifindex %d",
-			   ifi->ifi_index);
+	if (!wpa_driver_nl80211_own_ifindex(drv, ifi->ifi_index, buf, len) &&
+	    !have_ifidx(drv, ifi->ifi_index)) {
+		wpa_printf(MSG_DEBUG, "nl80211: Ignore event for foreign "
+			   "ifindex %d", ifi->ifi_index);
 		return;
 	}
 
@@ -420,9 +432,21 @@ static void wpa_driver_nl80211_event_rtm_newlink(void *ctx,
 				drv,
 				((char *) attr) + rta_len,
 				attr->rta_len - rta_len, 0);
-		}
+		} else if (attr->rta_type == IFLA_MASTER)
+			brid = nla_get_u32((struct nlattr *) attr);
 		attr = RTA_NEXT(attr, attrlen);
 	}
+
+#ifdef HOSTAPD
+	if (ifi->ifi_family == AF_BRIDGE && brid) {
+		/* device has been added to bridge */
+		char namebuf[IFNAMSIZ];
+		if_indextoname(brid, namebuf);
+		wpa_printf(MSG_DEBUG, "nl80211: Add ifindex %u for bridge %s",
+			   brid, namebuf);
+		add_ifidx(drv, brid);
+	}
+#endif /* HOSTAPD */
 }
 
 
@@ -433,6 +457,7 @@ static void wpa_driver_nl80211_event_rtm_dellink(void *ctx,
 	struct wpa_driver_nl80211_data *drv = ctx;
 	int attrlen, rta_len;
 	struct rtattr *attr;
+	u32 brid = 0;
 
 	attrlen = len;
 	attr = (struct rtattr *) buf;
@@ -444,9 +469,21 @@ static void wpa_driver_nl80211_event_rtm_dellink(void *ctx,
 				drv,
 				((char *) attr) + rta_len,
 				attr->rta_len - rta_len, 1);
-		}
+		} else if (attr->rta_type == IFLA_MASTER)
+			brid = nla_get_u32((struct nlattr *) attr);
 		attr = RTA_NEXT(attr, attrlen);
 	}
+
+#ifdef HOSTAPD
+	if (ifi->ifi_family == AF_BRIDGE && brid) {
+		/* device has been removed from bridge */
+		char namebuf[IFNAMSIZ];
+		if_indextoname(brid, namebuf);
+		wpa_printf(MSG_DEBUG, "nl80211: Remove ifindex %u for bridge "
+			   "%s", brid, namebuf);
+		del_ifidx(drv, brid);
+	}
+#endif /* HOSTAPD */
 }
 
 
@@ -656,6 +693,37 @@ static void mlme_event_action_tx_status(struct wpa_driver_nl80211_data *drv,
 }
 
 
+static void mlme_event_deauth_disassoc(struct wpa_driver_nl80211_data *drv,
+				       enum wpa_event_type type,
+				       const u8 *frame, size_t len)
+{
+	const struct ieee80211_mgmt *mgmt;
+	union wpa_event_data event;
+	const u8 *bssid = NULL;
+	u16 reason_code = 0;
+
+	drv->associated = 0;
+	os_memset(&event, 0, sizeof(event));
+
+	mgmt = (const struct ieee80211_mgmt *) frame;
+	if (len >= 24)
+		bssid = mgmt->bssid;
+	/* Note: Same offset for Reason Code in both frame subtypes */
+	if (len >= 24 + sizeof(mgmt->u.deauth))
+		reason_code = le_to_host16(mgmt->u.deauth.reason_code);
+
+	if (type == EVENT_DISASSOC) {
+		event.disassoc_info.addr = bssid;
+		event.disassoc_info.reason_code = reason_code;
+	} else {
+		event.deauth_info.addr = bssid;
+		event.deauth_info.reason_code = reason_code;
+	}
+
+	wpa_supplicant_event(drv->ctx, type, &event);
+}
+
+
 static void mlme_event(struct wpa_driver_nl80211_data *drv,
 		       enum nl80211_commands cmd, struct nlattr *frame,
 		       struct nlattr *addr, struct nlattr *timed_out,
@@ -685,12 +753,12 @@ static void mlme_event(struct wpa_driver_nl80211_data *drv,
 		mlme_event_assoc(drv, nla_data(frame), nla_len(frame));
 		break;
 	case NL80211_CMD_DEAUTHENTICATE:
-		drv->associated = 0;
-		wpa_supplicant_event(drv->ctx, EVENT_DEAUTH, NULL);
+		mlme_event_deauth_disassoc(drv, EVENT_DEAUTH,
+					   nla_data(frame), nla_len(frame));
 		break;
 	case NL80211_CMD_DISASSOCIATE:
-		drv->associated = 0;
-		wpa_supplicant_event(drv->ctx, EVENT_DISASSOC, NULL);
+		mlme_event_deauth_disassoc(drv, EVENT_DISASSOC,
+					   nla_data(frame), nla_len(frame));
 		break;
 	case NL80211_CMD_ACTION:
 		mlme_event_action(drv, freq, nla_data(frame), nla_len(frame));
@@ -846,18 +914,59 @@ static void send_scan_event(struct wpa_driver_nl80211_data *drv, int aborted,
 }
 
 
+static void nl80211_cqm_event(struct wpa_driver_nl80211_data *drv,
+			      struct nlattr *tb[])
+{
+	static struct nla_policy cqm_policy[NL80211_ATTR_CQM_MAX + 1] = {
+		[NL80211_ATTR_CQM_RSSI_THOLD] = { .type = NLA_U32 },
+		[NL80211_ATTR_CQM_RSSI_HYST] = { .type = NLA_U8 },
+		[NL80211_ATTR_CQM_RSSI_THRESHOLD_EVENT] = { .type = NLA_U32 },
+	};
+	struct nlattr *cqm[NL80211_ATTR_CQM_MAX + 1];
+	enum nl80211_cqm_rssi_threshold_event event;
+	union wpa_event_data ed;
+
+	if (tb[NL80211_ATTR_CQM] == NULL ||
+	    nla_parse_nested(cqm, NL80211_ATTR_CQM_MAX, tb[NL80211_ATTR_CQM],
+			     cqm_policy)) {
+		wpa_printf(MSG_DEBUG, "nl80211: Ignore invalid CQM event");
+		return;
+	}
+
+	if (cqm[NL80211_ATTR_CQM_RSSI_THRESHOLD_EVENT] == NULL)
+		return;
+	event = nla_get_u32(cqm[NL80211_ATTR_CQM_RSSI_THRESHOLD_EVENT]);
+
+	os_memset(&ed, 0, sizeof(ed));
+
+	if (event == NL80211_CQM_RSSI_THRESHOLD_EVENT_HIGH) {
+		wpa_printf(MSG_DEBUG, "nl80211: Connection quality monitor "
+			   "event: RSSI high");
+		ed.signal_change.above_threshold = 1;
+	} else if (event == NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW) {
+		wpa_printf(MSG_DEBUG, "nl80211: Connection quality monitor "
+			   "event: RSSI low");
+		ed.signal_change.above_threshold = 0;
+	} else
+		return;
+
+	wpa_supplicant_event(drv->ctx, EVENT_SIGNAL_CHANGE, &ed);
+}
+
+
 static int process_event(struct nl_msg *msg, void *arg)
 {
 	struct wpa_driver_nl80211_data *drv = arg;
 	struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
 	struct nlattr *tb[NL80211_ATTR_MAX + 1];
+	union wpa_event_data data;
 
 	nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
 		  genlmsg_attrlen(gnlh, 0), NULL);
 
 	if (tb[NL80211_ATTR_IFINDEX]) {
 		int ifindex = nla_get_u32(tb[NL80211_ATTR_IFINDEX]);
-		if (ifindex != drv->ifindex) {
+		if (ifindex != drv->ifindex && !have_ifidx(drv, ifindex)) {
 			wpa_printf(MSG_DEBUG, "nl80211: Ignored event (cmd=%d)"
 				   " for foreign interface (ifindex %d)",
 				   gnlh->cmd, ifindex);
@@ -868,7 +977,8 @@ static int process_event(struct nl_msg *msg, void *arg)
 	if (drv->ap_scan_as_station &&
 	    (gnlh->cmd == NL80211_CMD_NEW_SCAN_RESULTS ||
 	     gnlh->cmd == NL80211_CMD_SCAN_ABORTED)) {
-		wpa_driver_nl80211_set_mode(drv, IEEE80211_MODE_AP);
+		wpa_driver_nl80211_set_mode(&drv->first_bss,
+					    IEEE80211_MODE_AP);
 		drv->ap_scan_as_station = 0;
 	}
 
@@ -923,7 +1033,11 @@ static int process_event(struct nl_msg *msg, void *arg)
 			break;
 		}
 		drv->associated = 0;
-		wpa_supplicant_event(drv->ctx, EVENT_DISASSOC, NULL);
+		os_memset(&data, 0, sizeof(data));
+		if (tb[NL80211_ATTR_REASON_CODE])
+			data.disassoc_info.reason_code =
+				nla_get_u16(tb[NL80211_ATTR_REASON_CODE]);
+		wpa_supplicant_event(drv->ctx, EVENT_DISASSOC, &data);
 		break;
 	case NL80211_CMD_MICHAEL_MIC_FAILURE:
 		mlme_event_michael_mic_failure(drv, tb);
@@ -936,6 +1050,9 @@ static int process_event(struct nl_msg *msg, void *arg)
 		break;
 	case NL80211_CMD_CANCEL_REMAIN_ON_CHANNEL:
 		mlme_event_remain_on_channel(drv, 1, tb);
+		break;
+	case NL80211_CMD_NOTIFY_CQM:
+		nl80211_cqm_event(drv, tb);
 		break;
 	default:
 		wpa_printf(MSG_DEBUG, "nl80211: Ignored unknown event "
@@ -976,7 +1093,8 @@ static void wpa_driver_nl80211_event_receive(int sock, void *eloop_ctx,
  */
 static int wpa_driver_nl80211_set_country(void *priv, const char *alpha2_arg)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	char alpha2[3];
 	struct nl_msg *msg;
 
@@ -1065,7 +1183,7 @@ static int wpa_driver_nl80211_get_info(struct wpa_driver_nl80211_data *drv,
 	genlmsg_put(msg, 0, 0, genl_family_get_id(drv->nl80211), 0,
 		    0, NL80211_CMD_GET_WIPHY, 0);
 
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, drv->ifindex);
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, drv->first_bss.ifindex);
 
 	if (send_and_recv_msgs(drv, msg, wiphy_info_handler, info) == 0)
 		return 0;
@@ -1108,6 +1226,7 @@ static int wpa_driver_nl80211_capa(struct wpa_driver_nl80211_data *drv)
 	}
 
 	drv->capa.flags |= WPA_DRIVER_FLAGS_SET_KEYS_AFTER_ASSOC_DONE;
+	drv->capa.max_remain_on_chan = 5000;
 
 	return 0;
 }
@@ -1239,12 +1358,15 @@ static void * wpa_driver_nl80211_init(void *ctx, const char *ifname)
 {
 	struct wpa_driver_nl80211_data *drv;
 	struct netlink_config *cfg;
+	struct i802_bss *bss;
 
 	drv = os_zalloc(sizeof(*drv));
 	if (drv == NULL)
 		return NULL;
 	drv->ctx = ctx;
-	os_strlcpy(drv->ifname, ifname, sizeof(drv->ifname));
+	bss = &drv->first_bss;
+	bss->drv = drv;
+	os_strlcpy(bss->ifname, ifname, sizeof(bss->ifname));
 	drv->monitor_ifidx = -1;
 	drv->monitor_sock = -1;
 	drv->ioctl_sock = -1;
@@ -1274,7 +1396,7 @@ static void * wpa_driver_nl80211_init(void *ctx, const char *ifname)
 	if (wpa_driver_nl80211_finish_drv_init(drv))
 		goto failed;
 
-	return drv;
+	return bss;
 
 failed:
 	netlink_deinit(drv->netlink);
@@ -1285,6 +1407,7 @@ failed:
 	nl_cache_free(drv->nl_cache);
 	nl_handle_destroy(drv->nl_handle);
 	nl_cb_put(drv->nl_cb);
+	eloop_unregister_read_sock(nl_socket_get_fd(drv->nl_handle_event));
 
 	os_free(drv);
 	return NULL;
@@ -1325,10 +1448,13 @@ nla_put_failure:
 
 static int nl80211_register_action_frames(struct wpa_driver_nl80211_data *drv)
 {
-	if (0) {
-		/* Public Action frames */
-		return nl80211_register_action_frame(drv, (u8 *) "\x04", 1);
-	}
+	/* FT Action frames */
+	if (nl80211_register_action_frame(drv, (u8 *) "\x06", 1) < 0)
+		return -1;
+	else
+		drv->capa.key_mgmt |= WPA_DRIVER_CAPA_KEY_MGMT_FT |
+			WPA_DRIVER_CAPA_KEY_MGMT_FT_PSK;
+
 	return 0;
 }
 
@@ -1336,17 +1462,20 @@ static int nl80211_register_action_frames(struct wpa_driver_nl80211_data *drv)
 static int
 wpa_driver_nl80211_finish_drv_init(struct wpa_driver_nl80211_data *drv)
 {
-	drv->ifindex = if_nametoindex(drv->ifname);
+	struct i802_bss *bss = &drv->first_bss;
+
+	drv->ifindex = if_nametoindex(bss->ifname);
+	drv->first_bss.ifindex = drv->ifindex;
 
 #ifndef HOSTAPD
-	if (wpa_driver_nl80211_set_mode(drv, IEEE80211_MODE_INFRA) < 0) {
+	if (wpa_driver_nl80211_set_mode(bss, IEEE80211_MODE_INFRA) < 0) {
 		wpa_printf(MSG_DEBUG, "nl80211: Could not configure driver to "
 			   "use managed mode");
 	}
 
-	if (linux_set_iface_flags(drv->ioctl_sock, drv->ifname, 1)) {
+	if (linux_set_iface_flags(drv->ioctl_sock, bss->ifname, 1)) {
 		wpa_printf(MSG_ERROR, "Could not set interface '%s' UP",
-			   drv->ifname);
+			   bss->ifname);
 		return -1;
 	}
 
@@ -1357,25 +1486,18 @@ wpa_driver_nl80211_finish_drv_init(struct wpa_driver_nl80211_data *drv)
 			       1, IF_OPER_DORMANT);
 #endif /* HOSTAPD */
 
-	if (nl80211_register_action_frames(drv) < 0)
-		return -1;
+	if (nl80211_register_action_frames(drv) < 0) {
+		wpa_printf(MSG_DEBUG, "nl80211: Failed to register Action "
+			   "frame processing - ignore for now");
+		/*
+		 * Older kernel versions did not support this, so ignore the
+		 * error for now. Some functionality may not be available
+		 * because of this.
+		 */
+	}
 
 	return 0;
 }
-
-
-#ifdef HOSTAPD
-static void wpa_driver_nl80211_free_bss(struct wpa_driver_nl80211_data *drv)
-{
-	struct i802_bss *bss, *prev;
-	bss = drv->bss.next;
-	while (bss) {
-		prev = bss;
-		bss = bss->next;
-		os_free(bss);
-	}
-}
-#endif /* HOSTAPD */
 
 
 static int wpa_driver_nl80211_del_beacon(struct wpa_driver_nl80211_data *drv)
@@ -1405,14 +1527,15 @@ static int wpa_driver_nl80211_del_beacon(struct wpa_driver_nl80211_data *drv)
  */
 static void wpa_driver_nl80211_deinit(void *priv)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 
 	if (drv->added_if_into_bridge) {
-		if (linux_br_del_if(drv->ioctl_sock, drv->brname, drv->ifname)
+		if (linux_br_del_if(drv->ioctl_sock, drv->brname, bss->ifname)
 		    < 0)
 			wpa_printf(MSG_INFO, "nl80211: Failed to remove "
 				   "interface %s from bridge %s: %s",
-				   drv->ifname, drv->brname, strerror(errno));
+				   bss->ifname, drv->brname, strerror(errno));
 	}
 	if (drv->added_bridge) {
 		if (linux_br_del(drv->ioctl_sock, drv->brname) < 0)
@@ -1442,8 +1565,6 @@ static void wpa_driver_nl80211_deinit(void *priv)
 
 	if (drv->if_indices != drv->default_if_indices)
 		os_free(drv->if_indices);
-
-	wpa_driver_nl80211_free_bss(drv);
 #endif /* HOSTAPD */
 
 	if (drv->disable_11b_rates)
@@ -1454,8 +1575,8 @@ static void wpa_driver_nl80211_deinit(void *priv)
 
 	eloop_cancel_timeout(wpa_driver_nl80211_scan_timeout, drv, drv->ctx);
 
-	(void) linux_set_iface_flags(drv->ioctl_sock, drv->ifname, 0);
-	wpa_driver_nl80211_set_mode(drv, IEEE80211_MODE_INFRA);
+	(void) linux_set_iface_flags(drv->ioctl_sock, bss->ifname, 0);
+	wpa_driver_nl80211_set_mode(bss, IEEE80211_MODE_INFRA);
 
 	if (drv->ioctl_sock >= 0)
 		close(drv->ioctl_sock);
@@ -1470,6 +1591,8 @@ static void wpa_driver_nl80211_deinit(void *priv)
 
 	eloop_cancel_timeout(wpa_driver_nl80211_probe_req_report_timeout,
 			     drv, NULL);
+
+	os_free(drv->filter_ssids);
 
 	os_free(drv);
 }
@@ -1487,7 +1610,8 @@ static void wpa_driver_nl80211_scan_timeout(void *eloop_ctx, void *timeout_ctx)
 {
 	struct wpa_driver_nl80211_data *drv = eloop_ctx;
 	if (drv->ap_scan_as_station) {
-		wpa_driver_nl80211_set_mode(drv, IEEE80211_MODE_AP);
+		wpa_driver_nl80211_set_mode(&drv->first_bss,
+					    IEEE80211_MODE_AP);
 		drv->ap_scan_as_station = 0;
 	}
 	wpa_printf(MSG_DEBUG, "Scan timeout - try to get results");
@@ -1504,7 +1628,8 @@ static void wpa_driver_nl80211_scan_timeout(void *eloop_ctx, void *timeout_ctx)
 static int wpa_driver_nl80211_scan(void *priv,
 				   struct wpa_driver_scan_params *params)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ret = 0, timeout;
 	struct nl_msg *msg, *ssids, *freqs;
 	size_t i;
@@ -1519,12 +1644,20 @@ static int wpa_driver_nl80211_scan(void *priv,
 		return -1;
 	}
 
+	os_free(drv->filter_ssids);
+	drv->filter_ssids = params->filter_ssids;
+	params->filter_ssids = NULL;
+	drv->num_filter_ssids = params->num_filter_ssids;
+
 	genlmsg_put(msg, 0, 0, genl_family_get_id(drv->nl80211), 0, 0,
 		    NL80211_CMD_TRIGGER_SCAN, 0);
 
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, drv->ifindex);
 
 	for (i = 0; i < params->num_ssids; i++) {
+		wpa_hexdump_ascii(MSG_MSGDUMP, "nl80211: Scan SSID",
+				  params->ssids[i].ssid,
+				  params->ssids[i].ssid_len);
 		NLA_PUT(ssids, i + 1, params->ssids[i].ssid_len,
 			params->ssids[i].ssid);
 	}
@@ -1532,13 +1665,18 @@ static int wpa_driver_nl80211_scan(void *priv,
 		nla_put_nested(msg, NL80211_ATTR_SCAN_SSIDS, ssids);
 
 	if (params->extra_ies) {
+		wpa_hexdump_ascii(MSG_MSGDUMP, "nl80211: Scan extra IEs",
+				  params->extra_ies, params->extra_ies_len);
 		NLA_PUT(msg, NL80211_ATTR_IE, params->extra_ies_len,
 			params->extra_ies);
 	}
 
 	if (params->freqs) {
-		for (i = 0; params->freqs[i]; i++)
+		for (i = 0; params->freqs[i]; i++) {
+			wpa_printf(MSG_MSGDUMP, "nl80211: Scan frequency %u "
+				   "MHz", params->freqs[i]);
 			NLA_PUT_U32(freqs, i + 1, params->freqs[i]);
+		}
 		nla_put_nested(msg, NL80211_ATTR_SCAN_FREQUENCIES, freqs);
 	}
 
@@ -1553,12 +1691,12 @@ static int wpa_driver_nl80211_scan(void *priv,
 			 * mac80211 does not allow scan requests in AP mode, so
 			 * try to do this in station mode.
 			 */
-			if (wpa_driver_nl80211_set_mode(drv,
+			if (wpa_driver_nl80211_set_mode(bss,
 							IEEE80211_MODE_INFRA))
 				goto nla_put_failure;
 
 			if (wpa_driver_nl80211_scan(drv, params)) {
-				wpa_driver_nl80211_set_mode(drv,
+				wpa_driver_nl80211_set_mode(bss,
 							    IEEE80211_MODE_AP);
 				goto nla_put_failure;
 			}
@@ -1598,6 +1736,57 @@ nla_put_failure:
 }
 
 
+static const u8 * nl80211_get_ie(const u8 *ies, size_t ies_len, u8 ie)
+{
+	const u8 *end, *pos;
+
+	if (ies == NULL)
+		return NULL;
+
+	pos = ies;
+	end = ies + ies_len;
+
+	while (pos + 1 < end) {
+		if (pos + 2 + pos[1] > end)
+			break;
+		if (pos[0] == ie)
+			return pos;
+		pos += 2 + pos[1];
+	}
+
+	return NULL;
+}
+
+
+static int nl80211_scan_filtered(struct wpa_driver_nl80211_data *drv,
+				 const u8 *ie, size_t ie_len)
+{
+	const u8 *ssid;
+	size_t i;
+
+	if (drv->filter_ssids == NULL)
+		return 0;
+
+	ssid = nl80211_get_ie(ie, ie_len, WLAN_EID_SSID);
+	if (ssid == NULL)
+		return 1;
+
+	for (i = 0; i < drv->num_filter_ssids; i++) {
+		if (ssid[1] == drv->filter_ssids[i].ssid_len &&
+		    os_memcmp(ssid + 2, drv->filter_ssids[i].ssid, ssid[1]) ==
+		    0)
+			return 0;
+	}
+
+	return 1;
+}
+
+
+struct nl80211_bss_info_arg {
+	struct wpa_driver_nl80211_data *drv;
+	struct wpa_scan_results *res;
+};
+
 static int bss_info_handler(struct nl_msg *msg, void *arg)
 {
 	struct nlattr *tb[NL80211_ATTR_MAX + 1];
@@ -1616,7 +1805,8 @@ static int bss_info_handler(struct nl_msg *msg, void *arg)
 		[NL80211_BSS_SEEN_MS_AGO] = { .type = NLA_U32 },
 		[NL80211_BSS_BEACON_IES] = { .type = NLA_UNSPEC },
 	};
-	struct wpa_scan_results *res = arg;
+	struct nl80211_bss_info_arg *_arg = arg;
+	struct wpa_scan_results *res = _arg->res;
 	struct wpa_scan_res **tmp;
 	struct wpa_scan_res *r;
 	const u8 *ie, *beacon_ie;
@@ -1644,6 +1834,10 @@ static int bss_info_handler(struct nl_msg *msg, void *arg)
 		beacon_ie = NULL;
 		beacon_ie_len = 0;
 	}
+
+	if (nl80211_scan_filtered(_arg->drv, ie ? ie : beacon_ie,
+				  ie ? ie_len : beacon_ie_len))
+		return NL_SKIP;
 
 	r = os_zalloc(sizeof(*r) + ie_len + beacon_ie_len);
 	if (r == NULL)
@@ -1717,7 +1911,7 @@ static void clear_state_mismatch(struct wpa_driver_nl80211_data *drv,
 			   "mismatch (" MACSTR ")", MAC2STR(addr));
 		wpa_driver_nl80211_mlme(drv, addr,
 					NL80211_CMD_DEAUTHENTICATE,
-					WLAN_REASON_PREV_AUTH_NOT_VALID);
+					WLAN_REASON_PREV_AUTH_NOT_VALID, 1);
 	}
 }
 
@@ -1793,6 +1987,7 @@ nl80211_get_scan_results(struct wpa_driver_nl80211_data *drv)
 	struct nl_msg *msg;
 	struct wpa_scan_results *res;
 	int ret;
+	struct nl80211_bss_info_arg arg;
 
 	res = os_zalloc(sizeof(*res));
 	if (res == NULL)
@@ -1805,7 +2000,9 @@ nl80211_get_scan_results(struct wpa_driver_nl80211_data *drv)
 		    NL80211_CMD_GET_SCAN, 0);
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, drv->ifindex);
 
-	ret = send_and_recv_msgs(drv, msg, bss_info_handler, res);
+	arg.drv = drv;
+	arg.res = res;
+	ret = send_and_recv_msgs(drv, msg, bss_info_handler, &arg);
 	msg = NULL;
 	if (ret == 0) {
 		wpa_printf(MSG_DEBUG, "Received scan results (%lu BSSes)",
@@ -1829,7 +2026,8 @@ nla_put_failure:
 static struct wpa_scan_results *
 wpa_driver_nl80211_get_scan_results(void *priv)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct wpa_scan_results *res;
 
 	res = nl80211_get_scan_results(drv);
@@ -1869,7 +2067,8 @@ static int wpa_driver_nl80211_set_key(const char *ifname, void *priv,
 				      const u8 *seq, size_t seq_len,
 				      const u8 *key, size_t key_len)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ifindex = if_nametoindex(ifname);
 	struct nl_msg *msg;
 	int ret;
@@ -1931,7 +2130,7 @@ static int wpa_driver_nl80211_set_key(const char *ifname, void *priv,
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, ifindex);
 
 	ret = send_and_recv_msgs(drv, msg, NULL, NULL);
-	if (ret == -ENOENT && alg == WPA_ALG_NONE)
+	if ((ret == -ENOENT || ret == -ENOLINK) && alg == WPA_ALG_NONE)
 		ret = 0;
 	if (ret)
 		wpa_printf(MSG_DEBUG, "nl80211: set_key failed; err=%d %s)",
@@ -1943,8 +2142,11 @@ static int wpa_driver_nl80211_set_key(const char *ifname, void *priv,
 	 */
 	if (ret || !set_tx || alg == WPA_ALG_NONE)
 		return ret;
-#ifdef HOSTAPD /* FIX: is this needed? */
+#ifdef HOSTAPD
 	if (addr)
+		return ret;
+#else /* HOSTAPD */
+	if (drv->nlmode == NL80211_IFTYPE_AP && addr)
 		return ret;
 #endif /* HOSTAPD */
 
@@ -2083,7 +2285,8 @@ nla_put_failure:
 
 
 static int wpa_driver_nl80211_mlme(struct wpa_driver_nl80211_data *drv,
-				   const u8 *addr, int cmd, u16 reason_code)
+				   const u8 *addr, int cmd, u16 reason_code,
+				   int local_state_change)
 {
 	int ret = -1;
 	struct nl_msg *msg;
@@ -2097,6 +2300,8 @@ static int wpa_driver_nl80211_mlme(struct wpa_driver_nl80211_data *drv,
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, drv->ifindex);
 	NLA_PUT_U16(msg, NL80211_ATTR_REASON_CODE, reason_code);
 	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
+	if (local_state_change)
+		NLA_PUT_FLAG(msg, NL80211_ATTR_LOCAL_STATE_CHANGE);
 
 	ret = send_and_recv_msgs(drv, msg, NULL, NULL);
 	msg = NULL;
@@ -2119,40 +2324,43 @@ static int wpa_driver_nl80211_disconnect(struct wpa_driver_nl80211_data *drv,
 	wpa_printf(MSG_DEBUG, "%s", __func__);
 	drv->associated = 0;
 	return wpa_driver_nl80211_mlme(drv, addr, NL80211_CMD_DISCONNECT,
-				       reason_code);
+				       reason_code, 0);
 }
 
 
 static int wpa_driver_nl80211_deauthenticate(void *priv, const u8 *addr,
 					     int reason_code)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	if (!(drv->capa.flags & WPA_DRIVER_FLAGS_SME))
 		return wpa_driver_nl80211_disconnect(drv, addr, reason_code);
 	wpa_printf(MSG_DEBUG, "%s", __func__);
 	drv->associated = 0;
 	return wpa_driver_nl80211_mlme(drv, addr, NL80211_CMD_DEAUTHENTICATE,
-				       reason_code);
+				       reason_code, 0);
 }
 
 
 static int wpa_driver_nl80211_disassociate(void *priv, const u8 *addr,
 					   int reason_code)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	if (!(drv->capa.flags & WPA_DRIVER_FLAGS_SME))
 		return wpa_driver_nl80211_disconnect(drv, addr, reason_code);
 	wpa_printf(MSG_DEBUG, "%s", __func__);
 	drv->associated = 0;
 	return wpa_driver_nl80211_mlme(drv, addr, NL80211_CMD_DISASSOCIATE,
-				       reason_code);
+				       reason_code, 0);
 }
 
 
 static int wpa_driver_nl80211_authenticate(
 	void *priv, struct wpa_driver_auth_params *params)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ret = -1, i;
 	struct nl_msg *msg;
 	enum nl80211_auth_type type;
@@ -2164,7 +2372,7 @@ static int wpa_driver_nl80211_authenticate(
 	if (drv->nlmode != NL80211_IFTYPE_STATION)
 		wpa_driver_nl80211_set_mode(priv, IEEE80211_MODE_INFRA);
 
-	if (wpa_driver_nl80211_set_mode(drv, IEEE80211_MODE_INFRA) < 0)
+	if (wpa_driver_nl80211_set_mode(priv, IEEE80211_MODE_INFRA) < 0)
 		return -1;
 
 retry:
@@ -2181,8 +2389,8 @@ retry:
 	for (i = 0; i < 4; i++) {
 		if (!params->wep_key[i])
 			continue;
-		wpa_driver_nl80211_set_key(drv->ifname, drv, WPA_ALG_WEP, NULL,
-					   i,
+		wpa_driver_nl80211_set_key(bss->ifname, priv, WPA_ALG_WEP,
+					   NULL, i,
 					   i == params->wep_tx_keyidx, NULL, 0,
 					   params->wep_key[i],
 					   params->wep_key_len[i]);
@@ -2230,6 +2438,10 @@ retry:
 		goto nla_put_failure;
 	wpa_printf(MSG_DEBUG, "  * Auth Type %d", type);
 	NLA_PUT_U32(msg, NL80211_ATTR_AUTH_TYPE, type);
+	if (params->local_state_change) {
+		wpa_printf(MSG_DEBUG, "  * Local state change only");
+		NLA_PUT_FLAG(msg, NL80211_ATTR_LOCAL_STATE_CHANGE);
+	}
 
 	ret = send_and_recv_msgs(drv, msg, NULL, NULL);
 	msg = NULL;
@@ -2237,7 +2449,8 @@ retry:
 		wpa_printf(MSG_DEBUG, "nl80211: MLME command failed: ret=%d "
 			   "(%s)", ret, strerror(-ret));
 		count++;
-		if (ret == -EALREADY && count == 1 && params->bssid) {
+		if (ret == -EALREADY && count == 1 && params->bssid &&
+		    !params->local_state_change) {
 			/*
 			 * mac80211 does not currently accept new
 			 * authentication if we are already authenticated. As a
@@ -2246,7 +2459,7 @@ retry:
 			wpa_printf(MSG_DEBUG, "nl80211: Retry authentication "
 				   "after forced deauthentication");
 			wpa_driver_nl80211_deauthenticate(
-				drv, params->bssid,
+				bss, params->bssid,
 				WLAN_REASON_PREV_AUTH_NOT_VALID);
 			nlmsg_free(msg);
 			goto retry;
@@ -2516,7 +2729,8 @@ wpa_driver_nl80211_add_11b(struct hostapd_hw_modes *modes, u16 *num_modes)
 static struct hostapd_hw_modes *
 wpa_driver_nl80211_get_hw_feature_data(void *priv, u16 *num_modes, u16 *flags)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	struct phy_info_arg result = {
 		.num_modes = num_modes,
@@ -2585,7 +2799,8 @@ static int wpa_driver_nl80211_send_frame(struct wpa_driver_nl80211_data *drv,
 static int wpa_driver_nl80211_send_mlme(void *priv, const u8 *data,
 					size_t data_len)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct ieee80211_mgmt *mgmt;
 	int encrypt = 1;
 	u16 fc;
@@ -2611,27 +2826,20 @@ static int wpa_driver_nl80211_send_mlme(void *priv, const u8 *data,
 }
 
 
-static int wpa_driver_nl80211_set_beacon(const char *ifname, void *priv,
+static int wpa_driver_nl80211_set_beacon(void *priv,
 					 const u8 *head, size_t head_len,
 					 const u8 *tail, size_t tail_len,
 					 int dtim_period, int beacon_int)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	u8 cmd = NL80211_CMD_NEW_BEACON;
 	int ret;
 	int beacon_set;
-	int ifindex = if_nametoindex(ifname);
-#ifdef HOSTAPD
-	struct i802_bss *bss;
+	int ifindex = if_nametoindex(bss->ifname);
 
-	bss = get_bss(drv, ifindex);
-	if (bss == NULL)
-		return -ENOENT;
 	beacon_set = bss->beacon_set;
-#else /* HOSTAPD */
-	beacon_set = drv->beacon_set;
-#endif /* HOSTAPD */
 
 	msg = nlmsg_alloc();
 	if (!msg)
@@ -2655,11 +2863,7 @@ static int wpa_driver_nl80211_set_beacon(const char *ifname, void *priv,
 		wpa_printf(MSG_DEBUG, "nl80211: Beacon set failed: %d (%s)",
 			   ret, strerror(-ret));
 	} else {
-#ifdef HOSTAPD
 		bss->beacon_set = 1;
-#else /* HOSTAPD */
-		drv->beacon_set = 1;
-#endif /* HOSTAPD */
 	}
 	return ret;
  nla_put_failure:
@@ -2710,10 +2914,11 @@ nla_put_failure:
 }
 
 
-static int wpa_driver_nl80211_sta_add(const char *ifname, void *priv,
+static int wpa_driver_nl80211_sta_add(void *priv,
 				      struct hostapd_sta_add_params *params)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	int ret = -ENOBUFS;
 
@@ -2724,7 +2929,7 @@ static int wpa_driver_nl80211_sta_add(const char *ifname, void *priv,
 	genlmsg_put(msg, 0, 0, genl_family_get_id(drv->nl80211), 0,
 		    0, NL80211_CMD_NEW_STATION, 0);
 
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(ifname));
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(bss->ifname));
 	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, params->addr);
 	NLA_PUT_U16(msg, NL80211_ATTR_STA_AID, params->aid);
 	NLA_PUT(msg, NL80211_ATTR_STA_SUPPORTED_RATES, params->supp_rates_len,
@@ -2750,7 +2955,8 @@ static int wpa_driver_nl80211_sta_add(const char *ifname, void *priv,
 
 static int wpa_driver_nl80211_sta_remove(void *priv, const u8 *addr)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	int ret;
 
@@ -2762,7 +2968,7 @@ static int wpa_driver_nl80211_sta_remove(void *priv, const u8 *addr)
 		    0, NL80211_CMD_DEL_STATION, 0);
 
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX,
-		    if_nametoindex(drv->ifname));
+		    if_nametoindex(bss->ifname));
 	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
 
 	ret = send_and_recv_msgs(drv, msg, NULL, NULL);
@@ -3199,7 +3405,7 @@ nl80211_create_monitor_interface(struct wpa_driver_nl80211_data *drv)
 	int optval;
 	socklen_t optlen;
 
-	snprintf(buf, IFNAMSIZ, "mon.%s", drv->ifname);
+	snprintf(buf, IFNAMSIZ, "mon.%s", drv->first_bss.ifname);
 	buf[IFNAMSIZ - 1] = '\0';
 
 	drv->monitor_ifidx =
@@ -3259,7 +3465,8 @@ static int wpa_driver_nl80211_hapd_send_eapol(
 	void *priv, const u8 *addr, const u8 *data,
 	size_t data_len, int encrypt, const u8 *own_addr)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct ieee80211_hdr *hdr;
 	size_t len;
 	u8 *pos;
@@ -3341,10 +3548,11 @@ static u32 sta_flags_nl80211(int flags)
 
 
 static int wpa_driver_nl80211_sta_set_flags(void *priv, const u8 *addr,
-					    int total_flags, int flags_or,
-					    int flags_and)
+					    int total_flags,
+					    int flags_or, int flags_and)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg, *flags = NULL;
 	struct nl80211_sta_flag_update upd;
 
@@ -3362,7 +3570,7 @@ static int wpa_driver_nl80211_sta_set_flags(void *priv, const u8 *addr,
 		    0, NL80211_CMD_SET_STATION, 0);
 
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX,
-		    if_nametoindex(drv->ifname));
+		    if_nametoindex(bss->ifname));
 	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
 
 	/*
@@ -3401,7 +3609,7 @@ static int wpa_driver_nl80211_sta_set_flags(void *priv, const u8 *addr,
 static int wpa_driver_nl80211_ap(struct wpa_driver_nl80211_data *drv,
 				 struct wpa_driver_associate_params *params)
 {
-	if (wpa_driver_nl80211_set_mode(drv, params->mode) ||
+	if (wpa_driver_nl80211_set_mode(&drv->first_bss, params->mode) ||
 	    wpa_driver_nl80211_set_freq(drv, params->freq, 0, 0)) {
 		nl80211_remove_monitor_interface(drv);
 		return -1;
@@ -3452,7 +3660,7 @@ static int wpa_driver_nl80211_ibss(struct wpa_driver_nl80211_data *drv,
 
 	wpa_printf(MSG_DEBUG, "nl80211: Join IBSS (ifindex=%d)", drv->ifindex);
 
-	if (wpa_driver_nl80211_set_mode(drv, params->mode)) {
+	if (wpa_driver_nl80211_set_mode(&drv->first_bss, params->mode)) {
 		wpa_printf(MSG_INFO, "nl80211: Failed to set interface into "
 			   "IBSS mode");
 		return -1;
@@ -3666,7 +3874,8 @@ nla_put_failure:
 static int wpa_driver_nl80211_associate(
 	void *priv, struct wpa_driver_associate_params *params)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ret = -1;
 	struct nl_msg *msg;
 
@@ -3677,7 +3886,7 @@ static int wpa_driver_nl80211_associate(
 		return wpa_driver_nl80211_ibss(drv, params);
 
 	if (!(drv->capa.flags & WPA_DRIVER_FLAGS_SME)) {
-		if (wpa_driver_nl80211_set_mode(drv, params->mode) < 0)
+		if (wpa_driver_nl80211_set_mode(priv, params->mode) < 0)
 			return -1;
 		return wpa_driver_nl80211_connect(drv, params);
 	}
@@ -3779,7 +3988,8 @@ nla_put_failure:
 
 static int wpa_driver_nl80211_set_mode(void *priv, int mode)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ret = -1;
 	int nlmode;
 
@@ -3814,10 +4024,10 @@ static int wpa_driver_nl80211_set_mode(void *priv, int mode)
 	 * take the device down, try to set the mode again, and bring the
 	 * device back up.
 	 */
-	if (linux_set_iface_flags(drv->ioctl_sock, drv->ifname, 0) == 0) {
+	if (linux_set_iface_flags(drv->ioctl_sock, bss->ifname, 0) == 0) {
 		/* Try to set the mode again while the interface is down */
 		ret = nl80211_set_mode(drv, drv->ifindex, nlmode);
-		if (linux_set_iface_flags(drv->ioctl_sock, drv->ifname, 1))
+		if (linux_set_iface_flags(drv->ioctl_sock, bss->ifname, 1))
 			ret = -1;
 	}
 
@@ -3836,9 +4046,7 @@ done:
 	} else if (!ret && nlmode != NL80211_IFTYPE_AP) {
 		/* Remove additional AP mode functionality */
 		nl80211_remove_monitor_interface(drv);
-#ifndef HOSTAPD
-		drv->beacon_set = 0;
-#endif /* HOSTAPD */
+		bss->beacon_set = 0;
 	}
 
 	if (ret)
@@ -3852,7 +4060,8 @@ done:
 static int wpa_driver_nl80211_get_capa(void *priv,
 				       struct wpa_driver_capa *capa)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	if (!drv->has_capability)
 		return -1;
 	os_memcpy(capa, &drv->capa, sizeof(*capa));
@@ -3862,7 +4071,8 @@ static int wpa_driver_nl80211_get_capa(void *priv,
 
 static int wpa_driver_nl80211_set_operstate(void *priv, int state)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 
 	wpa_printf(MSG_DEBUG, "%s: operstate %d->%d (%s)",
 		   __func__, drv->operstate, state, state ? "UP" : "DORMANT");
@@ -3874,7 +4084,8 @@ static int wpa_driver_nl80211_set_operstate(void *priv, int state)
 
 static int wpa_driver_nl80211_set_supp_port(void *priv, int authorized)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	struct nl80211_sta_flag_update upd;
 
@@ -3886,7 +4097,7 @@ static int wpa_driver_nl80211_set_supp_port(void *priv, int authorized)
 		    0, NL80211_CMD_SET_STATION, 0);
 
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX,
-		    if_nametoindex(drv->ifname));
+		    if_nametoindex(bss->ifname));
 	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, drv->bssid);
 
 	os_memset(&upd, 0, sizeof(upd));
@@ -3902,20 +4113,6 @@ static int wpa_driver_nl80211_set_supp_port(void *priv, int authorized)
 
 
 #ifdef HOSTAPD
-
-static struct i802_bss * get_bss(struct wpa_driver_nl80211_data *drv,
-				 int ifindex)
-{
-	struct i802_bss *bss = &drv->bss;
-	while (bss) {
-		if (ifindex == bss->ifindex)
-			return bss;
-		bss = bss->next;
-	}
-	wpa_printf(MSG_DEBUG, "nl80211: get_bss(%d) failed", ifindex);
-	return NULL;
-}
-
 
 static void add_ifidx(struct wpa_driver_nl80211_data *drv, int ifidx)
 {
@@ -3947,7 +4144,9 @@ static void add_ifidx(struct wpa_driver_nl80211_data *drv, int ifidx)
 			   "interfaces");
 		wpa_printf(MSG_ERROR, "Ignoring EAPOL on interface %d", ifidx);
 		return;
-	}
+	} else if (!old)
+		os_memcpy(drv->if_indices, drv->default_if_indices,
+			  sizeof(drv->default_if_indices));
 	drv->if_indices[drv->num_if_indices] = ifidx;
 	drv->num_if_indices++;
 }
@@ -4010,7 +4209,8 @@ static int get_key_handler(struct nl_msg *msg, void *arg)
 static int i802_get_seqnum(const char *iface, void *priv, const u8 *addr,
 			   int idx, u8 *seq)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 
 	msg = nlmsg_alloc();
@@ -4036,7 +4236,8 @@ static int i802_get_seqnum(const char *iface, void *priv, const u8 *addr,
 static int i802_set_rate_sets(void *priv, int *supp_rates, int *basic_rates,
 			      int mode)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	u8 rates[NL80211_MAX_SUPP_RATES];
 	u8 rates_len = 0;
@@ -4054,27 +4255,32 @@ static int i802_set_rate_sets(void *priv, int *supp_rates, int *basic_rates,
 
 	NLA_PUT(msg, NL80211_ATTR_BSS_BASIC_RATES, rates_len, rates);
 
-	/* TODO: multi-BSS support */
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(drv->ifname));
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(bss->ifname));
 
 	return send_and_recv_msgs(drv, msg, NULL, NULL);
  nla_put_failure:
 	return -ENOBUFS;
 }
 
+#endif /* HOSTAPD */
+
 
 /* Set kernel driver on given frequency (MHz) */
 static int i802_set_freq(void *priv, struct hostapd_freq_params *freq)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	return wpa_driver_nl80211_set_freq(drv, freq->freq, freq->ht_enabled,
 					   freq->sec_channel_offset);
 }
 
 
+#ifdef HOSTAPD
+
 static int i802_set_rts(void *priv, int rts)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	int ret = -ENOBUFS;
 	u32 val;
@@ -4105,7 +4311,8 @@ nla_put_failure:
 
 static int i802_set_frag(void *priv, int frag)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	int ret = -ENOBUFS;
 	u32 val;
@@ -4136,7 +4343,8 @@ nla_put_failure:
 
 static int i802_flush(void *priv)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 
 	msg = nlmsg_alloc();
@@ -4150,7 +4358,7 @@ static int i802_flush(void *priv)
 	 * XXX: FIX! this needs to flush all VLANs too
 	 */
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX,
-		    if_nametoindex(drv->ifname));
+		    if_nametoindex(bss->ifname));
 
 	return send_and_recv_msgs(drv, msg, NULL, NULL);
  nla_put_failure:
@@ -4212,7 +4420,8 @@ static int get_sta_handler(struct nl_msg *msg, void *arg)
 static int i802_read_sta_data(void *priv, struct hostap_sta_driver_data *data,
 			      const u8 *addr)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 
 	os_memset(data, 0, sizeof(*data));
@@ -4224,7 +4433,7 @@ static int i802_read_sta_data(void *priv, struct hostap_sta_driver_data *data,
 		    0, NL80211_CMD_GET_STATION, 0);
 
 	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(drv->ifname));
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(bss->ifname));
 
 	return send_and_recv_msgs(drv, msg, get_sta_handler, data);
  nla_put_failure:
@@ -4235,7 +4444,8 @@ static int i802_read_sta_data(void *priv, struct hostap_sta_driver_data *data,
 static int i802_set_tx_queue_params(void *priv, int queue, int aifs,
 				    int cw_min, int cw_max, int burst_time)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	struct nlattr *txq, *params;
 
@@ -4246,7 +4456,7 @@ static int i802_set_tx_queue_params(void *priv, int queue, int aifs,
 	genlmsg_put(msg, 0, 0, genl_family_get_id(drv->nl80211), 0,
 		    0, NL80211_CMD_SET_WIPHY, 0);
 
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(drv->ifname));
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(bss->ifname));
 
 	txq = nla_nest_start(msg, NL80211_ATTR_WIPHY_TXQ_PARAMS);
 	if (!txq)
@@ -4278,7 +4488,8 @@ static int i802_set_tx_queue_params(void *priv, int queue, int aifs,
 
 static int i802_set_bss(void *priv, int cts, int preamble, int slot)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 
 	msg = nlmsg_alloc();
@@ -4295,8 +4506,7 @@ static int i802_set_bss(void *priv, int cts, int preamble, int slot)
 	if (slot >= 0)
 		NLA_PUT_U8(msg, NL80211_ATTR_BSS_SHORT_SLOT_TIME, slot);
 
-	/* TODO: multi-BSS support */
-	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(drv->ifname));
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, if_nametoindex(bss->ifname));
 
 	return send_and_recv_msgs(drv, msg, NULL, NULL);
  nla_put_failure:
@@ -4325,8 +4535,10 @@ static int i802_set_short_slot_time(void *priv, int value)
 static int i802_set_sta_vlan(void *priv, const u8 *addr,
 			     const char *ifname, int vlan_id)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
+	int ret = -ENOBUFS;
 
 	msg = nlmsg_alloc();
 	if (!msg)
@@ -4336,33 +4548,40 @@ static int i802_set_sta_vlan(void *priv, const u8 *addr,
 		    0, NL80211_CMD_SET_STATION, 0);
 
 	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX,
-		    if_nametoindex(drv->ifname));
+		    if_nametoindex(bss->ifname));
 	NLA_PUT(msg, NL80211_ATTR_MAC, ETH_ALEN, addr);
 	NLA_PUT_U32(msg, NL80211_ATTR_STA_VLAN,
 		    if_nametoindex(ifname));
 
-	return send_and_recv_msgs(drv, msg, NULL, NULL);
+	ret = send_and_recv_msgs(drv, msg, NULL, NULL);
+	if (ret < 0) {
+		wpa_printf(MSG_ERROR, "nl80211: NL80211_ATTR_STA_VLAN (addr="
+			   MACSTR " ifname=%s vlan_id=%d) failed: %d (%s)",
+			   MAC2STR(addr), ifname, vlan_id, ret,
+			   strerror(-ret));
+	}
  nla_put_failure:
-	return -ENOBUFS;
+	return ret;
 }
 
 
 static int i802_set_wds_sta(void *priv, const u8 *addr, int aid, int val)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	char name[IFNAMSIZ + 1];
 
-	os_snprintf(name, sizeof(name), "%s.sta%d", drv->ifname, aid);
+	os_snprintf(name, sizeof(name), "%s.sta%d", bss->ifname, aid);
 	wpa_printf(MSG_DEBUG, "nl80211: Set WDS STA addr=" MACSTR
 		   " aid=%d val=%d name=%s", MAC2STR(addr), aid, val, name);
 	if (val) {
-		if (nl80211_create_iface(priv, name, NL80211_IFTYPE_AP_VLAN,
+		if (nl80211_create_iface(drv, name, NL80211_IFTYPE_AP_VLAN,
 					 NULL, 1) < 0)
 			return -1;
 		linux_set_iface_flags(drv->ioctl_sock, name, 1);
 		return i802_set_sta_vlan(priv, addr, name, 0);
 	} else {
-		i802_set_sta_vlan(priv, addr, drv->ifname, 0);
+		i802_set_sta_vlan(priv, addr, bss->ifname, 0);
 		return wpa_driver_nl80211_if_remove(priv, WPA_IF_AP_VLAN,
 						    name);
 	}
@@ -4414,7 +4633,7 @@ static int i802_sta_clear_stats(void *priv, const u8 *addr)
 static int i802_sta_deauth(void *priv, const u8 *own_addr, const u8 *addr,
 			   int reason)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
 	struct ieee80211_mgmt mgmt;
 
 	memset(&mgmt, 0, sizeof(mgmt));
@@ -4424,7 +4643,7 @@ static int i802_sta_deauth(void *priv, const u8 *own_addr, const u8 *addr,
 	memcpy(mgmt.sa, own_addr, ETH_ALEN);
 	memcpy(mgmt.bssid, own_addr, ETH_ALEN);
 	mgmt.u.deauth.reason_code = host_to_le16(reason);
-	return wpa_driver_nl80211_send_mlme(drv, (u8 *) &mgmt,
+	return wpa_driver_nl80211_send_mlme(bss, (u8 *) &mgmt,
 					    IEEE80211_HDRLEN +
 					    sizeof(mgmt.u.deauth));
 }
@@ -4433,7 +4652,7 @@ static int i802_sta_deauth(void *priv, const u8 *own_addr, const u8 *addr,
 static int i802_sta_disassoc(void *priv, const u8 *own_addr, const u8 *addr,
 			     int reason)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
 	struct ieee80211_mgmt mgmt;
 
 	memset(&mgmt, 0, sizeof(mgmt));
@@ -4443,7 +4662,7 @@ static int i802_sta_disassoc(void *priv, const u8 *own_addr, const u8 *addr,
 	memcpy(mgmt.sa, own_addr, ETH_ALEN);
 	memcpy(mgmt.bssid, own_addr, ETH_ALEN);
 	mgmt.u.disassoc.reason_code = host_to_le16(reason);
-	return wpa_driver_nl80211_send_mlme(drv, (u8 *) &mgmt,
+	return wpa_driver_nl80211_send_mlme(bss, (u8 *) &mgmt,
 					    IEEE80211_HDRLEN +
 					    sizeof(mgmt.u.disassoc));
 }
@@ -4505,17 +4724,17 @@ static void *i802_init(struct hostapd_data *hapd,
 		       struct wpa_init_params *params)
 {
 	struct wpa_driver_nl80211_data *drv;
+	struct i802_bss *bss;
 	size_t i;
 	char brname[IFNAMSIZ];
 	int ifindex, br_ifindex;
 	int br_added = 0;
 
-	drv = wpa_driver_nl80211_init(hapd, params->ifname);
-	if (drv == NULL)
+	bss = wpa_driver_nl80211_init(hapd, params->ifname);
+	if (bss == NULL)
 		return NULL;
 
-	drv->bss.ifindex = drv->ifindex;
-
+	drv = bss->drv;
 	if (linux_br_get(brname, params->ifname) == 0) {
 		wpa_printf(MSG_DEBUG, "nl80211: Interface %s is in bridge %s",
 			   params->ifname, brname);
@@ -4543,18 +4762,18 @@ static void *i802_init(struct hostapd_data *hapd,
 	/* start listening for EAPOL on the default AP interface */
 	add_ifidx(drv, drv->ifindex);
 
-	if (linux_set_iface_flags(drv->ioctl_sock, drv->ifname, 0))
+	if (linux_set_iface_flags(drv->ioctl_sock, bss->ifname, 0))
 		goto failed;
 
 	if (params->bssid) {
-		if (linux_set_ifhwaddr(drv->ioctl_sock, drv->ifname,
+		if (linux_set_ifhwaddr(drv->ioctl_sock, bss->ifname,
 				       params->bssid))
 			goto failed;
 	}
 
-	if (wpa_driver_nl80211_set_mode(drv, IEEE80211_MODE_AP)) {
+	if (wpa_driver_nl80211_set_mode(bss, IEEE80211_MODE_AP)) {
 		wpa_printf(MSG_ERROR, "nl80211: Failed to set interface %s "
-			   "into AP mode", drv->ifname);
+			   "into AP mode", bss->ifname);
 		goto failed;
 	}
 
@@ -4562,7 +4781,7 @@ static void *i802_init(struct hostapd_data *hapd,
 	    i802_check_bridge(drv, params->bridge[0], params->ifname) < 0)
 		goto failed;
 
-	if (linux_set_iface_flags(drv->ioctl_sock, drv->ifname, 1))
+	if (linux_set_iface_flags(drv->ioctl_sock, bss->ifname, 1))
 		goto failed;
 
 	drv->eapol_sock = socket(PF_PACKET, SOCK_DGRAM, htons(ETH_P_PAE));
@@ -4577,10 +4796,10 @@ static void *i802_init(struct hostapd_data *hapd,
 		goto failed;
 	}
 
-	if (linux_get_ifhwaddr(drv->ioctl_sock, drv->ifname, params->own_addr))
+	if (linux_get_ifhwaddr(drv->ioctl_sock, bss->ifname, params->own_addr))
 		goto failed;
 
-	return drv;
+	return bss;
 
 failed:
 	nl80211_remove_monitor_interface(drv);
@@ -4620,43 +4839,54 @@ static enum nl80211_iftype wpa_driver_nl80211_if_type(
 }
 
 
-static int wpa_driver_nl80211_if_add(const char *iface, void *priv,
-				     enum wpa_driver_if_type type,
+static int wpa_driver_nl80211_if_add(void *priv, enum wpa_driver_if_type type,
 				     const char *ifname, const u8 *addr,
-				     void *bss_ctx)
+				     void *bss_ctx, void **drv_priv,
+				     char *force_ifname, u8 *if_addr)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ifidx;
 #ifdef HOSTAPD
-	struct i802_bss *bss = NULL;
+	struct i802_bss *new_bss = NULL;
 
 	if (type == WPA_IF_AP_BSS) {
-		bss = os_zalloc(sizeof(*bss));
-		if (bss == NULL)
+		new_bss = os_zalloc(sizeof(*new_bss));
+		if (new_bss == NULL)
 			return -1;
 	}
 #endif /* HOSTAPD */
 
+	if (addr)
+		os_memcpy(if_addr, addr, ETH_ALEN);
 	ifidx = nl80211_create_iface(drv, ifname,
 				     wpa_driver_nl80211_if_type(type), addr,
 				     0);
 	if (ifidx < 0) {
 #ifdef HOSTAPD
-		os_free(bss);
+		os_free(new_bss);
 #endif /* HOSTAPD */
 		return -1;
 	}
+
+	if (!addr &&
+	    linux_get_ifhwaddr(drv->ioctl_sock, bss->ifname, if_addr) < 0)
+		return -1;
 
 #ifdef HOSTAPD
 	if (type == WPA_IF_AP_BSS) {
 		if (linux_set_iface_flags(drv->ioctl_sock, ifname, 1)) {
 			nl80211_remove_iface(drv, ifidx);
-			os_free(bss);
+			os_free(new_bss);
 			return -1;
 		}
-		bss->ifindex = ifidx;
-		bss->next = drv->bss.next;
-		drv->bss.next = bss;
+		os_strlcpy(new_bss->ifname, ifname, IFNAMSIZ);
+		new_bss->ifindex = ifidx;
+		new_bss->drv = drv;
+		new_bss->next = drv->first_bss.next;
+		drv->first_bss.next = new_bss;
+		if (drv_priv)
+			*drv_priv = new_bss;
 	}
 #endif /* HOSTAPD */
 
@@ -4668,7 +4898,8 @@ static int wpa_driver_nl80211_if_remove(void *priv,
 					enum wpa_driver_if_type type,
 					const char *ifname)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ifindex = if_nametoindex(ifname);
 
 	wpa_printf(MSG_DEBUG, "nl80211: %s(type=%d ifname=%s) ifindex=%d",
@@ -4678,18 +4909,19 @@ static int wpa_driver_nl80211_if_remove(void *priv,
 	nl80211_remove_iface(drv, ifindex);
 
 #ifdef HOSTAPD
-	if (type == WPA_IF_AP_BSS) {
-		struct i802_bss *bss, *prev;
-		prev = &drv->bss;
-		bss = drv->bss.next;
-		while (bss) {
-			if (ifindex == bss->ifindex) {
-				prev->next = bss->next;
-				os_free(bss);
-				break;
-			}
-			prev = bss;
-			bss = bss->next;
+	if (type != WPA_IF_AP_BSS)
+		return 0;
+
+	if (bss != &drv->first_bss) {
+		struct i802_bss *tbss = &drv->first_bss;
+
+		while (tbss) {
+			if (tbss->next != bss)
+				continue;
+
+			tbss->next = bss->next;
+			os_free(bss);
+			break;
 		}
 	}
 #endif /* HOSTAPD */
@@ -4716,7 +4948,8 @@ static int wpa_driver_nl80211_send_action(void *priv, unsigned int freq,
 					  const u8 *bssid,
 					  const u8 *data, size_t data_len)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ret = -1;
 	struct nl_msg *msg;
 	u8 *buf;
@@ -4744,8 +4977,10 @@ static int wpa_driver_nl80211_send_action(void *priv, unsigned int freq,
 	}
 
 	msg = nlmsg_alloc();
-	if (!msg)
+	if (!msg) {
+		os_free(buf);
 		return -1;
+	}
 
 	genlmsg_put(msg, 0, 0, genl_family_get_id(drv->nl80211), 0, 0,
 		    NL80211_CMD_ACTION, 0);
@@ -4754,6 +4989,7 @@ static int wpa_driver_nl80211_send_action(void *priv, unsigned int freq,
 	NLA_PUT_U32(msg, NL80211_ATTR_WIPHY_FREQ, freq);
 	NLA_PUT(msg, NL80211_ATTR_FRAME, 24 + data_len, buf);
 	os_free(buf);
+	buf = NULL;
 
 	cookie = 0;
 	ret = send_and_recv_msgs(drv, msg, cookie_handler, &cookie);
@@ -4770,6 +5006,7 @@ static int wpa_driver_nl80211_send_action(void *priv, unsigned int freq,
 	ret = 0;
 
 nla_put_failure:
+	os_free(buf);
 	nlmsg_free(msg);
 	return ret;
 }
@@ -4778,7 +5015,8 @@ nla_put_failure:
 static int wpa_driver_nl80211_remain_on_channel(void *priv, unsigned int freq,
 						unsigned int duration)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	int ret;
 	u64 cookie;
@@ -4812,7 +5050,8 @@ nla_put_failure:
 
 static int wpa_driver_nl80211_cancel_remain_on_channel(void *priv)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	struct nl_msg *msg;
 	int ret;
 
@@ -4867,7 +5106,8 @@ static void wpa_driver_nl80211_probe_req_report_timeout(void *eloop_ctx,
 
 static int wpa_driver_nl80211_probe_req_report(void *priv, int report)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 
 	if (drv->nlmode != NL80211_IFTYPE_STATION) {
 		wpa_printf(MSG_DEBUG, "nl80211: probe_req_report control only "
@@ -4899,34 +5139,6 @@ static int wpa_driver_nl80211_probe_req_report(void *priv, int report)
 	}
 
 	return 0;
-}
-
-
-static int wpa_driver_nl80211_alloc_interface_addr(void *priv, u8 *addr,
-						   char *ifname)
-{
-	struct wpa_driver_nl80211_data *drv = priv;
-
-	if (ifname)
-		ifname[0] = '\0';
-
-	if (linux_get_ifhwaddr(drv->ioctl_sock, drv->ifname, addr) < 0)
-		return -1;
-
-	if (addr[0] & 0x02) {
-		/* TODO: add support for generating multiple addresses */
-		addr[0] ^= 0x80;
-	} else
-		addr[0] = 0x02; /* locally administered */
-
-	return 0;
-}
-
-
-static void wpa_driver_nl80211_release_interface_addr(void *priv,
-						      const u8 *addr)
-{
-	/* TODO: keep list of allocated address and release them here */
 }
 
 
@@ -4980,7 +5192,8 @@ nla_put_failure:
 
 static int wpa_driver_nl80211_disable_11b_rates(void *priv, int disabled)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	drv->disable_11b_rates = disabled;
 	return nl80211_disable_11b_rates(drv, drv->ifindex, disabled);
 }
@@ -4988,21 +5201,120 @@ static int wpa_driver_nl80211_disable_11b_rates(void *priv, int disabled)
 
 static int wpa_driver_nl80211_deinit_ap(void *priv)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
 	if (drv->nlmode != NL80211_IFTYPE_AP)
 		return -1;
 	wpa_driver_nl80211_del_beacon(drv);
-	return wpa_driver_nl80211_set_mode(drv, IEEE80211_MODE_INFRA);
+	return wpa_driver_nl80211_set_mode(priv, IEEE80211_MODE_INFRA);
 }
 
 
 static void wpa_driver_nl80211_resume(void *priv)
 {
-	struct wpa_driver_nl80211_data *drv = priv;
-	if (linux_set_iface_flags(drv->ioctl_sock, drv->ifname, 1)) {
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	if (linux_set_iface_flags(drv->ioctl_sock, bss->ifname, 1)) {
 		wpa_printf(MSG_DEBUG, "nl80211: Failed to set interface up on "
 			   "resume event");
 	}
+}
+
+
+static int nl80211_send_ft_action(void *priv, u8 action, const u8 *target_ap,
+				  const u8 *ies, size_t ies_len)
+{
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	int ret;
+	u8 *data, *pos;
+	size_t data_len;
+	u8 own_addr[ETH_ALEN];
+
+	if (linux_get_ifhwaddr(drv->ioctl_sock, bss->ifname, own_addr) < 0)
+		return -1;
+
+	if (action != 1) {
+		wpa_printf(MSG_ERROR, "nl80211: Unsupported send_ft_action "
+			   "action %d", action);
+		return -1;
+	}
+
+	/*
+	 * Action frame payload:
+	 * Category[1] = 6 (Fast BSS Transition)
+	 * Action[1] = 1 (Fast BSS Transition Request)
+	 * STA Address
+	 * Target AP Address
+	 * FT IEs
+	 */
+
+	data_len = 2 + 2 * ETH_ALEN + ies_len;
+	data = os_malloc(data_len);
+	if (data == NULL)
+		return -1;
+	pos = data;
+	*pos++ = 0x06; /* FT Action category */
+	*pos++ = action;
+	os_memcpy(pos, own_addr, ETH_ALEN);
+	pos += ETH_ALEN;
+	os_memcpy(pos, target_ap, ETH_ALEN);
+	pos += ETH_ALEN;
+	os_memcpy(pos, ies, ies_len);
+
+	ret = wpa_driver_nl80211_send_action(bss, drv->assoc_freq, drv->bssid,
+					     own_addr, drv->bssid,
+					     data, data_len);
+	os_free(data);
+
+	return ret;
+}
+
+
+static int nl80211_signal_monitor(void *priv, int threshold, int hysteresis)
+{
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	struct nl_msg *msg, *cqm = NULL;
+
+	wpa_printf(MSG_DEBUG, "nl80211: Signal monitor threshold=%d "
+		   "hysteresis=%d", threshold, hysteresis);
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return -1;
+
+	genlmsg_put(msg, 0, 0, genl_family_get_id(drv->nl80211), 0,
+		    0, NL80211_CMD_SET_CQM, 0);
+
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, bss->ifindex);
+
+	cqm = nlmsg_alloc();
+	if (cqm == NULL)
+		return -1;
+
+	NLA_PUT_U32(cqm, NL80211_ATTR_CQM_RSSI_THOLD, threshold);
+	NLA_PUT_U32(cqm, NL80211_ATTR_CQM_RSSI_HYST, hysteresis);
+	nla_put_nested(msg, NL80211_ATTR_CQM, cqm);
+
+	if (send_and_recv_msgs(drv, msg, NULL, NULL) == 0)
+		return 0;
+	msg = NULL;
+
+nla_put_failure:
+	if (cqm)
+		nlmsg_free(cqm);
+	nlmsg_free(msg);
+	return -1;
+}
+
+
+static int nl80211_send_frame(void *priv, const u8 *data, size_t data_len,
+			      int encrypt)
+{
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	return wpa_driver_nl80211_send_frame(drv, data, data_len, encrypt);
 }
 
 
@@ -5043,7 +5355,6 @@ const struct wpa_driver_ops wpa_driver_nl80211_ops = {
 	.sta_disassoc = i802_sta_disassoc,
 	.get_inact_sec = i802_get_inact_sec,
 	.sta_clear_stats = i802_sta_clear_stats,
-	.set_freq = i802_set_freq,
 	.set_rts = i802_set_rts,
 	.set_frag = i802_set_frag,
 	.set_rate_sets = i802_set_rate_sets,
@@ -5054,14 +5365,16 @@ const struct wpa_driver_ops wpa_driver_nl80211_ops = {
 	.set_sta_vlan = i802_set_sta_vlan,
 	.set_wds_sta = i802_set_wds_sta,
 #endif /* HOSTAPD */
+	.set_freq = i802_set_freq,
 	.send_action = wpa_driver_nl80211_send_action,
 	.remain_on_channel = wpa_driver_nl80211_remain_on_channel,
 	.cancel_remain_on_channel =
 	wpa_driver_nl80211_cancel_remain_on_channel,
 	.probe_req_report = wpa_driver_nl80211_probe_req_report,
-	.alloc_interface_addr = wpa_driver_nl80211_alloc_interface_addr,
-	.release_interface_addr = wpa_driver_nl80211_release_interface_addr,
 	.disable_11b_rates = wpa_driver_nl80211_disable_11b_rates,
 	.deinit_ap = wpa_driver_nl80211_deinit_ap,
 	.resume = wpa_driver_nl80211_resume,
+	.send_ft_action = nl80211_send_ft_action,
+	.signal_monitor = nl80211_signal_monitor,
+	.send_frame = nl80211_send_frame,
 };

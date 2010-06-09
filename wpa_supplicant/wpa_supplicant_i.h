@@ -33,6 +33,7 @@ struct wpa_supplicant;
 struct ibss_rsn;
 struct scan_info;
 struct wpa_bss;
+struct wpa_scan_results;
 
 /*
  * Forward declarations of private structures used within the ctrl_iface
@@ -283,6 +284,10 @@ struct wpa_client_mlme {
 	size_t ft_ies_len;
 #endif /* CONFIG_IEEE80211R */
 
+	void (*public_action_cb)(void *ctx, const u8 *buf, size_t len,
+				 int freq);
+	void *public_action_cb_ctx;
+
 #else /* CONFIG_CLIENT_MLME */
 	int dummy; /* to keep MSVC happy */
 #endif /* CONFIG_CLIENT_MLME */
@@ -343,6 +348,8 @@ struct wpa_supplicant {
 					  */
 #define WILDCARD_SSID_SCAN ((struct wpa_ssid *) 1)
 
+	void (*scan_res_handler)(struct wpa_supplicant *wpa_s,
+				 struct wpa_scan_results *scan_res);
 	struct dl_list bss; /* struct wpa_bss::list */
 	struct dl_list bss_id; /* struct wpa_bss::list_id */
 	size_t num_bss;
@@ -384,6 +391,7 @@ struct wpa_supplicant {
 	struct wpa_client_mlme mlme;
 	unsigned int drv_flags;
 	int max_scan_ssids;
+	unsigned int max_remain_on_chan;
 
 	int pending_mic_error_report;
 	int pending_mic_error_pairwise;
@@ -414,16 +422,25 @@ struct wpa_supplicant {
 		size_t ft_ies_len;
 		u8 prev_bssid[ETH_ALEN];
 		int prev_bssid_set;
+		int auth_alg;
 	} sme;
 #endif /* CONFIG_SME */
 
 #ifdef CONFIG_AP
 	struct hostapd_iface *ap_iface;
+	void (*ap_configured_cb)(void *ctx, void *data);
+	void *ap_configured_cb_ctx;
+	void *ap_configured_cb_data;
 #endif /* CONFIG_AP */
 
 	struct wpa_ssid *bgscan_ssid;
 	const struct bgscan_ops *bgscan;
 	void *bgscan_priv;
+
+	int connect_without_scan;
+
+	int after_wps;
+	unsigned int wps_freq;
 };
 
 
@@ -484,9 +501,14 @@ int wpa_supplicant_scard_init(struct wpa_supplicant *wpa_s,
 void wpa_supplicant_terminate_proc(struct wpa_global *global);
 void wpa_supplicant_rx_eapol(void *ctx, const u8 *src_addr,
 			     const u8 *buf, size_t len);
+enum wpa_key_mgmt key_mgmt2driver(int key_mgmt);
+enum wpa_cipher cipher_suite2driver(int cipher);
 
 /* events.c */
 void wpa_supplicant_mark_disassoc(struct wpa_supplicant *wpa_s);
+void wpa_supplicant_connect(struct wpa_supplicant *wpa_s,
+			    struct wpa_bss *selected,
+			    struct wpa_ssid *ssid);
 
 /* eap_register.c */
 int eap_register_methods(void);

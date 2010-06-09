@@ -1,6 +1,6 @@
 /*
  * hostapd - Driver operations
- * Copyright (c) 2009, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2009-2010, Jouni Malinen <j@w1.fi>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,6 +16,7 @@
 
 #include "utils/common.h"
 #include "drivers/driver.h"
+#include "common/ieee802_11_defs.h"
 #include "hostapd.h"
 #include "ieee802_11.h"
 #include "sta_info.h"
@@ -38,14 +39,20 @@ static int hostapd_sta_flags_to_drv(int flags)
 }
 
 
-static int hostapd_set_ap_wps_ie(struct hostapd_data *hapd,
-				 const struct wpabuf *beacon,
-				 const struct wpabuf *proberesp)
+static int hostapd_set_ap_wps_ie(struct hostapd_data *hapd)
 {
+	struct wpabuf *beacon, *proberesp;
+	int ret;
+
 	if (hapd->driver == NULL || hapd->driver->set_ap_wps_ie == NULL)
 		return 0;
-	return hapd->driver->set_ap_wps_ie(hapd->conf->iface, hapd->drv_priv,
-					   beacon, proberesp);
+
+	beacon = hapd->wps_beacon_ie;
+	proberesp = hapd->wps_probe_resp_ie;
+
+	ret = hapd->driver->set_ap_wps_ie(hapd->drv_priv, beacon, proberesp);
+
+	return ret;
 }
 
 
@@ -122,7 +129,8 @@ static int hostapd_set_sta_flags(struct hostapd_data *hapd,
 	int set_flags, total_flags, flags_and, flags_or;
 	total_flags = hostapd_sta_flags_to_drv(sta->flags);
 	set_flags = WPA_STA_SHORT_PREAMBLE | WPA_STA_WMM | WPA_STA_MFP;
-	if (!hapd->conf->ieee802_1x && !hapd->conf->wpa &&
+	if (((!hapd->conf->ieee802_1x && !hapd->conf->wpa) ||
+	     sta->auth_alg == WLAN_AUTH_FT) &&
 	    sta->flags & WLAN_STA_AUTHORIZED)
 		set_flags |= WPA_STA_AUTHORIZED;
 	flags_or = total_flags & set_flags;
@@ -186,8 +194,7 @@ static int hostapd_set_bss_params(struct hostapd_data *hapd,
 	ht_oper = pos;
 	pos = hostapd_eid_ht_operation(hapd, pos);
 	if (pos > ht_oper && ht_oper > ht_capab &&
-	    hostapd_set_ht_params(hapd->conf->iface, hapd,
-				  ht_capab + 2, ht_capab[1],
+	    hostapd_set_ht_params(hapd, ht_capab + 2, ht_capab[1],
 				  ht_oper + 2, ht_oper[1])) {
 		wpa_printf(MSG_ERROR, "Could not set HT capabilities "
 			   "for kernel driver");
@@ -227,14 +234,14 @@ static int hostapd_set_bss_params(struct hostapd_data *hapd,
 }
 
 
-static int hostapd_set_beacon(const char *ifname, struct hostapd_data *hapd,
+static int hostapd_set_beacon(struct hostapd_data *hapd,
 			      const u8 *head, size_t head_len,
 			      const u8 *tail, size_t tail_len, int dtim_period,
 			      int beacon_int)
 {
 	if (hapd->driver == NULL || hapd->driver->set_beacon == NULL)
 		return 0;
-	return hapd->driver->set_beacon(ifname, hapd->drv_priv,
+	return hapd->driver->set_beacon(hapd->drv_priv,
 					head, head_len, tail, tail_len,
 					dtim_period, beacon_int);
 }
@@ -242,7 +249,10 @@ static int hostapd_set_beacon(const char *ifname, struct hostapd_data *hapd,
 
 static int hostapd_vlan_if_add(struct hostapd_data *hapd, const char *ifname)
 {
-	return hostapd_if_add(hapd, WPA_IF_AP_VLAN, ifname, NULL, NULL);
+	char force_ifname[IFNAMSIZ];
+	u8 if_addr[ETH_ALEN];
+	return hostapd_if_add(hapd, WPA_IF_AP_VLAN, ifname, NULL, NULL, NULL,
+			      force_ifname, if_addr);
 }
 
 static int hostapd_vlan_if_remove(struct hostapd_data *hapd,
@@ -299,7 +309,7 @@ static int hostapd_sta_disassoc(struct hostapd_data *hapd, const u8 *addr,
 }
 
 
-static int hostapd_sta_add(const char *ifname, struct hostapd_data *hapd,
+static int hostapd_sta_add(struct hostapd_data *hapd,
 			   const u8 *addr, u16 aid, u16 capability,
 			   const u8 *supp_rates, size_t supp_rates_len,
 			   u16 listen_interval,
@@ -320,7 +330,7 @@ static int hostapd_sta_add(const char *ifname, struct hostapd_data *hapd,
 	params.supp_rates_len = supp_rates_len;
 	params.listen_interval = listen_interval;
 	params.ht_capabilities = ht_capab;
-	return hapd->driver->sta_add(ifname, hapd->drv_priv, &params);
+	return hapd->driver->sta_add(hapd->drv_priv, &params);
 }
 
 
@@ -373,8 +383,7 @@ int hostapd_set_privacy(struct hostapd_data *hapd, int enabled)
 {
 	if (hapd->driver == NULL || hapd->driver->set_privacy == NULL)
 		return 0;
-	return hapd->driver->set_privacy(hapd->conf->iface, hapd->drv_priv,
-					 enabled);
+	return hapd->driver->set_privacy(hapd->drv_priv, enabled);
 }
 
 
@@ -383,8 +392,7 @@ int hostapd_set_generic_elem(struct hostapd_data *hapd, const u8 *elem,
 {
 	if (hapd->driver == NULL || hapd->driver->set_generic_elem == NULL)
 		return 0;
-	return hapd->driver->set_generic_elem(hapd->conf->iface,
-					      hapd->drv_priv, elem, elem_len);
+	return hapd->driver->set_generic_elem(hapd->drv_priv, elem, elem_len);
 }
 
 
@@ -392,8 +400,7 @@ int hostapd_get_ssid(struct hostapd_data *hapd, u8 *buf, size_t len)
 {
 	if (hapd->driver == NULL || hapd->driver->hapd_get_ssid == NULL)
 		return 0;
-	return hapd->driver->hapd_get_ssid(hapd->conf->iface, hapd->drv_priv,
-					   buf, len);
+	return hapd->driver->hapd_get_ssid(hapd->drv_priv, buf, len);
 }
 
 
@@ -401,18 +408,18 @@ int hostapd_set_ssid(struct hostapd_data *hapd, const u8 *buf, size_t len)
 {
 	if (hapd->driver == NULL || hapd->driver->hapd_set_ssid == NULL)
 		return 0;
-	return hapd->driver->hapd_set_ssid(hapd->conf->iface, hapd->drv_priv,
-					   buf, len);
+	return hapd->driver->hapd_set_ssid(hapd->drv_priv, buf, len);
 }
 
 
 int hostapd_if_add(struct hostapd_data *hapd, enum wpa_driver_if_type type,
-		   const char *ifname, const u8 *addr, void *bss_ctx)
+		   const char *ifname, const u8 *addr, void *bss_ctx,
+		   void **drv_priv, char *force_ifname, u8 *if_addr)
 {
 	if (hapd->driver == NULL || hapd->driver->if_add == NULL)
 		return -1;
-	return hapd->driver->if_add(hapd->conf->iface, hapd->drv_priv, type,
-				    ifname, addr, bss_ctx);
+	return hapd->driver->if_add(hapd->drv_priv, type, ifname, addr,
+				    bss_ctx, drv_priv, force_ifname, if_addr);
 }
 
 
@@ -577,16 +584,16 @@ int hostapd_driver_commit(struct hostapd_data *hapd)
 }
 
 
-int hostapd_set_ht_params(const char *ifname, struct hostapd_data *hapd,
+int hostapd_set_ht_params(struct hostapd_data *hapd,
 			  const u8 *ht_capab, size_t ht_capab_len,
 			  const u8 *ht_oper, size_t ht_oper_len)
 {
 	if (hapd->driver == NULL || hapd->driver->set_ht_params == NULL ||
 	    ht_capab == NULL || ht_oper == NULL)
 		return 0;
-	return hapd->driver->set_ht_params(
-		ifname, hapd->drv_priv, ht_capab, ht_capab_len,
-		ht_oper, ht_oper_len);
+	return hapd->driver->set_ht_params(hapd->drv_priv,
+					   ht_capab, ht_capab_len,
+					   ht_oper, ht_oper_len);
 }
 
 

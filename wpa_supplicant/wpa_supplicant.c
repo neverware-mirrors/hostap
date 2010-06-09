@@ -542,6 +542,7 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 		wpa_s->new_connection = 0;
 		wpa_s->reassociated_connection = 1;
 		wpa_drv_set_operstate(wpa_s, 1);
+		wpa_s->after_wps = 0;
 	} else if (state == WPA_DISCONNECTED || state == WPA_ASSOCIATING ||
 		   state == WPA_ASSOCIATED) {
 		wpa_s->new_connection = 1;
@@ -687,7 +688,7 @@ static void wpa_supplicant_reconfig(int sig, void *signal_ctx)
 }
 
 
-static enum wpa_cipher cipher_suite2driver(int cipher)
+enum wpa_cipher cipher_suite2driver(int cipher)
 {
 	switch (cipher) {
 	case WPA_CIPHER_NONE:
@@ -705,7 +706,7 @@ static enum wpa_cipher cipher_suite2driver(int cipher)
 }
 
 
-static enum wpa_key_mgmt key_mgmt2driver(int key_mgmt)
+enum wpa_key_mgmt key_mgmt2driver(int key_mgmt)
 {
 	switch (key_mgmt) {
 	case WPA_KEY_MGMT_NONE:
@@ -958,6 +959,7 @@ int wpa_supplicant_set_suites(struct wpa_supplicant *wpa_s,
 	}
 	wpa_sm_set_param(wpa_s->wpa, WPA_PARAM_MGMT_GROUP,
 			 wpa_s->mgmt_group_cipher);
+	wpa_sm_set_param(wpa_s->wpa, WPA_PARAM_MFP, ssid->ieee80211w);
 #endif /* CONFIG_IEEE80211W */
 
 	if (wpa_sm_set_assoc_wpa_ie_default(wpa_s->wpa, wpa_ie, wpa_ie_len)) {
@@ -1036,10 +1038,10 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 		ie = wpa_bss_get_ie(bss, WLAN_EID_MOBILITY_DOMAIN);
 		if (ie && ie[1] >= MOBILITY_DOMAIN_ID_LEN)
 			md = ie + 2;
-		wpa_sm_set_ft_params(wpa_s->wpa, md, NULL, 0, NULL);
+		wpa_sm_set_ft_params(wpa_s->wpa, ie, ie ? 2 + ie[1] : 0);
 		if (md) {
 			/* Prepare for the next transition */
-			wpa_ft_prepare_auth_request(wpa_s->wpa);
+			wpa_ft_prepare_auth_request(wpa_s->wpa, ie);
 		}
 #endif /* CONFIG_IEEE80211R */
 #ifdef CONFIG_WPS
@@ -1834,8 +1836,11 @@ int wpa_supplicant_driver_init(struct wpa_supplicant *wpa_s)
 	wpa_drv_flush_pmkid(wpa_s);
 
 	wpa_s->prev_scan_ssid = WILDCARD_SSID_SCAN;
-	wpa_supplicant_req_scan(wpa_s, interface_count, 100000);
-	interface_count++;
+	if (wpa_supplicant_enabled_networks(wpa_s->conf)) {
+		wpa_supplicant_req_scan(wpa_s, interface_count, 100000);
+		interface_count++;
+	} else
+		wpa_supplicant_set_state(wpa_s, WPA_INACTIVE);
 
 	return 0;
 }
@@ -2013,6 +2018,18 @@ next_driver:
 		return -1;
 	}
 
+	if (wpa_drv_get_capa(wpa_s, &capa) == 0) {
+		wpa_s->drv_flags = capa.flags;
+		if (capa.flags & WPA_DRIVER_FLAGS_USER_SPACE_MLME) {
+			if (ieee80211_sta_init(wpa_s))
+				return -1;
+		}
+		wpa_s->max_scan_ssids = capa.max_scan_ssids;
+		wpa_s->max_remain_on_chan = capa.max_remain_on_chan;
+	}
+	if (wpa_s->max_remain_on_chan == 0)
+		wpa_s->max_remain_on_chan = 1000;
+
 	if (wpa_supplicant_driver_init(wpa_s) < 0)
 		return -1;
 
@@ -2043,15 +2060,6 @@ next_driver:
 			   "wpa_supplicant again.\n",
 			   wpa_s->conf->ctrl_interface);
 		return -1;
-	}
-
-	if (wpa_drv_get_capa(wpa_s, &capa) == 0) {
-		wpa_s->drv_flags = capa.flags;
-		if (capa.flags & WPA_DRIVER_FLAGS_USER_SPACE_MLME) {
-			if (ieee80211_sta_init(wpa_s))
-				return -1;
-		}
-		wpa_s->max_scan_ssids = capa.max_scan_ssids;
 	}
 
 #ifdef CONFIG_IBSS_RSN

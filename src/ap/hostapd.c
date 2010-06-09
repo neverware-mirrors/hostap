@@ -80,13 +80,20 @@ int hostapd_reload_config(struct hostapd_iface *iface)
 
 	if (hapd->conf->wpa && hapd->wpa_auth == NULL)
 		hostapd_setup_wpa(hapd);
-	else if (hapd->conf->wpa)
+	else if (hapd->conf->wpa) {
+		const u8 *wpa_ie;
+		size_t wpa_ie_len;
 		hostapd_reconfig_wpa(hapd);
-	else if (hapd->wpa_auth) {
+		wpa_ie = wpa_auth_get_wpa_ie(hapd->wpa_auth, &wpa_ie_len);
+		if (hostapd_set_generic_elem(hapd, wpa_ie, wpa_ie_len))
+			wpa_printf(MSG_ERROR, "Failed to configure WPA IE for "
+				   "the kernel driver.");
+	} else if (hapd->wpa_auth) {
 		wpa_deinit(hapd->wpa_auth);
 		hapd->wpa_auth = NULL;
 		hostapd_set_privacy(hapd, 0);
 		hostapd_setup_encryption(hapd->conf->iface, hapd);
+		hostapd_set_generic_elem(hapd, (u8 *) "", 0);
 	}
 
 	ieee802_11_set_beacon(hapd);
@@ -299,7 +306,7 @@ static int hostapd_flush_old_stations(struct hostapd_data *hapd)
 {
 	int ret = 0;
 
-	if (hostapd_drv_none(hapd))
+	if (hostapd_drv_none(hapd) || hapd->drv_priv == NULL)
 		return 0;
 
 	wpa_printf(MSG_DEBUG, "Flushing old station entries");
@@ -461,6 +468,8 @@ static int hostapd_setup_bss(struct hostapd_data *hapd, int first)
 	struct hostapd_bss_config *conf = hapd->conf;
 	u8 ssid[HOSTAPD_MAX_SSID_LEN + 1];
 	int ssid_len, set_ssid;
+	char force_ifname[IFNAMSIZ];
+	u8 if_addr[ETH_ALEN];
 
 	if (!first) {
 		if (hostapd_mac_comp_empty(hapd->conf->bssid) == 0) {
@@ -484,7 +493,8 @@ static int hostapd_setup_bss(struct hostapd_data *hapd, int first)
 
 		hapd->interface_added = 1;
 		if (hostapd_if_add(hapd->iface->bss[0], WPA_IF_AP_BSS,
-				   hapd->conf->iface, hapd->own_addr, hapd)) {
+				   hapd->conf->iface, hapd->own_addr, hapd,
+				   &hapd->drv_priv, force_ifname, if_addr)) {
 			wpa_printf(MSG_ERROR, "Failed to add BSS (BSSID="
 				   MACSTR ")", MAC2STR(hapd->own_addr));
 			return -1;
@@ -679,7 +689,6 @@ static int setup_interface(struct hostapd_iface *iface)
 int hostapd_setup_interface_complete(struct hostapd_iface *iface, int err)
 {
 	struct hostapd_data *hapd = iface->bss[0];
-	int freq;
 	size_t j;
 	u8 *prev_addr;
 
@@ -691,13 +700,13 @@ int hostapd_setup_interface_complete(struct hostapd_iface *iface, int err)
 
 	wpa_printf(MSG_DEBUG, "Completing interface initialization");
 	if (hapd->iconf->channel) {
-		freq = hostapd_hw_get_freq(hapd, hapd->iconf->channel);
+		iface->freq = hostapd_hw_get_freq(hapd, hapd->iconf->channel);
 		wpa_printf(MSG_DEBUG, "Mode: %s  Channel: %d  "
 			   "Frequency: %d MHz",
 			   hostapd_hw_mode_txt(hapd->iconf->hw_mode),
-			   hapd->iconf->channel, freq);
+			   hapd->iconf->channel, iface->freq);
 
-		if (hostapd_set_freq(hapd, hapd->iconf->hw_mode, freq,
+		if (hostapd_set_freq(hapd, hapd->iconf->hw_mode, iface->freq,
 				     hapd->iconf->channel,
 				     hapd->iconf->ieee80211n,
 				     hapd->iconf->secondary_channel)) {

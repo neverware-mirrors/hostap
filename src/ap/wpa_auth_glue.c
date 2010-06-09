@@ -47,6 +47,7 @@ static void hostapd_wpa_auth_conf(struct hostapd_bss_config *conf,
 	wconf->eapol_version = conf->eapol_version;
 	wconf->peerkey = conf->peerkey;
 	wconf->wmm_enabled = conf->wmm_enabled;
+	wconf->wmm_uapsd = conf->wmm_uapsd;
 	wconf->okc = conf->okc;
 #ifdef CONFIG_IEEE80211W
 	wconf->ieee80211w = conf->ieee80211w;
@@ -270,7 +271,8 @@ static int wpa_auth_iface_iter(struct hostapd_iface *iface, void *ctx)
 	struct wpa_auth_iface_iter_data *data = ctx;
 	size_t i;
 	for (i = 0; i < iface->num_bss; i++) {
-		if (data->cb(iface->bss[i]->wpa_auth, data->cb_ctx))
+		if (iface->bss[i]->wpa_auth &&
+		    data->cb(iface->bss[i]->wpa_auth, data->cb_ctx))
 			return 1;
 	}
 	return 0;
@@ -348,8 +350,10 @@ hostapd_wpa_auth_add_sta(void *ctx, const u8 *sta_addr)
 	sta = ap_sta_add(hapd, sta_addr);
 	if (sta == NULL)
 		return NULL;
-	if (sta->wpa_sm)
+	if (sta->wpa_sm) {
+		sta->auth_alg = WLAN_AUTH_FT;
 		return sta->wpa_sm;
+	}
 
 	sta->wpa_sm = wpa_auth_sta_init(hapd->wpa_auth, sta->addr);
 	if (sta->wpa_sm == NULL) {
@@ -426,7 +430,9 @@ int hostapd_setup_wpa(struct hostapd_data *hapd)
 
 #ifdef CONFIG_IEEE80211R
 	if (!hostapd_drv_none(hapd)) {
-		hapd->l2 = l2_packet_init(hapd->conf->iface, NULL, ETH_P_RRB,
+		hapd->l2 = l2_packet_init(hapd->conf->bridge[0] ?
+					  hapd->conf->bridge :
+					  hapd->conf->iface, NULL, ETH_P_RRB,
 					  hostapd_rrb_receive, hapd, 0);
 		if (hapd->l2 == NULL &&
 		    (hapd->driver == NULL ||

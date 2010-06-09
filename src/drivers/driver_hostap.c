@@ -541,7 +541,7 @@ static int hostap_set_ieee8021x(void *priv, struct wpa_bss_params *params)
 }
 
 
-static int hostap_set_privacy(const char *ifname, void *priv, int enabled)
+static int hostap_set_privacy(void *priv, int enabled)
 {
 	struct hostap_drvier_data *drv = priv;
 
@@ -550,8 +550,7 @@ static int hostap_set_privacy(const char *ifname, void *priv, int enabled)
 }
 
 
-static int hostap_set_ssid(const char *ifname, void *priv, const u8 *buf,
-			   int len)
+static int hostap_set_ssid(void *priv, const u8 *buf, int len)
 {
 	struct hostap_driver_data *drv = priv;
 	struct iwreq iwr;
@@ -625,8 +624,7 @@ static int hostap_read_sta_data(void *priv,
 }
 
 
-static int hostap_sta_add(const char *ifname, void *priv,
-			  struct hostapd_sta_add_params *params)
+static int hostap_sta_add(void *priv, struct hostapd_sta_add_params *params)
 {
 	struct hostap_driver_data *drv = priv;
 	struct prism2_hostapd_param param;
@@ -744,7 +742,7 @@ static int hostapd_ioctl_set_generic_elem(struct hostap_driver_data *drv)
 }
 
 
-static int hostap_set_generic_elem(const char *ifname, void *priv,
+static int hostap_set_generic_elem(void *priv,
 				   const u8 *elem, size_t elem_len)
 {
 	struct hostap_driver_data *drv = priv;
@@ -764,8 +762,7 @@ static int hostap_set_generic_elem(const char *ifname, void *priv,
 }
 
 
-static int hostap_set_ap_wps_ie(const char *ifname, void *priv,
-				const struct wpabuf *beacon,
+static int hostap_set_ap_wps_ie(void *priv, const struct wpabuf *beacon,
 				const struct wpabuf *proberesp)
 {
 	struct hostap_driver_data *drv = priv;

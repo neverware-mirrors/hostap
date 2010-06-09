@@ -119,7 +119,7 @@ static int wpa_supplicant_ctrl_iface_stkstart(
 
 	if (hwaddr_aton(addr, peer)) {
 		wpa_printf(MSG_DEBUG, "CTRL_IFACE STKSTART: invalid "
-			   "address '%s'", peer);
+			   "address '%s'", addr);
 		return -1;
 	}
 
@@ -136,16 +136,24 @@ static int wpa_supplicant_ctrl_iface_ft_ds(
 	struct wpa_supplicant *wpa_s, char *addr)
 {
 	u8 target_ap[ETH_ALEN];
+	struct wpa_bss *bss;
+	const u8 *mdie;
 
 	if (hwaddr_aton(addr, target_ap)) {
 		wpa_printf(MSG_DEBUG, "CTRL_IFACE FT_DS: invalid "
-			   "address '%s'", target_ap);
+			   "address '%s'", addr);
 		return -1;
 	}
 
 	wpa_printf(MSG_DEBUG, "CTRL_IFACE FT_DS " MACSTR, MAC2STR(target_ap));
 
-	return wpa_ft_start_over_ds(wpa_s->wpa, target_ap);
+	bss = wpa_bss_get_bssid(wpa_s, target_ap);
+	if (bss)
+		mdie = wpa_bss_get_ie(bss, WLAN_EID_MOBILITY_DOMAIN);
+	else
+		mdie = NULL;
+
+	return wpa_ft_start_over_ds(wpa_s->wpa, target_ap, mdie);
 }
 #endif /* CONFIG_IEEE80211R */
 
@@ -335,7 +343,7 @@ static int wpa_supplicant_ctrl_iface_ibss_rsn(
 
 	if (hwaddr_aton(addr, peer)) {
 		wpa_printf(MSG_DEBUG, "CTRL_IFACE IBSS_RSN: invalid "
-			   "address '%s'", peer);
+			   "address '%s'", addr);
 		return -1;
 	}
 
@@ -1092,6 +1100,8 @@ static int wpa_supplicant_ctrl_iface_set_network(
 	     value[0] == '"' && ssid->ssid_len) ||
 	    (os_strcmp(name, "ssid") == 0 && ssid->passphrase))
 		wpa_config_update_psk(ssid);
+	else if (os_strcmp(name, "priority") == 0)
+		wpa_config_update_prio_list(wpa_s->conf);
 
 	return 0;
 }
@@ -1613,6 +1623,71 @@ static int wpa_supplicant_ctrl_iface_ap_scan(
 }
 
 
+static void wpa_supplicant_ctrl_iface_drop_sa(struct wpa_supplicant *wpa_s)
+{
+	u8 *bcast = (u8 *) "\xff\xff\xff\xff\xff\xff";
+
+	wpa_printf(MSG_DEBUG, "Dropping SA without deauthentication");
+	/* MLME-DELETEKEYS.request */
+	wpa_drv_set_key(wpa_s, WPA_ALG_NONE, bcast, 0, 0, NULL, 0, NULL, 0);
+	wpa_drv_set_key(wpa_s, WPA_ALG_NONE, bcast, 1, 0, NULL, 0, NULL, 0);
+	wpa_drv_set_key(wpa_s, WPA_ALG_NONE, bcast, 2, 0, NULL, 0, NULL, 0);
+	wpa_drv_set_key(wpa_s, WPA_ALG_NONE, bcast, 3, 0, NULL, 0, NULL, 0);
+#ifdef CONFIG_IEEE80211W
+	wpa_drv_set_key(wpa_s, WPA_ALG_NONE, bcast, 4, 0, NULL, 0, NULL, 0);
+	wpa_drv_set_key(wpa_s, WPA_ALG_NONE, bcast, 5, 0, NULL, 0, NULL, 0);
+#endif /* CONFIG_IEEE80211W */
+
+	wpa_drv_set_key(wpa_s, WPA_ALG_NONE, wpa_s->bssid, 0, 0, NULL, 0, NULL,
+			0);
+	/* MLME-SETPROTECTION.request(None) */
+	wpa_drv_mlme_setprotection(wpa_s, wpa_s->bssid,
+				   MLME_SETPROTECTION_PROTECT_TYPE_NONE,
+				   MLME_SETPROTECTION_KEY_TYPE_PAIRWISE);
+	wpa_sm_drop_sa(wpa_s->wpa);
+}
+
+
+static int wpa_supplicant_ctrl_iface_roam(struct wpa_supplicant *wpa_s,
+					  char *addr)
+{
+	u8 bssid[ETH_ALEN];
+	struct wpa_bss *bss;
+	struct wpa_ssid *ssid = wpa_s->current_ssid;
+
+	if (hwaddr_aton(addr, bssid)) {
+		wpa_printf(MSG_DEBUG, "CTRL_IFACE ROAM: invalid "
+			   "address '%s'", addr);
+		return -1;
+	}
+
+	wpa_printf(MSG_DEBUG, "CTRL_IFACE ROAM " MACSTR, MAC2STR(bssid));
+
+	bss = wpa_bss_get_bssid(wpa_s, bssid);
+	if (!bss) {
+		wpa_printf(MSG_DEBUG, "CTRL_IFACE ROAM: Target AP not found "
+			   "from BSS table");
+		return -1;
+	}
+
+	/*
+	 * TODO: Find best network configuration block from configuration to
+	 * allow roaming to other networks
+	 */
+
+	if (!ssid) {
+		wpa_printf(MSG_DEBUG, "CTRL_IFACE ROAM: No network "
+			   "configuration known for the target AP");
+		return -1;
+	}
+
+	wpa_s->reassociate = 1;
+	wpa_supplicant_connect(wpa_s, bss, ssid);
+
+	return 0;
+}
+
+
 char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
 					 char *buf, size_t *resp_len)
 {
@@ -1754,7 +1829,8 @@ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
 	} else if (os_strcmp(buf, "DISCONNECT") == 0) {
 		wpa_s->reassociate = 0;
 		wpa_s->disconnected = 1;
-		wpa_supplicant_disassociate(wpa_s, WLAN_REASON_DEAUTH_LEAVING);
+		wpa_supplicant_deauthenticate(wpa_s,
+					      WLAN_REASON_DEAUTH_LEAVING);
 	} else if (os_strcmp(buf, "SCAN") == 0) {
 		wpa_s->scan_req = 2;
 		wpa_supplicant_req_scan(wpa_s, 0, 0);
@@ -1816,6 +1892,11 @@ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
 		wpas_notify_suspend(wpa_s->global);
 	} else if (os_strcmp(buf, "RESUME") == 0) {
 		wpas_notify_resume(wpa_s->global);
+	} else if (os_strcmp(buf, "DROP_SA") == 0) {
+		wpa_supplicant_ctrl_iface_drop_sa(wpa_s);
+	} else if (os_strncmp(buf, "ROAM ", 5) == 0) {
+		if (wpa_supplicant_ctrl_iface_roam(wpa_s, buf + 5))
+			reply_len = -1;
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);
 		reply_len = 16;
@@ -1951,7 +2032,7 @@ static int wpa_supplicant_global_iface_list(struct wpa_global *global,
 		struct wpa_driver_ops *drv = wpa_drivers[i];
 		if (drv->get_interfaces == NULL)
 			continue;
-		tmp = drv->get_interfaces(global->drv_priv);
+		tmp = drv->get_interfaces(global->drv_priv[i]);
 		if (tmp == NULL)
 			continue;
 

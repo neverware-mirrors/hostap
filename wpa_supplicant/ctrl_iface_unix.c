@@ -346,7 +346,7 @@ wpa_supplicant_ctrl_iface_init(struct wpa_supplicant *wpa_s)
 	}
 
 	os_memset(&addr, 0, sizeof(addr));
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 	addr.sun_len = sizeof(addr);
 #endif /* __FreeBSD__ */
 	addr.sun_family = AF_UNIX;
@@ -525,7 +525,9 @@ static void wpa_supplicant_ctrl_iface_send(struct ctrl_iface_priv *priv,
 					   "%d - %s",
 					   idx, errno, strerror(errno));
 				dst->errors++;
-				if (dst->errors > 10 || _errno == ENOENT) {
+				if (dst->errors > 1000 ||
+				    (_errno != ENOBUFS && dst->errors > 10) ||
+				    _errno == ENOENT) {
 					wpa_supplicant_ctrl_iface_detach(
 						priv, &dst->addr,
 						dst->addrlen);
@@ -645,7 +647,7 @@ wpa_supplicant_global_ctrl_iface_init(struct wpa_global *global)
 	}
 
 	os_memset(&addr, 0, sizeof(addr));
-#ifdef __FreeBSD__
+#if defined(__FreeBSD__) || defined(__FreeBSD_kernel__)
 	addr.sun_len = sizeof(addr);
 #endif /* __FreeBSD__ */
 	addr.sun_family = AF_UNIX;

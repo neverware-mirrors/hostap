@@ -82,6 +82,7 @@ struct wpa_sm {
 	unsigned int mgmt_group_cipher;
 
 	int rsn_enabled; /* Whether RSN is enabled in configuration */
+	int mfp; /* 0 = disabled, 1 = optional, 2 = mandatory */
 
 	u8 *assoc_wpa_ie; /* Own WPA/RSN IE from (Re)AssocReq */
 	size_t assoc_wpa_ie_len;
@@ -106,6 +107,10 @@ struct wpa_sm {
 	int ft_completed;
 	int over_the_ds_in_progress;
 	u8 target_ap[ETH_ALEN]; /* over-the-DS target AP */
+	int set_ptk_after_assoc;
+	u8 mdie_ft_capab; /* FT Capability and Policy from target AP MDIE */
+	u8 *assoc_resp_ies; /* MDIE and FTIE from (Re)Association Response */
+	size_t assoc_resp_ies_len;
 #endif /* CONFIG_IEEE80211R */
 };
 
@@ -221,6 +226,14 @@ static inline int wpa_sm_send_ft_action(struct wpa_sm *sm, u8 action,
 	if (sm->ctx->send_ft_action)
 		return sm->ctx->send_ft_action(sm->ctx->ctx, action, target_ap,
 					       ies, ies_len);
+	return -1;
+}
+
+static inline int wpa_sm_mark_authenticated(struct wpa_sm *sm,
+					    const u8 *target_ap)
+{
+	if (sm->ctx->mark_authenticated)
+		return sm->ctx->mark_authenticated(sm->ctx->ctx, target_ap);
 	return -1;
 }
 

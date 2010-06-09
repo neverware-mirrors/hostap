@@ -128,12 +128,25 @@ static void usage(void)
 
 
 #ifdef CONFIG_WPA_CLI_FORK
+static int in_query = 0;
+
+static void wpa_cli_monitor_sig(int sig)
+{
+	if (sig == SIGUSR1)
+		in_query = 1;
+	else if (sig == SIGUSR2)
+		in_query = 0;
+}
+
 static void wpa_cli_monitor(void)
 {
 	char buf[256];
 	size_t len = sizeof(buf) - 1;
 	struct timeval tv;
 	fd_set rfds;
+
+	signal(SIGUSR1, wpa_cli_monitor_sig);
+	signal(SIGUSR2, wpa_cli_monitor_sig);
 
 	while (mon_conn) {
 		int s = wpa_ctrl_get_fd(mon_conn);
@@ -142,6 +155,8 @@ static void wpa_cli_monitor(void)
 		FD_ZERO(&rfds);
 		FD_SET(s, &rfds);
 		if (select(s + 1, &rfds, NULL, NULL, &tv) < 0) {
+			if (errno == EINTR)
+				continue;
 			perror("select");
 			break;
 		}
@@ -155,7 +170,10 @@ static void wpa_cli_monitor(void)
 				break;
 			}
 			buf[len] = '\0';
+			if (in_query)
+				printf("\r");
 			printf("%s\n", buf);
+			kill(getppid(), SIGUSR1);
 		}
 	}
 }
@@ -237,6 +255,15 @@ static void wpa_cli_close_connection(void)
 	if (ctrl_conn == NULL)
 		return;
 
+#ifdef CONFIG_WPA_CLI_FORK
+	if (mon_pid) {
+		int status;
+		kill(mon_pid, SIGPIPE);
+		wait(&status);
+		mon_pid = 0;
+	}
+#endif /* CONFIG_WPA_CLI_FORK */
+
 	if (wpa_cli_attached) {
 		wpa_ctrl_detach(interactive ? mon_conn : ctrl_conn);
 		wpa_cli_attached = 0;
@@ -247,14 +274,6 @@ static void wpa_cli_close_connection(void)
 		wpa_ctrl_close(mon_conn);
 		mon_conn = NULL;
 	}
-#ifdef CONFIG_WPA_CLI_FORK
-	if (mon_pid) {
-		int status;
-		kill(mon_pid, SIGPIPE);
-		wait(&status);
-		mon_pid = 0;
-	}
-#endif /* CONFIG_WPA_CLI_FORK */
 }
 
 
@@ -1415,6 +1434,32 @@ static int wpa_cli_cmd_resume(struct wpa_ctrl *ctrl, int argc, char *argv[])
 }
 
 
+static int wpa_cli_cmd_drop_sa(struct wpa_ctrl *ctrl, int argc, char *argv[])
+{
+	return wpa_ctrl_command(ctrl, "DROP_SA");
+}
+
+
+static int wpa_cli_cmd_roam(struct wpa_ctrl *ctrl, int argc, char *argv[])
+{
+	char cmd[128];
+	int res;
+
+	if (argc != 1) {
+		printf("Invalid ROAM command: needs one argument "
+		       "(target AP's BSSID)\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "ROAM %s", argv[0]);
+	if (res < 0 || (size_t) res >= sizeof(cmd) - 1) {
+		printf("Too long ROAM command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+
 enum wpa_cli_cmd_flags {
 	cli_cmd_flag_none		= 0x00,
 	cli_cmd_flag_sensitive		= 0x01
@@ -1613,6 +1658,11 @@ static struct wpa_cli_cmd wpa_cli_commands[] = {
 	  "= notification of suspend/hibernate" },
 	{ "resume", wpa_cli_cmd_resume, cli_cmd_flag_none,
 	  "= notification of resume/thaw" },
+	{ "drop_sa", wpa_cli_cmd_drop_sa, cli_cmd_flag_none,
+	  "= drop SA without deauth/disassoc (test command)" },
+	{ "roam", wpa_cli_cmd_roam,
+	  cli_cmd_flag_none,
+	  "<addr> = roam to the specified BSS" },
 	{ NULL, NULL, cli_cmd_flag_none, NULL }
 };
 
@@ -1841,9 +1891,13 @@ static void wpa_cli_recv_pending(struct wpa_ctrl *ctrl, int in_read,
 				wpa_cli_action_process(buf);
 			else {
 				if (in_read && first)
-					printf("\n");
+					printf("\r");
 				first = 0;
 				printf("%s\n", buf);
+#ifdef CONFIG_READLINE
+				rl_on_new_line();
+				rl_redisplay();
+#endif /* CONFIG_READLINE */
 			}
 		} else {
 			printf("Could not read pending message.\n");
@@ -1882,14 +1936,60 @@ static char * wpa_cli_cmd_gen(const char *text, int state)
 
 static char * wpa_cli_dummy_gen(const char *text, int state)
 {
+	int i;
+
+	for (i = 0; wpa_cli_commands[i].cmd; i++) {
+		const char *cmd = wpa_cli_commands[i].cmd;
+		size_t len = os_strlen(cmd);
+		if (os_strncasecmp(rl_line_buffer, cmd, len) == 0 &&
+		    rl_line_buffer[len] == ' ') {
+			printf("\n%s\n", wpa_cli_commands[i].usage);
+			rl_on_new_line();
+			rl_redisplay();
+			break;
+		}
+	}
+
+	rl_attempted_completion_over = 1;
+	return NULL;
+}
+
+
+static char * wpa_cli_status_gen(const char *text, int state)
+{
+	static int i, len;
+	char *options[] = {
+		"verbose", NULL
+	};
+	char *t;
+
+	if (state == 0) {
+		i = 0;
+		len = os_strlen(text);
+	}
+
+	while ((t = options[i])) {
+		i++;
+		if (os_strncasecmp(t, text, len) == 0)
+			return strdup(t);
+	}
+
+	rl_attempted_completion_over = 1;
 	return NULL;
 }
 
 
 static char ** wpa_cli_completion(const char *text, int start, int end)
 {
-	return rl_completion_matches(text, start == 0 ?
-				     wpa_cli_cmd_gen : wpa_cli_dummy_gen);
+	char * (*func)(const char *text, int state);
+
+	if (start == 0)
+		func = wpa_cli_cmd_gen;
+	else if (os_strncasecmp(rl_line_buffer, "status ", 7) == 0)
+		func = wpa_cli_status_gen;
+	else
+		func = wpa_cli_dummy_gen;
+	return rl_completion_matches(text, func);
 }
 #endif /* CONFIG_READLINE */
 
@@ -1930,6 +2030,10 @@ static void wpa_cli_interactive(void)
 #ifndef CONFIG_NATIVE_WINDOWS
 		alarm(ping_interval);
 #endif /* CONFIG_NATIVE_WINDOWS */
+#ifdef CONFIG_WPA_CLI_FORK
+		if (mon_pid)
+			kill(mon_pid, SIGUSR1);
+#endif /* CONFIG_WPA_CLI_FORK */
 #ifdef CONFIG_READLINE
 		cmd = readline("> ");
 		if (cmd && *cmd) {
@@ -1985,6 +2089,10 @@ static void wpa_cli_interactive(void)
 
 		if (cmd != cmdbuf)
 			free(cmd);
+#ifdef CONFIG_WPA_CLI_FORK
+		if (mon_pid)
+			kill(mon_pid, SIGUSR2);
+#endif /* CONFIG_WPA_CLI_FORK */
 	} while (!wpa_cli_quit);
 
 #ifdef CONFIG_READLINE
@@ -2072,6 +2180,17 @@ static void wpa_cli_terminate(int sig)
 	wpa_cli_cleanup();
 	exit(0);
 }
+
+
+#ifdef CONFIG_WPA_CLI_FORK
+static void wpa_cli_usr1(int sig)
+{
+#ifdef CONFIG_READLINE
+	rl_on_new_line();
+	rl_redisplay();
+#endif /* CONFIG_READLINE */
+}
+#endif /* CONFIG_WPA_CLI_FORK */
 
 
 #ifndef CONFIG_NATIVE_WINDOWS
@@ -2221,6 +2340,9 @@ int main(int argc, char *argv[])
 #ifndef CONFIG_NATIVE_WINDOWS
 	signal(SIGALRM, wpa_cli_alarm);
 #endif /* CONFIG_NATIVE_WINDOWS */
+#ifdef CONFIG_WPA_CLI_FORK
+	signal(SIGUSR1, wpa_cli_usr1);
+#endif /* CONFIG_WPA_CLI_FORK */
 
 	if (ctrl_ifname == NULL)
 		ctrl_ifname = wpa_cli_get_default_ifname();

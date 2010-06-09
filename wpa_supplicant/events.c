@@ -394,6 +394,20 @@ static int wpa_supplicant_ssid_bss_match(struct wpa_supplicant *wpa_s,
 }
 
 
+static int freq_allowed(int *freqs, int freq)
+{
+	int i;
+
+	if (freqs == NULL)
+		return 1;
+
+	for (i = 0; freqs[i]; i++)
+		if (freqs[i] == freq)
+			return 1;
+	return 0;
+}
+
+
 static struct wpa_bss *
 wpa_supplicant_select_bss_wpa(struct wpa_supplicant *wpa_s,
 			      struct wpa_scan_results *scan_res,
@@ -476,6 +490,12 @@ wpa_supplicant_select_bss_wpa(struct wpa_supplicant *wpa_s,
 
 			if (!wpa_supplicant_ssid_bss_match(wpa_s, ssid, bss))
 				continue;
+
+			if (!freq_allowed(ssid->freq_list, bss->freq)) {
+				wpa_printf(MSG_DEBUG, "   skip - "
+					   "frequency not allowed");
+				continue;
+			}
 
 			wpa_printf(MSG_DEBUG, "   selected WPA AP "
 				   MACSTR " ssid='%s'",
@@ -604,6 +624,12 @@ wpa_supplicant_select_bss_non_wpa(struct wpa_supplicant *wpa_s,
 				continue;
 			}
 
+			if (!freq_allowed(ssid->freq_list, bss->freq)) {
+				wpa_printf(MSG_DEBUG, "   skip - "
+					   "frequency not allowed");
+				continue;
+			}
+
 			wpa_printf(MSG_DEBUG, "   selected non-WPA AP "
 				   MACSTR " ssid='%s'",
 				   MAC2STR(bss->bssid),
@@ -672,7 +698,7 @@ wpa_supplicant_pick_network(struct wpa_supplicant *wpa_s,
 
 
 static void wpa_supplicant_req_new_scan(struct wpa_supplicant *wpa_s,
-					int timeout)
+					int timeout_sec, int timeout_usec)
 {
 	if (wpa_s->scan_res_tried == 1 && wpa_s->conf->ap_scan == 1) {
 		/*
@@ -680,7 +706,8 @@ static void wpa_supplicant_req_new_scan(struct wpa_supplicant *wpa_s,
 		 * complete when fetched before the first scan request.
 		 */
 		wpa_s->scan_res_tried++;
-		timeout = 0;
+		timeout_sec = 0;
+		timeout_usec = 0;
 	} else if (!wpa_supplicant_enabled_networks(wpa_s->conf)) {
 		/*
 		 * No networks are enabled; short-circuit request so
@@ -690,18 +717,18 @@ static void wpa_supplicant_req_new_scan(struct wpa_supplicant *wpa_s,
 		wpa_supplicant_set_state(wpa_s, WPA_INACTIVE);
 		return;
 	}
-	wpa_supplicant_req_scan(wpa_s, timeout, 0);
+	wpa_supplicant_req_scan(wpa_s, timeout_sec, timeout_usec);
 }
 
 
-static void wpa_supplicant_connect(struct wpa_supplicant *wpa_s,
-				   struct wpa_bss *selected,
-				   struct wpa_ssid *ssid)
+void wpa_supplicant_connect(struct wpa_supplicant *wpa_s,
+			    struct wpa_bss *selected,
+			    struct wpa_ssid *ssid)
 {
 	if (wpas_wps_scan_pbc_overlap(wpa_s, selected, ssid)) {
 		wpa_msg(wpa_s, MSG_INFO, WPS_EVENT_OVERLAP
 			"PBC session overlap");
-		wpa_supplicant_req_new_scan(wpa_s, 10);
+		wpa_supplicant_req_new_scan(wpa_s, 10, 0);
 		return;
 	}
 
@@ -716,7 +743,7 @@ static void wpa_supplicant_connect(struct wpa_supplicant *wpa_s,
 	      os_memcmp(selected->bssid, wpa_s->pending_bssid, ETH_ALEN) !=
 	      0))) {
 		if (wpa_supplicant_scard_init(wpa_s, ssid)) {
-			wpa_supplicant_req_new_scan(wpa_s, 10);
+			wpa_supplicant_req_new_scan(wpa_s, 10, 0);
 			return;
 		}
 		wpa_supplicant_associate(wpa_s, selected, ssid);
@@ -820,6 +847,14 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 	wpa_printf(MSG_DEBUG, "Selected BSS: " MACSTR " level=%d",
 		   MAC2STR(selected->bssid), selected->level);
 
+	if (wpa_s->current_ssid->bssid_set &&
+	    os_memcmp(selected->bssid, wpa_s->current_ssid->bssid, ETH_ALEN) ==
+	    0) {
+		wpa_printf(MSG_DEBUG, "Allow reassociation - selected BSS has "
+			   "preferred BSSID");
+		return 1;
+	}
+
 	min_diff = 2;
 	if (current_bss->level < 0) {
 		if (current_bss->level < -85)
@@ -860,7 +895,14 @@ static void wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 			return;
 		wpa_printf(MSG_DEBUG, "Failed to get scan results - try "
 			   "scanning again");
-		wpa_supplicant_req_new_scan(wpa_s, 1);
+		wpa_supplicant_req_new_scan(wpa_s, 1, 0);
+		return;
+	}
+
+	if (wpa_s->scan_res_handler) {
+		wpa_s->scan_res_handler(wpa_s, scan_res);
+		wpa_s->scan_res_handler = NULL;
+		wpa_scan_results_free(scan_res);
 		return;
 	}
 
@@ -915,65 +957,22 @@ static void wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 		if (ssid) {
 			wpa_printf(MSG_DEBUG, "Setup a new network");
 			wpa_supplicant_associate(wpa_s, NULL, ssid);
-		} else
-			wpa_supplicant_req_new_scan(wpa_s, 5);
+		} else {
+			int timeout_sec = 5;
+			int timeout_usec = 0;
+			wpa_supplicant_req_new_scan(wpa_s, timeout_sec,
+						    timeout_usec);
+		}
 	}
 }
 #endif /* CONFIG_NO_SCAN_PROCESSING */
 
 
-#ifdef CONFIG_IEEE80211R
-static void wpa_assoc_set_ft_params(struct wpa_supplicant *wpa_s,
-				    const u8 *ftie, const u8 *mdie)
-{
-	const u8 *mobility_domain = NULL;
-	const u8 *r0kh_id = NULL;
-	size_t r0kh_id_len = 0;
-	const u8 *r1kh_id = NULL;
-	struct rsn_ftie *hdr;
-	const u8 *pos, *end;
-
-	if (mdie == NULL || ftie == NULL)
-		return;
-
-	if (mdie[1] >= MOBILITY_DOMAIN_ID_LEN) {
-		mobility_domain = mdie + 2;
-#ifdef CONFIG_SME
-		wpa_s->sme.ft_used = 1;
-		os_memcpy(wpa_s->sme.mobility_domain, mobility_domain, 2);
-#endif /* CONFIG_SME */
-	}
-	if (ftie[1] >= sizeof(struct rsn_ftie)) {
-		end = ftie + 2 + ftie[1];
-		hdr = (struct rsn_ftie *) (ftie + 2);
-		pos = (const u8 *) (hdr + 1);
-		while (pos + 1 < end) {
-			if (pos + 2 + pos[1] > end)
-				break;
-			if (pos[0] == FTIE_SUBELEM_R1KH_ID &&
-			    pos[1] == FT_R1KH_ID_LEN)
-				r1kh_id = pos + 2;
-			else if (pos[0] == FTIE_SUBELEM_R0KH_ID &&
-				 pos[1] >= 1 && pos[1] <= FT_R0KH_ID_MAX_LEN) {
-				r0kh_id = pos + 2;
-				r0kh_id_len = pos[1];
-			}
-			pos += 2 + pos[1];
-		}
-	}
-	wpa_sm_set_ft_params(wpa_s->wpa, mobility_domain, r0kh_id,
-			     r0kh_id_len, r1kh_id);
-}
-#endif /* CONFIG_IEEE80211R */
-
-static void wpa_supplicant_event_associnfo(struct wpa_supplicant *wpa_s,
-					   union wpa_event_data *data)
+static int wpa_supplicant_event_associnfo(struct wpa_supplicant *wpa_s,
+					  union wpa_event_data *data)
 {
 	int l, len, found = 0, wpa_found, rsn_found;
 	const u8 *p;
-#ifdef CONFIG_IEEE80211R
-	const u8 *mdie = NULL, *ftie = NULL;
-#endif /* CONFIG_IEEE80211R */
 
 	wpa_printf(MSG_DEBUG, "Association info event");
 	if (data->assoc_info.req_ies)
@@ -1016,10 +1015,26 @@ static void wpa_supplicant_event_associnfo(struct wpa_supplicant *wpa_s,
 		wpa_sm_set_assoc_wpa_ie(wpa_s->wpa, NULL, 0);
 
 #ifdef CONFIG_IEEE80211R
+#ifdef CONFIG_SME
+	if (wpa_s->sme.auth_alg == WPA_AUTH_ALG_FT) {
+		u8 bssid[ETH_ALEN];
+		if (wpa_drv_get_bssid(wpa_s, bssid) < 0 ||
+		    wpa_ft_validate_reassoc_resp(wpa_s->wpa,
+						 data->assoc_info.resp_ies,
+						 data->assoc_info.resp_ies_len,
+						 bssid) < 0) {
+			wpa_printf(MSG_DEBUG, "FT: Validation of "
+				   "Reassociation Response failed");
+			wpa_supplicant_deauthenticate(
+				wpa_s, WLAN_REASON_INVALID_IE);
+			return -1;
+		}
+	}
+
 	p = data->assoc_info.resp_ies;
 	l = data->assoc_info.resp_ies_len;
 
-	/* Go through the IEs and make a copy of the FT/MD IE, if present. */
+	/* Go through the IEs and make a copy of the MDIE, if present. */
 	while (p && l >= 2) {
 		len = p[1] + 2;
 		if (len > l) {
@@ -1027,15 +1042,20 @@ static void wpa_supplicant_event_associnfo(struct wpa_supplicant *wpa_s,
 				    p, l);
 			break;
 		}
-		if (p[0] == WLAN_EID_FAST_BSS_TRANSITION)
-			ftie = p;
-		else if (p[0] == WLAN_EID_MOBILITY_DOMAIN)
-			mdie = p;
+		if (p[0] == WLAN_EID_MOBILITY_DOMAIN &&
+		    p[1] >= MOBILITY_DOMAIN_ID_LEN) {
+			wpa_s->sme.ft_used = 1;
+			os_memcpy(wpa_s->sme.mobility_domain, p + 2,
+				  MOBILITY_DOMAIN_ID_LEN);
+			break;
+		}
 		l -= len;
 		p += len;
 	}
+#endif /* CONFIG_SME */
 
-	wpa_assoc_set_ft_params(wpa_s, ftie, mdie);
+	wpa_sm_set_ft_params(wpa_s->wpa, data->assoc_info.resp_ies,
+			     data->assoc_info.resp_ies_len);
 #endif /* CONFIG_IEEE80211R */
 
 	/* WPA/RSN IE from Beacon/ProbeResp */
@@ -1077,6 +1097,8 @@ static void wpa_supplicant_event_associnfo(struct wpa_supplicant *wpa_s,
 		wpa_s->ap_ies_from_associnfo = 1;
 
 	wpa_s->assoc_freq = data->assoc_info.freq;
+
+	return 0;
 }
 
 
@@ -1099,8 +1121,8 @@ static void wpa_supplicant_event_assoc(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_AP */
 
 	ft_completed = wpa_ft_is_completed(wpa_s->wpa);
-	if (data)
-		wpa_supplicant_event_associnfo(wpa_s, data);
+	if (data && wpa_supplicant_event_associnfo(wpa_s, data) < 0)
+		return;
 
 	wpa_supplicant_set_state(wpa_s, WPA_ASSOCIATED);
 	if (wpa_s->drv_flags & WPA_DRIVER_FLAGS_USER_SPACE_MLME)
@@ -1242,7 +1264,8 @@ static void wpa_supplicant_event_assoc(struct wpa_supplicant *wpa_s,
 }
 
 
-static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s)
+static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s,
+					  u16 reason_code)
 {
 	const u8 *bssid;
 #ifdef CONFIG_SME
@@ -1276,9 +1299,11 @@ static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s)
 		bssid = wpa_s->pending_bssid;
 	wpa_blacklist_add(wpa_s, bssid);
 	wpa_sm_notify_disassoc(wpa_s->wpa);
-	wpa_msg(wpa_s, MSG_INFO, WPA_EVENT_DISCONNECTED "- Disconnect event - "
-		"remove keys");
+	wpa_msg(wpa_s, MSG_INFO, WPA_EVENT_DISCONNECTED "bssid=" MACSTR
+		" reason=%d",
+		MAC2STR(bssid), reason_code);
 	if (wpa_supplicant_dynamic_keys(wpa_s)) {
+		wpa_printf(MSG_DEBUG, "Disconnect event - remove keys");
 		wpa_s->keys_cleared = 0;
 		wpa_clear_keys(wpa_s, wpa_s->bssid);
 	}
@@ -1498,10 +1523,65 @@ static void wpa_supplicant_event_ibss_rsn_start(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_IBSS_RSN */
 
 
+#ifdef CONFIG_IEEE80211R
+static void ft_rx_action(struct wpa_supplicant *wpa_s, const u8 *data,
+			 size_t len)
+{
+	const u8 *sta_addr, *target_ap_addr;
+	u16 status;
+
+	wpa_hexdump(MSG_MSGDUMP, "FT: RX Action", data, len);
+	if (!(wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME))
+		return; /* only SME case supported for now */
+	if (len < 1 + 2 * ETH_ALEN + 2)
+		return;
+	if (data[0] != 2)
+		return; /* Only FT Action Response is supported for now */
+	sta_addr = data + 1;
+	target_ap_addr = data + 1 + ETH_ALEN;
+	status = WPA_GET_LE16(data + 1 + 2 * ETH_ALEN);
+	wpa_printf(MSG_DEBUG, "FT: Received FT Action Response: STA " MACSTR
+		   " TargetAP " MACSTR " status %u",
+		   MAC2STR(sta_addr), MAC2STR(target_ap_addr), status);
+
+	if (os_memcmp(sta_addr, wpa_s->own_addr, ETH_ALEN) != 0) {
+		wpa_printf(MSG_DEBUG, "FT: Foreign STA Address " MACSTR
+			   " in FT Action Response", MAC2STR(sta_addr));
+		return;
+	}
+
+	if (status) {
+		wpa_printf(MSG_DEBUG, "FT: FT Action Response indicates "
+			   "failure (status code %d)", status);
+		/* TODO: report error to FT code(?) */
+		return;
+	}
+
+	if (wpa_ft_process_response(wpa_s->wpa, data + 1 + 2 * ETH_ALEN + 2,
+				    len - (1 + 2 * ETH_ALEN + 2), 1,
+				    target_ap_addr, NULL, 0) < 0)
+		return;
+
+#ifdef CONFIG_SME
+	{
+		struct wpa_bss *bss;
+		bss = wpa_bss_get_bssid(wpa_s, target_ap_addr);
+		if (bss)
+			wpa_s->sme.freq = bss->freq;
+		wpa_s->sme.auth_alg = WPA_AUTH_ALG_FT;
+		sme_associate(wpa_s, WPAS_MODE_INFRA, target_ap_addr,
+			      WLAN_AUTH_FT);
+	}
+#endif /* CONFIG_SME */
+}
+#endif /* CONFIG_IEEE80211R */
+
+
 void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 			  union wpa_event_data *data)
 {
 	struct wpa_supplicant *wpa_s = ctx;
+	u16 reason_code = 0;
 
 	switch (event) {
 	case EVENT_AUTH:
@@ -1519,12 +1599,17 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 			break;
 		}
 #endif /* CONFIG_AP */
+		if (data)
+			reason_code = data->deauth_info.reason_code;
 		if (wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME)
 			sme_event_disassoc(wpa_s, data);
 		/* fall through */
 	case EVENT_DEAUTH:
-		if (event == EVENT_DEAUTH)
+		if (event == EVENT_DEAUTH) {
 			wpa_printf(MSG_DEBUG, "Deauthentication notification");
+			if (data)
+				reason_code = data->deauth_info.reason_code;
+		}
 #ifdef CONFIG_AP
 		if (wpa_s->ap_iface && data) {
 			hostapd_notif_disassoc(wpa_s->ap_iface->bss[0],
@@ -1532,7 +1617,7 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 			break;
 		}
 #endif /* CONFIG_AP */
-		wpa_supplicant_event_disassoc(wpa_s);
+		wpa_supplicant_event_disassoc(wpa_s, reason_code);
 		break;
 	case EVENT_MICHAEL_MIC_FAILURE:
 		wpa_supplicant_event_michael_mic_failure(wpa_s, data);
@@ -1606,6 +1691,20 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 		ap_mgmt_rx(wpa_s, &data->rx_mgmt);
 		break;
 #endif /* CONFIG_AP */
+	case EVENT_RX_ACTION:
+		wpa_printf(MSG_DEBUG, "Received Action frame: SA=" MACSTR
+			   " Category=%u DataLen=%d freq=%d MHz",
+			   MAC2STR(data->rx_action.sa),
+			   data->rx_action.category, (int) data->rx_action.len,
+			   data->rx_action.freq);
+#ifdef CONFIG_IEEE80211R
+		if (data->rx_action.category == WLAN_ACTION_FT) {
+			ft_rx_action(wpa_s, data->rx_action.data,
+				     data->rx_action.len);
+			break;
+		}
+#endif /* CONFIG_IEEE80211R */
+		break;
 #ifdef CONFIG_CLIENT_MLME
 	case EVENT_MLME_RX: {
 		struct ieee80211_rx_status rx_status;
@@ -1622,6 +1721,10 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 		wpa_supplicant_rx_eapol(wpa_s, data->eapol_rx.src,
 					data->eapol_rx.data,
 					data->eapol_rx.data_len);
+		break;
+	case EVENT_SIGNAL_CHANGE:
+		bgscan_notify_signal_change(
+			wpa_s, data->signal_change.above_threshold);
 		break;
 	default:
 		wpa_printf(MSG_INFO, "Unknown event %d", event);

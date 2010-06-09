@@ -457,7 +457,9 @@ static const struct global_parse_data global_fields[] = {
 	{ STR(config_methods) },
 	{ INT_RANGE(wps_cred_processing, 0, 2) },
 #endif /* CONFIG_WPS */
-	{ FUNC(country) }
+	{ FUNC(country) },
+	{ INT(bss_max_count) },
+	{ INT_RANGE(filter_ssids, 0, 1) }
 };
 
 #undef FUNC
@@ -889,6 +891,10 @@ static void wpa_config_write_global(FILE *f, struct wpa_config *config)
 		fprintf(f, "country=%c%c\n",
 			config->country[0], config->country[1]);
 	}
+	if (config->bss_max_count != DEFAULT_BSS_MAX_COUNT)
+		fprintf(f, "bss_max_count=%u\n", config->bss_max_count);
+	if (config->filter_ssids)
+		fprintf(f, "filter_ssids=%d\n", config->filter_ssids);
 }
 
 #endif /* CONFIG_NO_CONFIG_WRITE */

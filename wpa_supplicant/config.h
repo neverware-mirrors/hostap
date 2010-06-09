@@ -22,6 +22,7 @@
 #define DEFAULT_AP_SCAN 1
 #endif /* CONFIG_NO_SCAN_PROCESSING */
 #define DEFAULT_FAST_REAUTH 1
+#define DEFAULT_BSS_MAX_COUNT 200
 
 #include "config_ssid.h"
 
@@ -331,6 +332,19 @@ struct wpa_config {
 	 *	ctrl_iface to external program(s)
 	 */
 	int wps_cred_processing;
+
+	/**
+	 * bss_max_count - Maximum number of BSS entries to keep in memory
+	 */
+	unsigned int bss_max_count;
+
+	/**
+	 * filter_ssids - SSID-based scan result filtering
+	 *
+	 *   0 = do not filter scan results
+	 *   1 = only include configured SSIDs in scan results/BSS table
+	 */
+	int filter_ssids;
 };
 
 
@@ -350,6 +364,7 @@ char * wpa_config_get_no_key(struct wpa_ssid *ssid, const char *var);
 void wpa_config_update_psk(struct wpa_ssid *ssid);
 int wpa_config_add_prio_network(struct wpa_config *config,
 				struct wpa_ssid *ssid);
+int wpa_config_update_prio_list(struct wpa_config *config);
 const struct wpa_config_blob * wpa_config_get_blob(struct wpa_config *config,
 						   const char *name);
 void wpa_config_set_blob(struct wpa_config *config,

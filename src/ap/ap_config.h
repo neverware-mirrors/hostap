@@ -234,7 +234,9 @@ struct hostapd_bss_config {
 #endif /* CONFIG_IEEE80211R */
 
 	char *ctrl_interface; /* directory for UNIX domain sockets */
+#ifndef CONFIG_NATIVE_WINDOWS
 	gid_t ctrl_interface_gid;
+#endif /* CONFIG_NATIVE_WINDOWS */
 	int ctrl_interface_gid_set;
 
 	char *ca_cert;
@@ -268,6 +270,7 @@ struct hostapd_bss_config {
 	int ignore_broadcast_ssid;
 
 	int wmm_enabled;
+	int wmm_uapsd;
 
 	struct hostapd_vlan *vlan, *vlan_tail;
 

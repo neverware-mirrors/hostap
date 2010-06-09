@@ -28,33 +28,22 @@
 #endif
 #endif /* _BYTE_ORDER */
 
-#include <net80211/ieee80211.h>
-#include <net80211/_ieee80211.h>
-#include <net80211/ieee80211_crypto.h>
-
 /*
  * Note, the ATH_WPS_IE setting must match with the driver build.. If the
  * driver does not include this, the IEEE80211_IOCTL_GETWPAIE ioctl will fail.
  */
 #define ATH_WPS_IE
-#include <net80211/ieee80211_ioctl.h>
+
+#include "os/linux/include/ieee80211_external.h"
+
 
 #ifdef CONFIG_WPS
-#ifdef IEEE80211_IOCTL_FILTERFRAME
 #include <netpacket/packet.h>
 
 #ifndef ETH_P_80211_RAW
 #define ETH_P_80211_RAW 0x0019
 #endif
-#endif /* IEEE80211_IOCTL_FILTERFRAME */
 #endif /* CONFIG_WPS */
-
-/*
- * Avoid conflicts with hostapd definitions by undefining couple of defines
- * from madwifi header files.
- */
-#undef WPA_OUI_TYPE
-#undef WME_OUI_TYPE
 
 #include "wireless_copy.h"
 
@@ -86,6 +75,108 @@ struct madwifi_driver_data {
 static int madwifi_sta_deauth(void *priv, const u8 *own_addr, const u8 *addr,
 			      int reason_code);
 
+static const char * athr_get_ioctl_name(int op)
+{
+	switch (op) {
+	case IEEE80211_IOCTL_SETPARAM:
+		return "SETPARAM";
+	case IEEE80211_IOCTL_GETPARAM:
+		return "GETPARAM";
+	case IEEE80211_IOCTL_SETKEY:
+		return "SETKEY";
+	case IEEE80211_IOCTL_SETWMMPARAMS:
+		return "SETWMMPARAMS";
+	case IEEE80211_IOCTL_DELKEY:
+		return "DELKEY";
+	case IEEE80211_IOCTL_GETWMMPARAMS:
+		return "GETWMMPARAMS";
+	case IEEE80211_IOCTL_SETMLME:
+		return "SETMLME";
+	case IEEE80211_IOCTL_GETCHANINFO:
+		return "GETCHANINFO";
+	case IEEE80211_IOCTL_SETOPTIE:
+		return "SETOPTIE";
+	case IEEE80211_IOCTL_GETOPTIE:
+		return "GETOPTIE";
+	case IEEE80211_IOCTL_ADDMAC:
+		return "ADDMAC";
+	case IEEE80211_IOCTL_DELMAC:
+		return "DELMAC";
+	case IEEE80211_IOCTL_GETCHANLIST:
+		return "GETCHANLIST";
+	case IEEE80211_IOCTL_SETCHANLIST:
+		return "SETCHANLIST";
+	case IEEE80211_IOCTL_KICKMAC:
+		return "KICKMAC";
+	case IEEE80211_IOCTL_CHANSWITCH:
+		return "CHANSWITCH";
+	case IEEE80211_IOCTL_GETMODE:
+		return "GETMODE";
+	case IEEE80211_IOCTL_SETMODE:
+		return "SETMODE";
+	case IEEE80211_IOCTL_GET_APPIEBUF:
+		return "GET_APPIEBUF";
+	case IEEE80211_IOCTL_SET_APPIEBUF:
+		return "SET_APPIEBUF";
+	case IEEE80211_IOCTL_SET_ACPARAMS:
+		return "SET_ACPARAMS";
+	case IEEE80211_IOCTL_FILTERFRAME:
+		return "FILTERFRAME";
+	case IEEE80211_IOCTL_SET_RTPARAMS:
+		return "SET_RTPARAMS";
+	case IEEE80211_IOCTL_SENDADDBA:
+		return "SENDADDBA";
+	case IEEE80211_IOCTL_GETADDBASTATUS:
+		return "GETADDBASTATUS";
+	case IEEE80211_IOCTL_SENDDELBA:
+		return "SENDDELBA";
+	case IEEE80211_IOCTL_SET_MEDENYENTRY:
+		return "SET_MEDENYENTRY";
+	case IEEE80211_IOCTL_SET_ADDBARESP:
+		return "SET_ADDBARESP";
+	case IEEE80211_IOCTL_GET_MACADDR:
+		return "GET_MACADDR";
+	case IEEE80211_IOCTL_SET_HBRPARAMS:
+		return "SET_HBRPARAMS";
+	case IEEE80211_IOCTL_SET_RXTIMEOUT:
+		return "SET_RXTIMEOUT";
+	case IEEE80211_IOCTL_STA_STATS:
+		return "STA_STATS";
+	case IEEE80211_IOCTL_GETWPAIE:
+		return "GETWPAIE";
+	default:
+		return "??";
+	}
+}
+
+
+static const char * athr_get_param_name(int op)
+{
+	switch (op) {
+	case IEEE80211_IOC_MCASTCIPHER:
+		return "MCASTCIPHER";
+	case IEEE80211_PARAM_MCASTKEYLEN:
+		return "MCASTKEYLEN";
+	case IEEE80211_PARAM_UCASTCIPHERS:
+		return "UCASTCIPHERS";
+	case IEEE80211_PARAM_KEYMGTALGS:
+		return "KEYMGTALGS";
+	case IEEE80211_PARAM_RSNCAPS:
+		return "RSNCAPS";
+	case IEEE80211_PARAM_WPA:
+		return "WPA";
+	case IEEE80211_PARAM_AUTHMODE:
+		return "AUTHMODE";
+	case IEEE80211_PARAM_PRIVACY:
+		return "PRIVACY";
+	case IEEE80211_PARAM_COUNTERMEASURES:
+		return "COUNTERMEASURES";
+	default:
+		return "??";
+	}
+}
+
+
 static int
 set80211priv(struct madwifi_driver_data *drv, int op, void *data, int len)
 {
@@ -115,40 +206,11 @@ set80211priv(struct madwifi_driver_data *drv, int op, void *data, int len)
 	}
 
 	if (ioctl(drv->ioctl_sock, op, &iwr) < 0) {
-		int first = IEEE80211_IOCTL_SETPARAM;
-		static const char *opnames[] = {
-			"ioctl[IEEE80211_IOCTL_SETPARAM]",
-			"ioctl[IEEE80211_IOCTL_GETPARAM]",
-			"ioctl[IEEE80211_IOCTL_SETKEY]",
-			"ioctl[IEEE80211_IOCTL_SETWMMPARAMS]",
-			"ioctl[IEEE80211_IOCTL_DELKEY]",
-			"ioctl[IEEE80211_IOCTL_GETWMMPARAMS]",
-			"ioctl[IEEE80211_IOCTL_SETMLME]",
-			"ioctl[IEEE80211_IOCTL_GETCHANINFO]",
-			"ioctl[IEEE80211_IOCTL_SETOPTIE]",
-			"ioctl[IEEE80211_IOCTL_GETOPTIE]",
-			"ioctl[IEEE80211_IOCTL_ADDMAC]",
-			"ioctl[IEEE80211_IOCTL_DELMAC]",
-			"ioctl[IEEE80211_IOCTL_GETCHANLIST]",
-			"ioctl[IEEE80211_IOCTL_SETCHANLIST]",
-			"ioctl[IEEE80211_IOCTL_KICKMAC]",
-			"ioctl[IEEE80211_IOCTL_CHANSWITCH]",
-			"ioctl[IEEE80211_IOCTL_GETMODE]",
-			"ioctl[IEEE80211_IOCTL_SETMODE]",
-			"ioctl[IEEE80211_IOCTL_GET_APPIEBUF]",
-			"ioctl[IEEE80211_IOCTL_SET_APPIEBUF]",
-			NULL,
-			"ioctl[IEEE80211_IOCTL_FILTERFRAME]",
-		};
-		int idx = op - first;
-		if (first <= op &&
-		    idx < (int) (sizeof(opnames) / sizeof(opnames[0])) &&
-		    opnames[idx])
-			perror(opnames[idx]);
-		else {
-			perror("ioctl[unknown???]");
-			wpa_printf(MSG_DEBUG, "Failed ioctl: 0x%x", op);
-		}
+		wpa_printf(MSG_DEBUG, "atheros: %s: %s: ioctl op=0x%x "
+			   "(%s) len=%d failed: %d (%s)",
+			   __func__, drv->iface, op,
+			   athr_get_ioctl_name(op),
+			   len, errno, strerror(errno));
 		return -1;
 	}
 	return 0;
@@ -166,8 +228,9 @@ set80211param(struct madwifi_driver_data *drv, int op, int arg)
 
 	if (ioctl(drv->ioctl_sock, IEEE80211_IOCTL_SETPARAM, &iwr) < 0) {
 		perror("ioctl[IEEE80211_IOCTL_SETPARAM]");
-		wpa_printf(MSG_DEBUG, "%s: Failed to set parameter (op %d "
-			   "arg %d)", __func__, op, arg);
+		wpa_printf(MSG_DEBUG, "%s: %s: Failed to set parameter (op %d "
+			   "(%s) arg %d)", __func__, drv->iface, op,
+			   athr_get_param_name(op), arg);
 		return -1;
 	}
 	return 0;
@@ -304,7 +367,7 @@ madwifi_set_ieee8021x(void *priv, struct wpa_bss_params *params)
 }
 
 static int
-madwifi_set_privacy(const char *ifname, void *priv, int enabled)
+madwifi_set_privacy(void *priv, int enabled)
 {
 	struct madwifi_driver_data *drv = priv;
 
@@ -339,8 +402,8 @@ madwifi_set_sta_authorized(void *priv, const u8 *addr, int authorized)
 }
 
 static int
-madwifi_sta_set_flags(void *priv, const u8 *addr, int total_flags,
-		      int flags_or, int flags_and)
+madwifi_sta_set_flags(void *priv, const u8 *addr,
+		      int total_flags, int flags_or, int flags_and)
 {
 	/* For now, only support setting Authorized flag */
 	if (flags_or & WPA_STA_AUTHORIZED)
@@ -473,6 +536,9 @@ madwifi_get_seqnum(const char *ifname, void *priv, const u8 *addr, int idx,
 		 * swap it to match with the byte order used in WPA.
 		 */
 		int i;
+#ifndef WPA_KEY_RSC_LEN
+#define WPA_KEY_RSC_LEN 8
+#endif
 		u8 tmp[WPA_KEY_RSC_LEN];
 		memcpy(tmp, &wk.ik_keytsc, sizeof(wk.ik_keytsc));
 		for (i = 0; i < WPA_KEY_RSC_LEN; i++) {
@@ -554,7 +620,7 @@ madwifi_sta_clear_stats(void *priv, const u8 *addr)
 
 
 static int
-madwifi_set_opt_ie(const char *ifname, void *priv, const u8 *ie, size_t ie_len)
+madwifi_set_opt_ie(void *priv, const u8 *ie, size_t ie_len)
 {
 	/*
 	 * Do nothing; we setup parameters at startup that define the
@@ -683,8 +749,7 @@ madwifi_set_wps_ie(void *priv, const u8 *ie, size_t len, u32 frametype)
 }
 
 static int
-madwifi_set_ap_wps_ie(const char *ifname, void *priv,
-		      const struct wpabuf *beacon,
+madwifi_set_ap_wps_ie(void *priv, const struct wpabuf *beacon,
 		      const struct wpabuf *proberesp)
 {
 	if (madwifi_set_wps_ie(priv, beacon ? wpabuf_head(beacon) : NULL,
@@ -1110,7 +1175,7 @@ madwifi_init(struct hostapd_data *hapd, struct wpa_init_params *params)
 
 	/* mark down during setup */
 	linux_set_iface_flags(drv->ioctl_sock, drv->iface, 0);
-	madwifi_set_privacy(drv->iface, drv, 0); /* default to no privacy */
+	madwifi_set_privacy(drv, 0); /* default to no privacy */
 
 	madwifi_receive_probe_req(drv);
 
@@ -1148,7 +1213,7 @@ madwifi_deinit(void *priv)
 }
 
 static int
-madwifi_set_ssid(const char *ifname, void *priv, const u8 *buf, int len)
+madwifi_set_ssid(void *priv, const u8 *buf, int len)
 {
 	struct madwifi_driver_data *drv = priv;
 	struct iwreq iwr;
@@ -1168,7 +1233,7 @@ madwifi_set_ssid(const char *ifname, void *priv, const u8 *buf, int len)
 }
 
 static int
-madwifi_get_ssid(const char *ifname, void *priv, u8 *buf, int len)
+madwifi_get_ssid(void *priv, u8 *buf, int len)
 {
 	struct madwifi_driver_data *drv = priv;
 	struct iwreq iwr;

@@ -1,6 +1,6 @@
 /*
  * wpa_supplicant - SME
- * Copyright (c) 2009, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2009-2010, Jouni Malinen <j@w1.fi>
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 as
@@ -16,6 +16,7 @@
 
 #include "common.h"
 #include "common/ieee802_11_defs.h"
+#include "common/ieee802_11_common.h"
 #include "eapol_supp/eapol_supp_sm.h"
 #include "common/wpa_common.h"
 #include "rsn_supp/wpa.h"
@@ -159,10 +160,10 @@ void sme_authenticate(struct wpa_supplicant *wpa_s,
 	ie = wpa_bss_get_ie(bss, WLAN_EID_MOBILITY_DOMAIN);
 	if (ie && ie[1] >= MOBILITY_DOMAIN_ID_LEN)
 		md = ie + 2;
-	wpa_sm_set_ft_params(wpa_s->wpa, md, NULL, 0, NULL);
+	wpa_sm_set_ft_params(wpa_s->wpa, ie, ie ? 2 + ie[1] : 0);
 	if (md) {
 		/* Prepare for the next transition */
-		wpa_ft_prepare_auth_request(wpa_s->wpa);
+		wpa_ft_prepare_auth_request(wpa_s->wpa, ie);
 	}
 
 	if (md && ssid->key_mgmt & (WPA_KEY_MGMT_FT_PSK |
@@ -177,12 +178,13 @@ void sme_authenticate(struct wpa_supplicant *wpa_s,
 			mdie = (struct rsn_mdie *) pos;
 			os_memcpy(mdie->mobility_domain, md,
 				  MOBILITY_DOMAIN_ID_LEN);
-			mdie->ft_capab = 0;
+			mdie->ft_capab = md[MOBILITY_DOMAIN_ID_LEN];
 			wpa_s->sme.assoc_req_ie_len += 5;
 		}
 
 		if (wpa_s->sme.ft_used &&
-		    os_memcmp(md, wpa_s->sme.mobility_domain, 2) == 0) {
+		    os_memcmp(md, wpa_s->sme.mobility_domain, 2) == 0 &&
+		    wpa_sm_has_ptk(wpa_s->wpa)) {
 			wpa_printf(MSG_DEBUG, "SME: Trying to use FT "
 				   "over-the-air");
 			params.auth_alg = WPA_AUTH_ALG_FT;
@@ -222,6 +224,7 @@ void sme_authenticate(struct wpa_supplicant *wpa_s,
 	if (old_ssid != wpa_s->current_ssid)
 		wpas_notify_network_changed(wpa_s);
 
+	wpa_s->sme.auth_alg = params.auth_alg;
 	if (wpa_drv_authenticate(wpa_s, &params) < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Authentication request to the "
 			"driver failed");
@@ -239,7 +242,6 @@ void sme_authenticate(struct wpa_supplicant *wpa_s,
 
 void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 {
-	struct wpa_driver_associate_params params;
 	struct wpa_ssid *ssid = wpa_s->current_ssid;
 
 	if (ssid == NULL) {
@@ -285,8 +287,19 @@ void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 	}
 #endif /* CONFIG_IEEE80211R */
 
+	sme_associate(wpa_s, ssid->mode, data->auth.peer,
+		      data->auth.auth_type);
+}
+
+
+void sme_associate(struct wpa_supplicant *wpa_s, enum wpas_mode mode,
+		   const u8 *bssid, u16 auth_type)
+{
+	struct wpa_driver_associate_params params;
+	struct ieee802_11_elems elems;
+
 	os_memset(&params, 0, sizeof(params));
-	params.bssid = data->auth.peer;
+	params.bssid = bssid;
 	params.ssid = wpa_s->sme.ssid;
 	params.ssid_len = wpa_s->sme.ssid_len;
 	params.freq = wpa_s->sme.freq;
@@ -294,12 +307,12 @@ void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 		wpa_s->sme.assoc_req_ie : NULL;
 	params.wpa_ie_len = wpa_s->sme.assoc_req_ie_len;
 #ifdef CONFIG_IEEE80211R
-	if (data->auth.auth_type == WLAN_AUTH_FT && wpa_s->sme.ft_ies) {
+	if (auth_type == WLAN_AUTH_FT && wpa_s->sme.ft_ies) {
 		params.wpa_ie = wpa_s->sme.ft_ies;
 		params.wpa_ie_len = wpa_s->sme.ft_ies_len;
 	}
 #endif /* CONFIG_IEEE80211R */
-	params.mode = ssid->mode;
+	params.mode = mode;
 	params.mgmt_frame_protection = wpa_s->sme.mfp;
 	if (wpa_s->sme.prev_bssid_set)
 		params.prev_bssid = wpa_s->sme.prev_bssid;
@@ -310,6 +323,21 @@ void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 		params.freq);
 
 	wpa_supplicant_set_state(wpa_s, WPA_ASSOCIATING);
+
+	if (params.wpa_ie == NULL ||
+	    ieee802_11_parse_elems(params.wpa_ie, params.wpa_ie_len, &elems, 0)
+	    < 0) {
+		wpa_printf(MSG_DEBUG, "SME: Could not parse own IEs?!");
+		os_memset(&elems, 0, sizeof(elems));
+	}
+	if (elems.rsn_ie)
+		wpa_sm_set_assoc_wpa_ie(wpa_s->wpa, elems.rsn_ie - 2,
+					elems.rsn_ie_len + 2);
+	else if (elems.wpa_ie)
+		wpa_sm_set_assoc_wpa_ie(wpa_s->wpa, elems.wpa_ie - 2,
+					elems.wpa_ie_len + 2);
+	else
+		wpa_sm_set_assoc_wpa_ie(wpa_s->wpa, NULL, 0);
 
 	if (wpa_drv_associate(wpa_s, &params) < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Association request to the driver "

@@ -204,6 +204,39 @@ int wpa_supplicant_trigger_scan(struct wpa_supplicant *wpa_s,
 }
 
 
+static struct wpa_driver_scan_filter *
+wpa_supplicant_build_filter_ssids(struct wpa_config *conf, size_t *num_ssids)
+{
+	struct wpa_driver_scan_filter *ssids;
+	struct wpa_ssid *ssid;
+	size_t count;
+
+	*num_ssids = 0;
+	if (!conf->filter_ssids)
+		return NULL;
+
+	for (count = 0, ssid = conf->ssid; ssid; ssid = ssid->next) {
+		if (ssid->ssid && ssid->ssid_len)
+			count++;
+	}
+	if (count == 0)
+		return NULL;
+	ssids = os_zalloc(count * sizeof(struct wpa_driver_scan_filter));
+	if (ssids == NULL)
+		return NULL;
+
+	for (ssid = conf->ssid; ssid; ssid = ssid->next) {
+		if (!ssid->ssid || !ssid->ssid_len)
+			continue;
+		os_memcpy(ssids[*num_ssids].ssid, ssid->ssid, ssid->ssid_len);
+		ssids[*num_ssids].ssid_len = ssid->ssid_len;
+		(*num_ssids)++;
+	}
+
+	return ssids;
+}
+
+
 static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 {
 	struct wpa_supplicant *wpa_s = eloop_ctx;
@@ -258,7 +291,8 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 
 	if (wpa_s->scan_res_tried == 0 && wpa_s->conf->ap_scan == 1 &&
 	    !(wpa_s->drv_flags & WPA_DRIVER_FLAGS_USER_SPACE_MLME) &&
-	    wps != 2) {
+	    wps != 2 && !wpa_s->conf->filter_ssids &&
+	    !wpa_s->connect_without_scan) {
 		wpa_s->scan_res_tried++;
 		wpa_printf(MSG_DEBUG, "Trying to get current scan results "
 			   "first without requesting a new scan to speed up "
@@ -289,7 +323,9 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 		}
 	}
 
-	if (scan_req != 2 && wpa_s->conf->ap_scan == 2) {
+	if (scan_req != 2 && (wpa_s->conf->ap_scan == 2 ||
+			      wpa_s->connect_without_scan)) {
+		wpa_s->connect_without_scan = 0;
 		wpa_supplicant_assoc_try(wpa_s, ssid);
 		return;
 	} else if (wpa_s->conf->ap_scan == 2) {
@@ -353,6 +389,19 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	}
 
 #ifdef CONFIG_WPS
+	if (params.freqs == NULL && wpa_s->after_wps && wpa_s->wps_freq) {
+		/*
+		 * Optimize post-provisioning scan based on channel used
+		 * during provisioning.
+		 */
+		wpa_printf(MSG_DEBUG, "WPS: Scan only frequency %u MHz that "
+			   "was used during provisioning", wpa_s->wps_freq);
+		params.freqs = os_zalloc(2 * sizeof(int));
+		if (params.freqs)
+			params.freqs[0] = wpa_s->wps_freq;
+		wpa_s->after_wps--;
+	}
+
 	if (wps) {
 		wps_ie = wps_build_probe_req_ie(wps == 2, &wpa_s->wps->dev,
 						wpa_s->wps->uuid, req_type);
@@ -363,16 +412,20 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	}
 #endif /* CONFIG_WPS */
 
+	params.filter_ssids = wpa_supplicant_build_filter_ssids(
+		wpa_s->conf, &params.num_filter_ssids);
+
 	ret = wpa_supplicant_trigger_scan(wpa_s, &params);
 
 	wpabuf_free(wps_ie);
 	os_free(params.freqs);
+	os_free(params.filter_ssids);
 
 	if (ret) {
 		wpa_printf(MSG_WARNING, "Failed to initiate AP scan.");
 		if (prev_state != wpa_s->wpa_state)
 			wpa_supplicant_set_state(wpa_s, prev_state);
-		wpa_supplicant_req_scan(wpa_s, 10, 0);
+		wpa_supplicant_req_scan(wpa_s, 1, 0);
 	} else
 		wpa_s->scan_runs++;
 }

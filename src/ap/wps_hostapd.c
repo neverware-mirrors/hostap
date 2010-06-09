@@ -28,6 +28,7 @@
 #include "wps/wps_dev_attr.h"
 #include "hostapd.h"
 #include "ap_config.h"
+#include "beacon.h"
 #include "sta_info.h"
 #include "wps_hostapd.h"
 
@@ -98,8 +99,8 @@ static int hostapd_wps_set_ie_cb(void *ctx, struct wpabuf *beacon_ie,
 	hapd->wps_beacon_ie = beacon_ie;
 	wpabuf_free(hapd->wps_probe_resp_ie);
 	hapd->wps_probe_resp_ie = probe_resp_ie;
-	return hapd->drv.set_ap_wps_ie(hapd, hapd->wps_beacon_ie,
-				       hapd->wps_probe_resp_ie);
+	ieee802_11_set_beacon(hapd);
+	return hapd->drv.set_ap_wps_ie(hapd);
 }
 
 
@@ -151,6 +152,9 @@ static void hostapd_wps_reg_success_cb(void *ctx, const u8 *mac_addr,
 		return;
 	wpa_msg(hapd->msg_ctx, MSG_INFO, WPS_EVENT_REG_SUCCESS MACSTR " %s",
 		MAC2STR(mac_addr), uuid);
+	if (hapd->wps_reg_success_cb)
+		hapd->wps_reg_success_cb(hapd->wps_reg_success_cb_ctx,
+					 mac_addr, uuid_e);
 }
 
 
@@ -476,7 +480,7 @@ static void hostapd_wps_clear_ies(struct hostapd_data *hapd)
 	wpabuf_free(hapd->wps_probe_resp_ie);
 	hapd->wps_probe_resp_ie = NULL;
 
-	hapd->drv.set_ap_wps_ie(hapd, NULL, NULL);
+	hapd->drv.set_ap_wps_ie(hapd);
 }
 
 
@@ -894,5 +898,7 @@ static void hostapd_wps_upnp_deinit(struct hostapd_data *hapd)
 int hostapd_wps_get_mib_sta(struct hostapd_data *hapd, const u8 *addr,
 			    char *buf, size_t buflen)
 {
+	if (hapd->wps == NULL)
+		return 0;
 	return wps_registrar_get_info(hapd->wps->registrar, addr, buf, buflen);
 }

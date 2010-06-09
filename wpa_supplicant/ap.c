@@ -135,6 +135,24 @@ static int wpa_supplicant_conf_ap(struct wpa_supplicant *wpa_s,
 }
 
 
+static void ap_public_action_rx(void *ctx, const u8 *buf, size_t len, int freq)
+{
+}
+
+
+static int ap_probe_req_rx(void *ctx, const u8 *addr, const u8 *ie,
+			   size_t ie_len)
+{
+	return 0;
+}
+
+
+static void ap_wps_reg_success_cb(void *ctx, const u8 *mac_addr,
+				  const u8 *uuid_e)
+{
+}
+
+
 int wpa_supplicant_create_ap(struct wpa_supplicant *wpa_s,
 			     struct wpa_ssid *ssid)
 {
@@ -168,6 +186,26 @@ int wpa_supplicant_create_ap(struct wpa_supplicant *wpa_s,
 		break;
 	}
 	params.freq = ssid->frequency;
+
+	if (ssid->key_mgmt & WPA_KEY_MGMT_PSK)
+		wpa_s->key_mgmt = WPA_KEY_MGMT_PSK;
+	else
+		wpa_s->key_mgmt = WPA_KEY_MGMT_NONE;
+	params.key_mgmt_suite = key_mgmt2driver(wpa_s->key_mgmt);
+
+	if (ssid->pairwise_cipher & WPA_CIPHER_CCMP)
+		wpa_s->pairwise_cipher = WPA_CIPHER_CCMP;
+	else if (ssid->pairwise_cipher & WPA_CIPHER_TKIP)
+		wpa_s->pairwise_cipher = WPA_CIPHER_TKIP;
+	else if (ssid->pairwise_cipher & WPA_CIPHER_NONE)
+		wpa_s->pairwise_cipher = WPA_CIPHER_NONE;
+	else {
+		wpa_printf(MSG_WARNING, "WPA: Failed to select pairwise "
+			   "cipher.");
+		return -1;
+	}
+	params.pairwise_suite = cipher_suite2driver(wpa_s->pairwise_cipher);
+	params.group_suite = params.pairwise_suite;
 
 	if (wpa_drv_associate(wpa_s, &params) < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Failed to start AP functionality");
@@ -209,6 +247,12 @@ int wpa_supplicant_create_ap(struct wpa_supplicant *wpa_s,
 		}
 
 		hapd_iface->bss[i]->msg_ctx = wpa_s;
+		hapd_iface->bss[i]->public_action_cb = ap_public_action_rx;
+		hapd_iface->bss[i]->public_action_cb_ctx = wpa_s;
+		hostapd_register_probereq_cb(hapd_iface->bss[i],
+					     ap_probe_req_rx, wpa_s);
+		hapd_iface->bss[i]->wps_reg_success_cb = ap_wps_reg_success_cb;
+		hapd_iface->bss[i]->wps_reg_success_cb_ctx = wpa_s;
 	}
 
 	os_memcpy(hapd_iface->bss[0]->own_addr, wpa_s->own_addr, ETH_ALEN);
@@ -225,6 +269,10 @@ int wpa_supplicant_create_ap(struct wpa_supplicant *wpa_s,
 	os_memcpy(wpa_s->bssid, wpa_s->own_addr, ETH_ALEN);
 	wpa_supplicant_set_state(wpa_s, WPA_COMPLETED);
 
+	if (wpa_s->ap_configured_cb)
+		wpa_s->ap_configured_cb(wpa_s->ap_configured_cb_ctx,
+					wpa_s->ap_configured_cb_data);
+
 	return 0;
 }
 
@@ -234,9 +282,11 @@ void wpa_supplicant_ap_deinit(struct wpa_supplicant *wpa_s)
 	if (wpa_s->ap_iface == NULL)
 		return;
 
+	wpa_s->current_ssid = NULL;
 	hostapd_interface_deinit(wpa_s->ap_iface);
 	hostapd_interface_free(wpa_s->ap_iface);
 	wpa_s->ap_iface = NULL;
+	wpa_drv_deinit_ap(wpa_s);
 }
 
 
@@ -298,6 +348,8 @@ void wpa_supplicant_ap_rx_eapol(struct wpa_supplicant *wpa_s,
 
 int wpa_supplicant_ap_wps_pbc(struct wpa_supplicant *wpa_s, const u8 *bssid)
 {
+	if (!wpa_s->ap_iface)
+		return -1;
 	return hostapd_wps_button_pushed(wpa_s->ap_iface->bss[0]);
 }
 
@@ -306,6 +358,9 @@ int wpa_supplicant_ap_wps_pin(struct wpa_supplicant *wpa_s, const u8 *bssid,
 			      const char *pin, char *buf, size_t buflen)
 {
 	int ret, ret_len = 0;
+
+	if (!wpa_s->ap_iface)
+		return -1;
 
 	if (pin == NULL) {
 		unsigned int rpin = wps_generate_pin();
@@ -383,3 +438,44 @@ int ap_ctrl_iface_wpa_get_status(struct wpa_supplicant *wpa_s, char *buf,
 }
 
 #endif /* CONFIG_CTRL_IFACE */
+
+
+int wpa_supplicant_ap_mac_addr_filter(struct wpa_supplicant *wpa_s,
+				      const u8 *addr)
+{
+	struct hostapd_data *hapd;
+	struct hostapd_bss_config *conf;
+
+	if (!wpa_s->ap_iface)
+		return -1;
+
+	if (addr)
+		wpa_printf(MSG_DEBUG, "AP: Set MAC address filter: " MACSTR,
+			   MAC2STR(addr));
+	else
+		wpa_printf(MSG_DEBUG, "AP: Clear MAC address filter");
+
+	hapd = wpa_s->ap_iface->bss[0];
+	conf = hapd->conf;
+
+	os_free(conf->accept_mac);
+	conf->accept_mac = NULL;
+	conf->num_accept_mac = 0;
+	os_free(conf->deny_mac);
+	conf->deny_mac = NULL;
+	conf->num_deny_mac = 0;
+
+	if (addr == NULL) {
+		conf->macaddr_acl = ACCEPT_UNLESS_DENIED;
+		return 0;
+	}
+
+	conf->macaddr_acl = DENY_UNLESS_ACCEPTED;
+	conf->accept_mac = os_zalloc(sizeof(struct mac_acl_entry));
+	if (conf->accept_mac == NULL)
+		return -1;
+	os_memcpy(conf->accept_mac[0].addr, addr, ETH_ALEN);
+	conf->num_accept_mac = 1;
+
+	return 0;
+}

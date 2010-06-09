@@ -26,7 +26,7 @@ verify_config:
 	fi
 
 mkconfig:
-	@if [ -e .config ]; then \
+	@if [ -f .config ]; then \
 		echo '.config exists - did not replace it'; \
 		exit 1; \
 	fi
@@ -1131,6 +1131,7 @@ OBJS += ../src/utils/base64.o
 endif
 
 ifdef NEED_SME
+NEED_80211_COMMON=y
 OBJS += sme.o
 CFLAGS += -DCONFIG_SME
 endif
@@ -1257,7 +1258,7 @@ endif
 dynamic_eap_methods: $(EAPDYN)
 
 ../src/drivers/build.wpa_supplicant:
-	@if [ -e ../src/drivers/build.hostapd ]; then \
+	@if [ -f ../src/drivers/build.hostapd ]; then \
 		$(MAKE) -C ../src/drivers clean; \
 	fi
 	@touch ../src/drivers/build.wpa_supplicant
@@ -1351,7 +1352,10 @@ wpa_gui: wpa_gui/Makefile
 wpa_gui-qt4/Makefile:
 	qmake -o wpa_gui-qt4/Makefile wpa_gui-qt4/wpa_gui.pro 
 
-wpa_gui-qt4: wpa_gui-qt4/Makefile
+wpa_gui-qt4/lang/wpa_gui_de.qm: wpa_gui-qt4/lang/wpa_gui_de.ts
+	lrelease wpa_gui-qt4/wpa_gui.pro
+
+wpa_gui-qt4: wpa_gui-qt4/Makefile wpa_gui-qt4/lang/wpa_gui_de.qm
 	$(MAKE) -C wpa_gui-qt4
 
 TEST_EAP_SIM_COMMON_OBJS = $(SHA1OBJS) $(MD5OBJS) \

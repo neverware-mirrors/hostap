@@ -116,6 +116,9 @@ struct wpa_state_machine {
 					   * Request */
 	u8 r0kh_id[FT_R0KH_ID_MAX_LEN]; /* R0KH-ID from FT Auth Request */
 	size_t r0kh_id_len;
+	u8 sup_pmk_r1_name[WPA_PMK_NAME_LEN]; /* PMKR1Name from EAPOL-Key
+					       * message 2/4 */
+	u8 *assoc_resp_ftie;
 #endif /* CONFIG_IEEE80211R */
 };
 
@@ -212,10 +215,16 @@ void wpa_smk_m3(struct wpa_authenticator *wpa_auth,
 
 #ifdef CONFIG_IEEE80211R
 int wpa_write_mdie(struct wpa_auth_config *conf, u8 *buf, size_t len);
+int wpa_write_ftie(struct wpa_auth_config *conf, const u8 *r0kh_id,
+		   size_t r0kh_id_len,
+		   const u8 *anonce, const u8 *snonce,
+		   u8 *buf, size_t len, const u8 *subelem,
+		   size_t subelem_len);
 int wpa_auth_derive_ptk_ft(struct wpa_state_machine *sm, const u8 *pmk,
 			   struct wpa_ptk *ptk, size_t ptk_len);
 struct wpa_ft_pmk_cache * wpa_ft_pmk_cache_init(void);
 void wpa_ft_pmk_cache_deinit(struct wpa_ft_pmk_cache *cache);
+void wpa_ft_install_ptk(struct wpa_state_machine *sm);
 #endif /* CONFIG_IEEE80211R */
 
 #endif /* WPA_AUTH_I_H */
