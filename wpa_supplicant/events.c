@@ -1235,25 +1235,6 @@ static void wpa_supplicant_event_assoc(struct wpa_supplicant *wpa_s,
 		wpa_s->pending_eapol_rx = NULL;
 	}
 
-#ifdef CONFIG_BGSCAN
-	if (wpa_s->current_ssid != wpa_s->bgscan_ssid) {
-		bgscan_deinit(wpa_s);
-		if (wpa_s->current_ssid && wpa_s->current_ssid->bgscan) {
-			if (bgscan_init(wpa_s, wpa_s->current_ssid)) {
-				wpa_printf(MSG_DEBUG, "Failed to initialize "
-					   "bgscan");
-				/*
-				 * Live without bgscan; it is only used as a
-				 * roaming optimization, so the initial
-				 * connection is not affected.
-				 */
-			} else
-				wpa_s->bgscan_ssid = wpa_s->current_ssid;
-		} else
-			wpa_s->bgscan_ssid = NULL;
-	}
-#endif /* CONFIG_BGSCAN */
-
 	if ((wpa_s->key_mgmt == WPA_KEY_MGMT_NONE ||
 	     wpa_s->key_mgmt == WPA_KEY_MGMT_IEEE8021X_NO_WPA) &&
 	    wpa_s->current_ssid && wpa_drv_get_capa(wpa_s, &capa) == 0 &&

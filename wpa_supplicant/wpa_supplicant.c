@@ -508,6 +508,38 @@ const char * wpa_supplicant_state_txt(enum wpa_states state)
 	}
 }
 
+#ifdef CONFIG_BGSCAN
+static void wpa_supplicant_start_bgscan(struct wpa_supplicant *wpa_s)
+{
+	if (wpa_s->current_ssid != wpa_s->bgscan_ssid) {
+		bgscan_deinit(wpa_s);
+		if (wpa_s->current_ssid &&
+		    wpa_s->current_ssid->bgscan) {
+			if (bgscan_init(wpa_s, wpa_s->current_ssid)) {
+				wpa_printf(MSG_DEBUG, "Failed to initialize "
+					   "bgscan");
+				/*
+				 * Live without bgscan; it is only
+				 * used as a roaming optimization, so
+				 * the initial connection is not
+				 * affected.
+				 */
+			} else
+				wpa_s->bgscan_ssid = wpa_s->current_ssid;
+		} else
+			wpa_s->bgscan_ssid = NULL;
+	}
+}
+
+static void wpa_supplicant_stop_bgscan(struct wpa_supplicant *wpa_s)
+{
+	if (wpa_s->bgscan_ssid != NULL) {
+		bgscan_deinit(wpa_s);
+		wpa_s->bgscan_ssid = NULL;
+	}
+}
+#endif /* CONFIG_BGSCAN */
+
 
 /**
  * wpa_supplicant_set_state - Set current connection state
@@ -549,6 +581,13 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 		wpa_drv_set_operstate(wpa_s, 0);
 	}
 	wpa_s->wpa_state = state;
+
+#ifdef CONFIG_BGSCAN
+	if (state == WPA_COMPLETED)
+		wpa_supplicant_start_bgscan(wpa_s);
+	else
+		wpa_supplicant_stop_bgscan(wpa_s);
+#endif /* CONFIG_BGSCAN */
 
 	if (wpa_s->wpa_state != old_state)
 		wpas_notify_state_changed(wpa_s, wpa_s->wpa_state, old_state);
