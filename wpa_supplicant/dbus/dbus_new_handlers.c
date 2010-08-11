@@ -553,6 +553,7 @@ DBusMessage * wpas_dbus_handler_create_interface(DBusMessage *message,
 	struct wpa_dbus_dict_entry entry;
 	char *driver = NULL;
 	char *ifname = NULL;
+	char *confname = NULL;
 	char *bridge_ifname = NULL;
 
 	dbus_message_iter_init(message, &iter);
@@ -573,6 +574,12 @@ DBusMessage * wpas_dbus_handler_create_interface(DBusMessage *message,
 			ifname = os_strdup(entry.str_value);
 			wpa_dbus_dict_entry_clear(&entry);
 			if (ifname == NULL)
+				goto error;
+		} else if (!strcmp(entry.key, "ConfigFile") &&
+			   (entry.type == DBUS_TYPE_STRING)) {
+			confname = os_strdup(entry.str_value);
+			wpa_dbus_dict_entry_clear(&entry);
+			if (confname == NULL)
 				goto error;
 		} else if (!strcmp(entry.key, "BridgeIfname") &&
 			   (entry.type == DBUS_TYPE_STRING)) {
@@ -604,6 +611,7 @@ DBusMessage * wpas_dbus_handler_create_interface(DBusMessage *message,
 		os_memset(&iface, 0, sizeof(iface));
 		iface.driver = driver;
 		iface.ifname = ifname;
+		iface.confname = confname;
 		iface.bridge_ifname = bridge_ifname;
 		/* Otherwise, have wpa_supplicant attach to it. */
 		if ((wpa_s = wpa_supplicant_add_iface(global, &iface))) {
