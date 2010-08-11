@@ -1664,6 +1664,21 @@ DBusMessage * wpas_dbus_handler_remove_blob(DBusMessage *message,
 
 }
 
+/*
+ * wpas_dbus_handler_flush_bss - flush the BSS cache
+ * @message: Pointer to incoming dbus message
+ * @wpa_s: wpa_supplicant structure for a network interface
+ * Returns: NULL
+ *
+ * Handler function for "FlushBSS" method call of network interface.
+ */
+DBusMessage * wpas_dbus_handler_flush_bss(DBusMessage *message,
+					  struct wpa_supplicant *wpa_s)
+{
+	wpa_bss_flush(wpa_s);
+	return NULL;
+}
+
 
 /**
  * wpas_dbus_getter_capabilities - Return interface capabilities

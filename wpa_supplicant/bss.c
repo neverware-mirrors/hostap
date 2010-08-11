@@ -453,14 +453,25 @@ int wpa_bss_init(struct wpa_supplicant *wpa_s)
 }
 
 
-void wpa_bss_deinit(struct wpa_supplicant *wpa_s)
+void wpa_bss_flush(struct wpa_supplicant *wpa_s)
 {
 	struct wpa_bss *bss, *n;
-	eloop_cancel_timeout(wpa_bss_timeout, wpa_s, NULL);
+
 	if (wpa_s->bss.next == NULL)
 		return; /* BSS table not yet initialized */
-	dl_list_for_each_safe(bss, n, &wpa_s->bss, struct wpa_bss, list)
+
+	dl_list_for_each_safe(bss, n, &wpa_s->bss, struct wpa_bss, list) {
+		if (wpa_bss_in_use(wpa_s, bss))
+			continue;
 		wpa_bss_remove(wpa_s, bss);
+	}
+}
+
+
+void wpa_bss_deinit(struct wpa_supplicant *wpa_s)
+{
+	eloop_cancel_timeout(wpa_bss_timeout, wpa_s, NULL);
+	wpa_bss_flush(wpa_s);
 }
 
 
