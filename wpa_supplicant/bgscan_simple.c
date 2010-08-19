@@ -31,6 +31,7 @@ struct bgscan_simple_data {
 	int short_interval; /* use if signal < threshold */
 	int long_interval; /* use if signal > threshold */
 	struct os_time last_bgscan;
+	int init_scan;
 };
 
 
@@ -57,8 +58,10 @@ static void bgscan_simple_timeout(void *eloop_ctx, void *timeout_ctx)
 		wpa_printf(MSG_DEBUG, "bgscan simple: Failed to trigger scan");
 		eloop_register_timeout(data->scan_interval, 0,
 				       bgscan_simple_timeout, data, NULL);
-	} else
+	} else {
 		os_get_time(&data->last_bgscan);
+		data->init_scan = 0;
+	}
 }
 
 
@@ -122,6 +125,7 @@ static void * bgscan_simple_init(struct wpa_supplicant *wpa_s,
 	}
 
 	data->scan_interval = data->short_interval;
+	data->init_scan = 1;
 	eloop_register_timeout(data->scan_interval, 0, bgscan_simple_timeout,
 			       data, NULL);
 	return data;
@@ -171,7 +175,8 @@ static void bgscan_simple_notify_signal_change(void *priv, int above)
 	struct bgscan_simple_data *data = priv;
 
 	if (data->short_interval == data->long_interval ||
-	    data->signal_threshold == 0)
+	    data->signal_threshold == 0 ||
+	    data->init_scan != 0)
 		return;
 
 	wpa_printf(MSG_DEBUG, "bgscan simple: signal level changed "
