@@ -275,7 +275,7 @@ void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 			   "code %d)", data->auth.status_code);
 
 		if (data->auth.status_code !=
-					WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG ||
+		    WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG ||
 		    wpa_s->sme.auth_alg == data->auth.auth_type ||
 		    wpa_s->current_ssid->auth_alg == WPA_AUTH_ALG_LEAP)
 			return;
