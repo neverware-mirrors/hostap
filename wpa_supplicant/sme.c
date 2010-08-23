@@ -473,7 +473,7 @@ void sme_event_disassoc(struct wpa_supplicant *wpa_s,
 			union wpa_event_data *data)
 {
 	wpa_printf(MSG_DEBUG, "SME: Disassociation event received");
-	if (!is_zero_ether_addr(wpa_s->sme.prev_bssid) &&
+	if (wpa_s->sme.prev_bssid_set &&
 	    !(wpa_s->drv_flags & WPA_DRIVER_FLAGS_USER_SPACE_MLME)) {
 		/*
 		 * cfg80211/mac80211 can get into somewhat confused state if
