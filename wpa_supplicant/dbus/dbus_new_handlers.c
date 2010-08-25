@@ -1675,7 +1675,15 @@ DBusMessage * wpas_dbus_handler_remove_blob(DBusMessage *message,
 DBusMessage * wpas_dbus_handler_flush_bss(DBusMessage *message,
 					  struct wpa_supplicant *wpa_s)
 {
-	wpa_bss_flush(wpa_s);
+	dbus_uint32_t age;
+
+	dbus_message_get_args(message, NULL, DBUS_TYPE_UINT32, &age,
+			      DBUS_TYPE_INVALID);
+
+	if (age == 0)
+		wpa_bss_flush(wpa_s);
+	else
+		wpa_bss_flush_by_age(wpa_s, age);
 	return NULL;
 }
 

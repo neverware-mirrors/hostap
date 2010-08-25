@@ -1344,6 +1344,7 @@ static const struct wpa_dbus_method_desc wpas_dbus_interface_methods[] = {
 	{ "FlushBSS", WPAS_DBUS_NEW_IFACE_INTERFACE,
 	  (WPADBusMethodHandler) &wpas_dbus_handler_flush_bss,
 	  {
+		  { "age", "u", ARG_IN },
 		  END_ARGS
 	  }
 	},
