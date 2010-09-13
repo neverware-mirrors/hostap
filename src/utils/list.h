@@ -80,6 +80,11 @@ static inline unsigned int dl_list_len(struct dl_list *list)
 	     &item->member != (list); \
 	     item = dl_list_entry(item->member.next, type, member))
 
+#define dl_list_for_each_reverse(item, list, type, member) \
+	for (item = dl_list_entry((list)->prev, type, member); \
+	     &item->member != (list); \
+	     item = dl_list_entry(item->member.prev, type, member))
+
 #define dl_list_for_each_safe(item, n, list, type, member) \
 	for (item = dl_list_entry((list)->next, type, member), \
 		     n = dl_list_entry(item->member.next, type, member); \
