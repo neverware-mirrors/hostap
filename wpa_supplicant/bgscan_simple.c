@@ -147,7 +147,8 @@ static void bgscan_simple_deinit(void *priv)
 }
 
 
-static int bgscan_simple_notify_scan(void *priv)
+static int bgscan_simple_notify_scan(void *priv,
+				     struct wpa_scan_results *scan_res)
 {
 	struct bgscan_simple_data *data = priv;
 
@@ -175,7 +176,8 @@ static void bgscan_simple_notify_beacon_loss(void *priv)
 }
 
 
-static void bgscan_simple_notify_signal_change(void *priv, int above)
+static void bgscan_simple_notify_signal_change(void *priv, int above,
+					       int current_signal)
 {
 	struct bgscan_simple_data *data = priv;
 	int scan = 0;
@@ -186,7 +188,7 @@ static void bgscan_simple_notify_signal_change(void *priv, int above)
 		return;
 
 	wpa_printf(MSG_DEBUG, "bgscan simple: signal level changed "
-		   "(above=%d)", above);
+		   "(above=%d current_signal=%d)", above, current_signal);
 	if (data->scan_interval == data->long_interval && !above) {
 		wpa_printf(MSG_DEBUG, "bgscan simple: Start using short "
 			   "bgscan interval");

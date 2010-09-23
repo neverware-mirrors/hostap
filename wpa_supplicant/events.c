@@ -933,7 +933,7 @@ static void wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 		return;
 	}
 
-	if (bgscan_notify_scan(wpa_s) == 1) {
+	if (bgscan_notify_scan(wpa_s, scan_res) == 1) {
 		wpa_scan_results_free(scan_res);
 		return;
 	}
@@ -1722,7 +1722,8 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 		break;
 	case EVENT_SIGNAL_CHANGE:
 		bgscan_notify_signal_change(
-			wpa_s, data->signal_change.above_threshold);
+			wpa_s, data->signal_change.above_threshold,
+			data->signal_change.current_signal);
 		break;
 	default:
 		wpa_printf(MSG_INFO, "Unknown event %d", event);
