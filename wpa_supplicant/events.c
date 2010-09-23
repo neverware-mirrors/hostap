@@ -1582,7 +1582,7 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 					   MAC2STR(data->disassoc_info.addr));
 		}
 #ifdef CONFIG_AP
-		if (wpa_s->ap_iface && data) {
+		if (wpa_s->ap_iface && data && data->disassoc_info.addr) {
 			hostapd_notif_disassoc(wpa_s->ap_iface->bss[0],
 					       data->disassoc_info.addr);
 			break;
@@ -1609,7 +1609,7 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 			}
 		}
 #ifdef CONFIG_AP
-		if (wpa_s->ap_iface && data) {
+		if (wpa_s->ap_iface && data && data->deauth_info.addr) {
 			hostapd_notif_disassoc(wpa_s->ap_iface->bss[0],
 					       data->deauth_info.addr);
 			break;
