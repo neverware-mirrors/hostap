@@ -1723,7 +1723,9 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 	case EVENT_SIGNAL_CHANGE:
 		bgscan_notify_signal_change(
 			wpa_s, data->signal_change.above_threshold,
-			data->signal_change.current_signal);
+			data->signal_change.current_signal,
+			data->signal_change.current_noise,
+			data->signal_change.current_txrate);
 		break;
 	default:
 		wpa_printf(MSG_INFO, "Unknown event %d", event);

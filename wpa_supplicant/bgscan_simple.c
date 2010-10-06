@@ -177,7 +177,9 @@ static void bgscan_simple_notify_beacon_loss(void *priv)
 
 
 static void bgscan_simple_notify_signal_change(void *priv, int above,
-					       int current_signal)
+					       int current_signal,
+					       int current_noise,
+					       int current_txrate)
 {
 	struct bgscan_simple_data *data = priv;
 	int scan = 0;
