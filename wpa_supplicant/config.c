@@ -2156,6 +2156,8 @@ struct wpa_config * wpa_config_alloc_empty(const char *ctrl_interface,
 	config->ap_scan = DEFAULT_AP_SCAN;
 	config->fast_reauth = DEFAULT_FAST_REAUTH;
 	config->bss_max_count = DEFAULT_BSS_MAX_COUNT;
+	config->bss_expiration_age = DEFAULT_BSS_EXPIRATION_AGE;
+	config->bss_expiration_scan_count = DEFAULT_BSS_EXPIRATION_SCAN_COUNT;
 
 	if (ctrl_interface)
 		config->ctrl_interface = os_strdup(ctrl_interface);

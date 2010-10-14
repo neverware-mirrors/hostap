@@ -1623,6 +1623,22 @@ static int wpa_supplicant_ctrl_iface_ap_scan(
 }
 
 
+static int wpa_supplicant_ctrl_iface_bss_expire_age(
+	struct wpa_supplicant *wpa_s, char *cmd)
+{
+	int expire_age = atoi(cmd);
+	return wpa_supplicant_set_bss_expiration_age(wpa_s, expire_age);
+}
+
+
+static int wpa_supplicant_ctrl_iface_bss_expire_count(
+	struct wpa_supplicant *wpa_s, char *cmd)
+{
+	int expire_count = atoi(cmd);
+	return wpa_supplicant_set_bss_expiration_count(wpa_s, expire_count);
+}
+
+
 static void wpa_supplicant_ctrl_iface_drop_sa(struct wpa_supplicant *wpa_s)
 {
 	u8 *bcast = (u8 *) "\xff\xff\xff\xff\xff\xff";
@@ -1896,6 +1912,12 @@ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
 		wpa_supplicant_ctrl_iface_drop_sa(wpa_s);
 	} else if (os_strncmp(buf, "ROAM ", 5) == 0) {
 		if (wpa_supplicant_ctrl_iface_roam(wpa_s, buf + 5))
+			reply_len = -1;
+	} else if (os_strncmp(buf, "BSS_EXPIRE_AGE ", 15) == 0) {
+		if (wpa_supplicant_ctrl_iface_bss_expire_age(wpa_s, buf + 15))
+			reply_len = -1;
+	} else if (os_strncmp(buf, "BSS_EXPIRE_COUNT ", 17) == 0) {
+		if (wpa_supplicant_ctrl_iface_bss_expire_count(wpa_s, buf + 17))
 			reply_len = -1;
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);

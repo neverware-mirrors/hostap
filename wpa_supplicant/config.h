@@ -23,6 +23,8 @@
 #endif /* CONFIG_NO_SCAN_PROCESSING */
 #define DEFAULT_FAST_REAUTH 1
 #define DEFAULT_BSS_MAX_COUNT 200
+#define DEFAULT_BSS_EXPIRATION_AGE 180
+#define DEFAULT_BSS_EXPIRATION_SCAN_COUNT 2
 
 #include "config_ssid.h"
 
@@ -337,6 +339,25 @@ struct wpa_config {
 	 * bss_max_count - Maximum number of BSS entries to keep in memory
 	 */
 	unsigned int bss_max_count;
+
+	/**
+	 * bss_expiration_age - BSS entry age after which it can be expired
+	 *
+	 * This value controls the time in seconds after which a BSS entry
+	 * gets removed if it has not been updated or is not in use.
+	 */
+	unsigned int bss_expiration_age;
+
+	/**
+	 * bss_expiration_scan_count - Expire BSS after number of scans
+	 *
+	 * If the BSS entry has not been seen in this many scans, it will be
+	 * removed.  A value of 1 means that entry is removed after the first
+	 * scan in which the BSSID is not seen.  Larger values can be used
+	 * to avoid BSS entries disappearing if they are not visible in
+	 * every scan (e.g. low signal quality or interference).
+	 */
+	unsigned int bss_expiration_scan_count;
 
 	/**
 	 * filter_ssids - SSID-based scan result filtering
