@@ -1014,8 +1014,7 @@ static int wpas_dbus_get_scan_ssids(DBusMessage *message, DBusMessageIter *var,
 					   "out of memory. Cannot allocate "
 					   "memory for SSID");
 				*reply = dbus_message_new_error(
-						message, DBUS_ERROR_NO_MEMORY,
-						NULL);
+					message, DBUS_ERROR_NO_MEMORY, NULL);
 				return -1;
 			}
 			os_memcpy(ssid, val, len);
