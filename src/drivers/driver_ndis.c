@@ -3273,6 +3273,6 @@ const struct wpa_driver_ops wpa_driver_ndis_ops = {
 	NULL /* deinit_ap */,
 	NULL /* suspend */,
 	NULL /* resume */,
-	NULL /* signal_monitor */,
+	NULL /* connection_monitor */,
 	NULL /* send_frame */
 };

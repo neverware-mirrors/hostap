@@ -419,7 +419,8 @@ static void * bgscan_learn_init(struct wpa_supplicant *wpa_s,
 		   data->long_interval);
 
 	if (data->signal_threshold &&
-	    wpa_drv_signal_monitor(wpa_s, data->signal_threshold, 4) < 0) {
+	    wpa_drv_connection_monitor(wpa_s, data->signal_threshold,
+                                       4, 0) < 0) {
 		wpa_printf(MSG_ERROR, "bgscan learn: Failed to enable "
 			   "signal strength monitoring");
 	}
@@ -449,7 +450,7 @@ static void bgscan_learn_deinit(void *priv)
 	bgscan_learn_save(data);
 	eloop_cancel_timeout(bgscan_learn_timeout, data, NULL);
 	if (data->signal_threshold)
-		wpa_drv_signal_monitor(data->wpa_s, 0, 0);
+		wpa_drv_connection_monitor(data->wpa_s, 0, 0, 0);
 	os_free(data->fname);
 	dl_list_for_each_safe(bss, n, &data->bss, struct bgscan_learn_bss,
 			      list) {
@@ -555,14 +556,21 @@ static void bgscan_learn_notify_beacon_loss(void *priv)
 }
 
 
-static void bgscan_learn_notify_signal_change(void *priv, int above,
-					      int current_signal,
-					      int current_noise,
-					      int current_txrate)
+static void bgscan_learn_notify_connection_change(void *priv,
+						  struct wpa_connection_info
+						  *conninfo)
 {
 	struct bgscan_learn_data *data = priv;
 	int scan = 0;
+	int above;
 	struct os_time now;
+
+	if (conninfo->event_type == CONN_RSSI_ABOVE) {
+		above = 1;
+	} else if (conninfo->event_type == CONN_RSSI_BELOW) {
+		above = 0;
+	} else
+		return;
 
 	if (data->short_interval == data->long_interval ||
 	    data->signal_threshold == 0)
@@ -570,8 +578,8 @@ static void bgscan_learn_notify_signal_change(void *priv, int above,
 
 	wpa_printf(MSG_DEBUG, "bgscan learn: signal level changed "
 		   "(above=%d current_signal=%d current_noise=%d "
-		   "current_txrate=%d)", above, current_signal,
-		   current_noise, current_txrate);
+		   "current_txrate=%d)", above, conninfo->signal,
+		   conninfo->noise, conninfo->txrate);
 	if (data->scan_interval == data->long_interval && !above) {
 		wpa_printf(MSG_DEBUG, "bgscan learn: Start using short bgscan "
 			   "interval");
@@ -610,5 +618,5 @@ const struct bgscan_ops bgscan_learn_ops = {
 	.deinit = bgscan_learn_deinit,
 	.notify_scan = bgscan_learn_notify_scan,
 	.notify_beacon_loss = bgscan_learn_notify_beacon_loss,
-	.notify_signal_change = bgscan_learn_notify_signal_change,
+	.notify_connection_change = bgscan_learn_notify_connection_change,
 };

@@ -17,6 +17,7 @@
 #include "common.h"
 #include "wpa_supplicant_i.h"
 #include "config_ssid.h"
+#include "driver_i.h"
 #include "bgscan.h"
 
 #ifdef CONFIG_BGSCAN_SIMPLE
@@ -111,13 +112,10 @@ void bgscan_notify_beacon_loss(struct wpa_supplicant *wpa_s)
 }
 
 
-void bgscan_notify_signal_change(struct wpa_supplicant *wpa_s, int above,
-				 int current_signal, int current_noise,
-				 int current_txrate)
+void bgscan_notify_connection_change(struct wpa_supplicant *wpa_s,
+				 struct wpa_connection_info *conninfo)
 {
 	if (wpa_s->bgscan && wpa_s->bgscan_priv)
-		wpa_s->bgscan->notify_signal_change(wpa_s->bgscan_priv, above,
-						    current_signal,
-						    current_noise,
-						    current_txrate);
+		wpa_s->bgscan->notify_connection_change(wpa_s->bgscan_priv,
+							conninfo);
 }

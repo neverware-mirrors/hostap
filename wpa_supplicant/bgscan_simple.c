@@ -116,7 +116,8 @@ static void * bgscan_simple_init(struct wpa_supplicant *wpa_s,
 		   data->long_interval);
 
 	if (data->signal_threshold &&
-	    wpa_drv_signal_monitor(wpa_s, data->signal_threshold, 4) < 0) {
+	    wpa_drv_connection_monitor(wpa_s, data->signal_threshold,
+                                       4, 0) < 0) {
 		wpa_printf(MSG_ERROR, "bgscan simple: Failed to enable "
 			   "signal strength monitoring");
 	}
@@ -142,7 +143,7 @@ static void bgscan_simple_deinit(void *priv)
 	struct bgscan_simple_data *data = priv;
 	eloop_cancel_timeout(bgscan_simple_timeout, data, NULL);
 	if (data->signal_threshold)
-		wpa_drv_signal_monitor(data->wpa_s, 0, 0);
+		wpa_drv_connection_monitor(data->wpa_s, 0, 0, 0);
 	os_free(data);
 }
 
@@ -176,21 +177,30 @@ static void bgscan_simple_notify_beacon_loss(void *priv)
 }
 
 
-static void bgscan_simple_notify_signal_change(void *priv, int above,
-					       int current_signal,
-					       int current_noise,
-					       int current_txrate)
+static void bgscan_simple_notify_connection_change(void *priv,
+						   struct wpa_connection_info
+						   *conninfo)
 {
 	struct bgscan_simple_data *data = priv;
 	int scan = 0;
 	struct os_time now;
+	int above;
+
+	if (conninfo->event_type == CONN_RSSI_ABOVE) {
+		above = 1;
+	} else if (conninfo->event_type == CONN_RSSI_BELOW) {
+		above = 0;
+	} else
+		return;
 
 	if (data->short_interval == data->long_interval ||
 	    data->signal_threshold == 0)
 		return;
 
 	wpa_printf(MSG_DEBUG, "bgscan simple: signal level changed "
-		   "(above=%d current_signal=%d)", above, current_signal);
+		   "(above=%d current_signal=%d current_noise=%d "
+		   "current_txrate=%d))", above, conninfo->signal,
+		   conninfo->noise, conninfo->txrate);
 	if (data->scan_interval == data->long_interval && !above) {
 		wpa_printf(MSG_DEBUG, "bgscan simple: Start using short "
 			   "bgscan interval");
@@ -230,5 +240,5 @@ const struct bgscan_ops bgscan_simple_ops = {
 	.deinit = bgscan_simple_deinit,
 	.notify_scan = bgscan_simple_notify_scan,
 	.notify_beacon_loss = bgscan_simple_notify_beacon_loss,
-	.notify_signal_change = bgscan_simple_notify_signal_change,
+	.notify_connection_change = bgscan_simple_notify_connection_change,
 };

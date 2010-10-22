@@ -1737,20 +1737,29 @@ struct wpa_driver_ops {
 	void (*resume)(void *priv);
 
 	/**
-	 * signal_monitor - Set signal monitoring parameters
+	 * connection_monitor - Set connection monitoring parameters
 	 * @priv: Private driver interface data
 	 * @threshold: Threshold value for signal change events; 0 = disabled
 	 * @hysteresis: Minimum change in signal strength before indicating a
 	 *	new event
+	 * @bitrate: If > 0, specifies the threshold value for the the transmit
+	 *      bitrate in kilo-bits-per-second
 	 * Returns: 0 on success, -1 on failure (or if not supported)
 	 *
 	 * This function can be used to configure monitoring of signal strength
-	 * with the current AP. Whenever signal strength drops below the
-	 * %threshold value or increases above it, EVENT_SIGNAL_CHANGE event
-	 * should be generated assuming the signal strength has changed at
-	 * least %hysteresis from the previously indicated signal change event.
+	 * with the current AP and the current bitrate to the AP.  Whenever
+	 * signal strength drops below the %threshold value or increases above
+	 * it, EVENT_CONNECTION_CHANGE event should be generated assuming the
+	 * signal strength has changed at least %hysteresis from the previously
+	 * indicated signal change event.
+	 *
+	 * If the "bitrate" parameter is set non-zero, the transmit bit-rate
+	 * is also monitored.  If the threshold is crossed, or the value
+	 * decreases while under threshold, an EVENT_CONNECTION_CHANGE will be
+	 * generated.
 	 */
-	int (*signal_monitor)(void *priv, int threshold, int hysteresis);
+	int (*connection_monitor)(void *priv, int threshold, int hysteresis,
+				  int bitrate);
 
 	/**
 	 * send_frame - Send IEEE 802.11 frame (testing use only)
@@ -2040,15 +2049,25 @@ enum wpa_event_type {
 	EVENT_EAPOL_RX,
 
 	/**
-	 * EVENT_SIGNAL_CHANGE - Indicate change in signal strength
+	 * EVENT_CONNECTION_CHANGE - Indicate change in signal strength
 	 *
 	 * This event is used to indicate changes in the signal strength
 	 * observed in frames received from the current AP if signal strength
-	 * monitoring has been enabled with signal_monitor().
+	 * monitoring has been enabled with connection_monitor().
 	 */
-	EVENT_SIGNAL_CHANGE
+	EVENT_CONNECTION_CHANGE
 };
 
+
+struct wpa_connection_info {
+	enum {
+		CONN_RSSI_ABOVE, CONN_RSSI_BELOW, CONN_BITRATE_CHANGED
+	} event_type;
+	u32 frequency;
+	int signal;
+	int noise;
+	int txrate;
+};
 
 /**
  * union wpa_event_data - Additional data for wpa_supplicant_event() calls
@@ -2432,15 +2451,9 @@ union wpa_event_data {
 	} eapol_rx;
 
 	/**
-	 * struct signal_change - Data for EVENT_SIGNAL_CHANGE events
+	 * struct connection_change - Data for EVENT_CONNECTION_CHANGE events
 	 */
-	struct signal_change {
-		u32 frequency;
-		int above_threshold;
-		int current_signal;
-		int current_noise;
-		int current_txrate;
-	} signal_change;
+	struct wpa_connection_info connection_change;
 };
 
 /**
