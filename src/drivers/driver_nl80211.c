@@ -1022,8 +1022,8 @@ static int nl80211_get_link_signal(struct wpa_driver_nl80211_data *drv,
 	struct nl_msg *msg;
 	int ret;
 
-	sig->signal = -9999;
-	sig->noise = 9999;
+	sig->signal = WPA_CONN_SIGNAL_UNKNOWN;
+	sig->noise = WPA_CONN_NOISE_UNKNOWN;
 	sig->frequency = drv->assoc_freq;
 
 	msg = nlmsg_alloc();

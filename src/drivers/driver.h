@@ -612,6 +612,9 @@ struct wpa_connection_info {
 	int txrate;
 };
 
+#define WPA_CONN_SIGNAL_UNKNOWN -9999
+#define WPA_CONN_NOISE_UNKNOWN 0
+
 /**
  * struct wpa_driver_ops - Driver interface API definition
  *
