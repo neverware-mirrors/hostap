@@ -5475,6 +5475,15 @@ nla_put_failure:
 	return -1;
 }
 
+static int nl80211_connection_poll(void *priv,
+				   struct wpa_connection_info *conn_info)
+{
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+
+	os_memset(conn_info, 0, sizeof(*conn_info));
+	return nl80211_get_link_signal(drv, conn_info);
+}
 
 static int nl80211_send_frame(void *priv, const u8 *data, size_t data_len,
 			      int encrypt)
@@ -5543,5 +5552,6 @@ const struct wpa_driver_ops wpa_driver_nl80211_ops = {
 	.resume = wpa_driver_nl80211_resume,
 	.send_ft_action = nl80211_send_ft_action,
 	.connection_monitor = nl80211_connection_monitor,
+	.connection_poll = nl80211_connection_poll,
 	.send_frame = nl80211_send_frame,
 };

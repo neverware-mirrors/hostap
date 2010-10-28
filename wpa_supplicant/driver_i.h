@@ -483,6 +483,15 @@ static inline int wpa_drv_connection_monitor(struct wpa_supplicant *wpa_s,
 	return -1;
 }
 
+static inline int wpa_drv_connection_poll(struct wpa_supplicant *wpa_s,
+					  struct wpa_connection_info *conninfo)
+{
+	if (wpa_s->driver->connection_poll)
+		return wpa_s->driver->connection_poll(wpa_s->drv_priv,
+						      conninfo);
+	return -1;
+}
+
 static inline int wpa_drv_set_ap_wps_ie(struct wpa_supplicant *wpa_s,
 					const struct wpabuf *beacon,
 					const struct wpabuf *proberesp)

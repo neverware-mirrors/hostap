@@ -602,6 +602,16 @@ struct wpa_bss_params {
 #define WPA_STA_SHORT_PREAMBLE BIT(2)
 #define WPA_STA_MFP BIT(3)
 
+struct wpa_connection_info {
+	enum {
+		CONN_RSSI_ABOVE, CONN_RSSI_BELOW, CONN_BITRATE_CHANGED
+	} event_type;
+	u32 frequency;
+	int signal;
+	int noise;
+	int txrate;
+};
+
 /**
  * struct wpa_driver_ops - Driver interface API definition
  *
@@ -1762,6 +1772,14 @@ struct wpa_driver_ops {
 				  int bitrate);
 
 	/**
+	 * connection_poll - Get current connection information
+	 * @priv: Private driver interface data
+	 * @conn_info: Connection info structure
+         */
+	int (*connection_poll)(void *priv,
+			       struct wpa_connection_info *conn_info);
+
+	/**
 	 * send_frame - Send IEEE 802.11 frame (testing use only)
 	 * @priv: Private driver interface data
 	 * @data: IEEE 802.11 frame with IEEE 802.11 header
@@ -2058,16 +2076,6 @@ enum wpa_event_type {
 	EVENT_CONNECTION_CHANGE
 };
 
-
-struct wpa_connection_info {
-	enum {
-		CONN_RSSI_ABOVE, CONN_RSSI_BELOW, CONN_BITRATE_CHANGED
-	} event_type;
-	u32 frequency;
-	int signal;
-	int noise;
-	int txrate;
-};
 
 /**
  * union wpa_event_data - Additional data for wpa_supplicant_event() calls
