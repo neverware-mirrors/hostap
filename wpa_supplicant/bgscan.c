@@ -27,6 +27,9 @@ extern const struct bgscan_ops bgscan_simple_ops;
 #ifdef CONFIG_BGSCAN_LEARN
 extern const struct bgscan_ops bgscan_learn_ops;
 #endif /* CONFIG_BGSCAN_LEARN */
+#ifdef CONFIG_BGSCAN_DELTA
+extern const struct bgscan_ops bgscan_delta_ops;
+#endif /* CONFIG_BGSCAN_DELTA */
 
 static const struct bgscan_ops * bgscan_modules[] = {
 #ifdef CONFIG_BGSCAN_SIMPLE
@@ -35,6 +38,9 @@ static const struct bgscan_ops * bgscan_modules[] = {
 #ifdef CONFIG_BGSCAN_LEARN
 	&bgscan_learn_ops,
 #endif /* CONFIG_BGSCAN_LEARN */
+#ifdef CONFIG_BGSCAN_DELTA
+	&bgscan_delta_ops,
+#endif /* CONFIG_BGSCAN_DELTA */
 	NULL
 };
 
@@ -150,9 +156,9 @@ void bgscan_update_signal_monitor(struct bgscan_signal_monitor_state *sm_state,
 	wpa_printf(MSG_DEBUG, "%s: noisefloor update: %d -> %d",
 		   __func__, sm_state->rssi_threshold - sm_state->headroom,
 		   conni->noise);
-	
+
 	sm_state->rssi_threshold = threshold;
-	
+
 	/*
 	 * Schedule a noisefloor adjustment.  Do this as a timeout callback,
 	 * so it is implicitly throttled.
@@ -188,7 +194,7 @@ void bgscan_init_signal_monitor(struct bgscan_signal_monitor_state *sm_state,
 	sm_state->hysteresis = hysteresis;
 	sm_state->txrate_threshold = txrate_threshold;
 	sm_state->headroom = sm_state->rssi_threshold -
-		BGSCAN_DEFAULT_NOISE_FLOOR; 
+		BGSCAN_DEFAULT_NOISE_FLOOR;
 
 	if (wpa_drv_connection_monitor(wpa_s, signal_threshold, hysteresis,
 				       txrate_threshold) < 0) {
