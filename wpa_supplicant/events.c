@@ -1273,7 +1273,7 @@ static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s,
 		wpa_msg(wpa_s, MSG_INFO, "WPA: 4-Way Handshake failed - "
 			"pre-shared key may be incorrect");
 	}
-	if (wpa_s->wpa_state >= WPA_ASSOCIATED)
+	if (wpa_s->wpa_state >= WPA_ASSOCIATING)
 		wpa_supplicant_req_scan(wpa_s, 0, 100000);
 	bssid = wpa_s->bssid;
 	if (is_zero_ether_addr(bssid))
