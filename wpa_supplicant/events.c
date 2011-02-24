@@ -884,8 +884,12 @@ static void wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 	struct wpa_bss *selected;
 	struct wpa_ssid *ssid = NULL;
 	struct wpa_scan_results *scan_res;
+	int was_fast_reconnect;
 
 	wpa_supplicant_notify_scanning(wpa_s, 0);
+
+	was_fast_reconnect = wpa_s->fast_reconnect;
+	wpa_s->fast_reconnect = FALSE;
 
 	scan_res = wpa_supplicant_get_scan_results(wpa_s,
 						   data ? &data->scan_info :
@@ -950,6 +954,14 @@ static void wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 		if (skip)
 			return;
 		wpa_supplicant_connect(wpa_s, selected, ssid);
+	} else if (was_fast_reconnect) {
+		/*
+		 * Processed deferred disassoc work on a failed
+		 * fast reconnect.
+		 */
+		wpa_printf(MSG_INFO, "Fast reconnect failed");
+		wpa_scan_results_free(scan_res);
+		wpa_supplicant_mark_disassoc(wpa_s);
 	} else {
 		wpa_scan_results_free(scan_res);
 		wpa_printf(MSG_DEBUG, "No suitable network found");
@@ -1245,10 +1257,47 @@ static void wpa_supplicant_event_assoc(struct wpa_supplicant *wpa_s,
 }
 
 
+/*
+ * Try to return to the same AP immediately.  Directly scan
+ * on the current channel for the current BSSID and try to
+ * reassociate.  If the station is not present we will clock
+ * the state machine to DISCONNECTED in wpa_supplicant_event_scan_results
+ * which will notify external agents.
+ */
+static int wpa_supplicant_fast_reconnect(struct wpa_supplicant *wpa_s,
+					 const u8 *bssid)
+{
+	struct wpa_driver_scan_params params;
+	int freqs[2];
+
+	wpa_s->reassociate = 1;
+	wpa_s->fast_reconnect = 1;
+
+	os_memset(&params, 0, sizeof(params));
+	params.num_ssids = 1;
+	params.ssids[0].ssid = wpa_s->current_ssid->ssid;
+	params.ssids[0].ssid_len = wpa_s->current_ssid->ssid_len;
+	freqs[0] = wpa_s->assoc_freq;
+	freqs[1] = 0;
+	params.freqs = freqs;
+
+	wpa_msg(wpa_s, MSG_INFO, "Fast reconnect bssid=" MACSTR
+		" ssid=%.*s freq=%d", MAC2STR(bssid),
+		params.ssids[0].ssid_len, params.ssids[0].ssid,
+		params.freqs[0]);
+
+	bgscan_deinit(wpa_s);
+	wpa_s->bgscan_ssid = NULL;
+
+	return wpa_supplicant_trigger_scan(wpa_s, &params);
+}
+
+
 static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s,
 					  u16 reason_code)
 {
 	const u8 *bssid;
+	int fast_reconnect;
 #ifdef CONFIG_SME
 	int authenticating;
 	u8 prev_pending_bssid[ETH_ALEN];
@@ -1273,18 +1322,29 @@ static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s,
 		wpa_msg(wpa_s, MSG_INFO, "WPA: 4-Way Handshake failed - "
 			"pre-shared key may be incorrect");
 	}
-	if (wpa_s->wpa_state >= WPA_ASSOCIATING)
-		wpa_supplicant_req_scan(wpa_s, 0, 100000);
-	bssid = wpa_s->bssid;
-	if (is_zero_ether_addr(bssid))
-		bssid = wpa_s->pending_bssid;
 	/*
-	 * Don't blacklist the AP on normal/expected disconnects.
+	 * If in a COMPLETED state and we were dropped for a reason
+	 * we can directly recover from directly re-join the AP without
+	 * clocking the state machine and/or notifying external agents.
+	 *
+	 * TODO(sleffler) guard against looping (should be only if AP is busted)
 	 */
-	if (reason_code != WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY &&
-	    reason_code != WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA &&
-	    reason_code != WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA)
+	fast_reconnect =
+	    wpa_s->wpa_state == WPA_COMPLETED &&
+	    (reason_code == WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY ||
+	     reason_code == WLAN_REASON_CLASS2_FRAME_FROM_NONAUTH_STA ||
+	     reason_code == WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA);
+	bssid = wpa_s->bssid;
+	if (is_zero_ether_addr(bssid)) {
+		bssid = wpa_s->pending_bssid;
+		fast_reconnect = FALSE;	/* XXX can this happen? */
+		wpa_printf(MSG_DEBUG, "Do not reconnect; pending bssid switch");
+	}
+	if (!fast_reconnect) {
+		if (wpa_s->wpa_state >= WPA_ASSOCIATING)
+			wpa_supplicant_req_scan(wpa_s, 0, 100000);
 		wpa_blacklist_add(wpa_s, bssid);
+	}
 	wpa_sm_notify_disassoc(wpa_s->wpa);
 	wpa_msg(wpa_s, MSG_INFO, WPA_EVENT_DISCONNECTED "bssid=" MACSTR
 		" reason=%d",
@@ -1293,6 +1353,13 @@ static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s,
 		wpa_printf(MSG_DEBUG, "Disconnect event - remove keys");
 		wpa_s->keys_cleared = 0;
 		wpa_clear_keys(wpa_s, wpa_s->bssid);
+	}
+	if (fast_reconnect) {
+		if (wpa_supplicant_fast_reconnect(wpa_s, bssid) == 0)
+			return;
+		/* NB: fall through to slow path */
+		wpa_printf(MSG_DEBUG, "Fast reconnect: Failed to trigger scan");
+		wpa_supplicant_req_scan(wpa_s, 0, 100000);
 	}
 	wpa_supplicant_mark_disassoc(wpa_s);
 	bgscan_deinit(wpa_s);
