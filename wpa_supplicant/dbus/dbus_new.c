@@ -691,6 +691,11 @@ void wpas_dbus_signal_prop_changed(struct wpa_supplicant *wpa_s,
 			wpas_dbus_getter_current_network;
 		prop = "CurrentNetwork";
 		break;
+	case WPAS_DBUS_PROP_CURRENT_AUTH_MODE:
+		getter = (WPADBusPropertyAccessor)
+			wpas_dbus_getter_current_auth_mode;
+		prop = "CurrentAuthMode";
+		break;
 	default:
 		wpa_printf(MSG_ERROR, "dbus: %s: Unknown Property value %d",
 			   __func__, property);
@@ -1403,6 +1408,10 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	},
 	{ "CurrentNetwork", WPAS_DBUS_NEW_IFACE_INTERFACE, "o",
 	  (WPADBusPropertyAccessor) wpas_dbus_getter_current_network,
+	  NULL, R
+	},
+	{ "CurrentAuthMode", WPAS_DBUS_NEW_IFACE_INTERFACE, "s",
+	  (WPADBusPropertyAccessor) wpas_dbus_getter_current_auth_mode,
 	  NULL, R
 	},
 	{ "Blobs", WPAS_DBUS_NEW_IFACE_INTERFACE, "a{say}",

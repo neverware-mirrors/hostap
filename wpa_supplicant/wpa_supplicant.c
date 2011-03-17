@@ -589,8 +589,13 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 		wpa_supplicant_stop_bgscan(wpa_s);
 #endif /* CONFIG_BGSCAN */
 
-	if (wpa_s->wpa_state != old_state)
+	if (wpa_s->wpa_state != old_state) {
 		wpas_notify_state_changed(wpa_s, wpa_s->wpa_state, old_state);
+
+		if (wpa_s->wpa_state == WPA_COMPLETED ||
+		    old_state == WPA_COMPLETED)
+			wpas_notify_auth_changed(wpa_s);
+	}
 }
 
 
@@ -2289,6 +2294,28 @@ int wpa_supplicant_remove_iface(struct wpa_global *global,
 	os_free(wpa_s);
 
 	return 0;
+}
+
+
+/**
+ * wpa_supplicant_get_eap_mode - Get the current EAP mode
+ * @wpa_s: Pointer to the network interface
+ * Returns: Pointer to the eap mode or the string "UNKNOWN" if not found
+ */
+const char * wpa_supplicant_get_eap_mode(struct wpa_supplicant *wpa_s)
+{
+	const char *eapol_method;
+
+        if (wpa_key_mgmt_wpa_ieee8021x(wpa_s->key_mgmt) == 0 &&
+            wpa_s->key_mgmt != WPA_KEY_MGMT_IEEE8021X_NO_WPA) {
+		return "NO-EAP";
+	}
+
+	eapol_method = eapol_sm_get_method_name(wpa_s->eapol);
+	if (eapol_method == NULL)
+		return "UNKNOWN-EAP";
+
+	return eapol_method;
 }
 
 
