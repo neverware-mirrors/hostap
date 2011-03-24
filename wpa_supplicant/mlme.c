@@ -2812,7 +2812,7 @@ int ieee80211_sta_req_scan(struct wpa_supplicant *wpa_s,
 	size_t ssid_len = params->ssids[0].ssid_len;
 
 	if (ssid_len > MAX_SSID_LEN)
-		return -1;
+		return -EINVAL;
 
 	/* MLME-SCAN.request (page 118)  page 144 (11.1.3.1)
 	 * BSSType: INFRASTRUCTURE, INDEPENDENT, ANY_BSS
@@ -2835,7 +2835,7 @@ int ieee80211_sta_req_scan(struct wpa_supplicant *wpa_s,
 	 * scan */
 
 	if (wpa_s->mlme.sta_scanning)
-		return -1;
+		return -EBUSY;
 
 	wpa_printf(MSG_DEBUG, "MLME: starting scan");
 
