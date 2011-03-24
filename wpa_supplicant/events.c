@@ -1355,8 +1355,20 @@ static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s,
 		wpa_clear_keys(wpa_s, wpa_s->bssid);
 	}
 	if (fast_reconnect) {
-		if (wpa_supplicant_fast_reconnect(wpa_s, bssid) == 0)
+		int ret = wpa_supplicant_fast_reconnect(wpa_s, bssid);
+		if (ret == 0)
 			return;
+		if (ret == -EBUSY) {
+			/*
+			 * NB: EBUSY indicates a scan is already in progress.
+			 * Just wait for it to complete; it will do the same
+			 * reconnect work just a bit delayed (since it's likely
+			 * scanning more than 1 channel).
+			 */
+			wpa_printf(MSG_INFO, "Fast reconnect: piggyback on "
+				   "existing scan");
+			return;
+		}
 		/* NB: fall through to slow path */
 		wpa_printf(MSG_DEBUG, "Fast reconnect: Failed to trigger scan");
 		wpa_supplicant_req_scan(wpa_s, 0, 100000);
