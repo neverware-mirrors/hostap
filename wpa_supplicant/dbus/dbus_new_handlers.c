@@ -38,7 +38,7 @@ extern int wpa_debug_show_keys;
 extern int wpa_debug_timestamp;
 
 static const char *debug_strings[] = {
-	"excessive", "msgdump", "debug", "info", "warning", "error", NULL
+	"msgdump", "debug", "info", "warning", "error", NULL
 };
 
 
