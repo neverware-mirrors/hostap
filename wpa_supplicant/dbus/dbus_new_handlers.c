@@ -131,7 +131,9 @@ static const char *dont_quote[] = {
 	"bssid", NULL
 };
 
-static dbus_bool_t should_quote_opt(const char *key)
+static dbus_bool_t should_quote_opt(const char *key,
+				    size_t value_length,
+				    char *value)
 {
 	int i = 0;
 	while (dont_quote[i] != NULL) {
@@ -139,6 +141,17 @@ static dbus_bool_t should_quote_opt(const char *key)
 			return FALSE;
 		i++;
 	}
+
+	/*
+	 * Do not quote psk value which is a raw key.
+	 */
+	if ((os_strcmp(key, "psk") == 0) && (value_length == PMK_LEN*2)) {
+		u8 tmp_buf[PMK_LEN];
+
+		if (hexstr2bin(value, tmp_buf, PMK_LEN) == 0)
+			return FALSE;
+	}
+
 	return TRUE;
 }
 
@@ -208,11 +221,12 @@ dbus_bool_t set_network_properties(struct wpa_supplicant *wpa_s,
 			if (ret <= 0)
 				goto error;
 		} else if (entry.type == DBUS_TYPE_STRING) {
-			if (should_quote_opt(entry.key)) {
-				size = os_strlen(entry.str_value);
-				if (size <= 0)
-					goto error;
+			size = os_strlen(entry.str_value);
+			if (size <= 0)
+				goto error;
 
+			if (should_quote_opt(entry.key, size,
+					     entry.str_value)) {
 				size += 3;
 				value = os_zalloc(size);
 				if (value == NULL)
