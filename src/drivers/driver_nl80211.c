@@ -3540,6 +3540,7 @@ static int wpa_driver_nl80211_sched_scan(void *priv,
 	int ret = 0;
 	struct nl_msg *msg, *ssids, *freqs, *match_set_ssid, *match_sets;
 	size_t i;
+	u32 flags;
 
 #ifdef ANDROID
 	if (!drv->capa.sched_scan_supported)
@@ -3618,6 +3619,11 @@ static int wpa_driver_nl80211_sched_scan(void *priv,
 		}
 		nla_put_nested(msg, NL80211_ATTR_SCAN_FREQUENCIES, freqs);
 	}
+
+	flags = 0;
+	if (params->tx_abort)
+		flags |= NL80211_SCAN_FLAG_TX_ABORT;
+	NLA_PUT_U32(msg, NL80211_ATTR_SCAN_FLAGS, flags);
 
 	ret = send_and_recv_msgs(drv, msg, NULL, NULL);
 

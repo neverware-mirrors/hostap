@@ -176,10 +176,12 @@ struct wpa_scan_res {
  * struct wpa_scan_results - Scan results
  * @res: Array of pointers to allocated variable length scan result entries
  * @num: Number of entries in the scan result array
+ * @aborted: Whether the scan was aborted
  */
 struct wpa_scan_results {
 	struct wpa_scan_res **res;
 	size_t num;
+	int aborted;
 };
 
 /**
@@ -270,6 +272,11 @@ struct wpa_driver_scan_params {
 	size_t num_filter_ssids;
 
 	/**
+	 * tx_abort - If non-zero scan should be aborted by outbound traffic
+	 */
+	int tx_abort;
+
+	/***
 	 * p2p_probe - Used to disable CCK (802.11b) rates for P2P probes
 	 *
 	 * When set, the driver is expected to remove rates 1, 2, 5.5, and 11
