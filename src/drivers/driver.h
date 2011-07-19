@@ -172,10 +172,12 @@ struct wpa_scan_res {
  * struct wpa_scan_results - Scan results
  * @res: Array of pointers to allocated variable length scan result entries
  * @num: Number of entries in the scan result array
+ * @aborted: Whether the scan was aborted
  */
 struct wpa_scan_results {
 	struct wpa_scan_res **res;
 	size_t num;
+	int aborted;
 };
 
 /**
@@ -264,6 +266,11 @@ struct wpa_driver_scan_params {
 	 * num_filter_ssids - Number of entries in filter_ssids array
 	 */
 	size_t num_filter_ssids;
+
+	/**
+	 * tx_abort - If non-zero scan should be aborted by outbound traffic
+	 */
+	int tx_abort;
 };
 
 /**
