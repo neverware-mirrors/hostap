@@ -28,6 +28,16 @@ extern const char *wpa_supplicant_full_license4;
 extern const char *wpa_supplicant_full_license5;
 #endif /* CONFIG_NO_STDOUT_DEBUG */
 
+/*
+ * Channels with a great SNR can operate at full rate.  What is a great SNR?
+ * This doc https://supportforums.cisco.com/docs/DOC-12954 says, "the general
+ * rule of thumb is that any SNR above 20 is good."  This one
+ * http://www.cisco.com/en/US/tech/tk722/tk809/technologies_q_and_a_item09186a00805e9a96.shtml#qa23
+ * recommends 25 as a minimum SNR for 54 Mbps data rate.  30 is chosen here as a
+ * conservative value.
+ */
+#define GREAT_SNR 30
+
 struct wpa_sm;
 struct wpa_supplicant;
 struct ibss_rsn;

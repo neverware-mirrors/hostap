@@ -87,6 +87,14 @@ static inline struct wpa_scan_results * wpa_drv_get_scan_results2(
 	return NULL;
 }
 
+static inline void wpa_drv_get_noise_for_scan_results(
+	struct wpa_supplicant *wpa_s, struct wpa_scan_results *scan_results)
+{
+	if (wpa_s->driver->get_noise_for_scan_results)
+		wpa_s->driver->get_noise_for_scan_results(wpa_s->drv_priv,
+							  scan_results);
+}
+
 static inline int wpa_drv_get_bssid(struct wpa_supplicant *wpa_s, u8 *bssid)
 {
 	if (wpa_s->driver->get_bssid) {

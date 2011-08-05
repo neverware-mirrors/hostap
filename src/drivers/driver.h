@@ -1201,6 +1201,21 @@ struct wpa_driver_ops {
 	 struct wpa_scan_results * (*get_scan_results2)(void *priv);
 
 	/**
+	 * get_noise_for_scan_results - Sets the 'noise' field of struct
+	 * wpa_scan_res
+	 * @priv: private driver interface data
+	 * @scan_results: Can results obtained through get_scan_results2.
+	 *
+	 * This function gets the survey results from the driver.  For each
+	 * frequency in the scan results, the noise is updated if the survey
+	 * results have a noise value for that frequency.
+	 *
+	 * Returns: 0 on success. -1 on failure.
+	 */
+	int (*get_noise_for_scan_results)(void *priv,
+					  struct wpa_scan_results *scan_results);
+
+	/**
 	 * set_country - Set country
 	 * @priv: Private driver interface data
 	 * @alpha2: country to which to switch to

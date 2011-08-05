@@ -686,11 +686,15 @@ struct wpabuf * wpa_scan_get_vendor_ie_multi_beacon(
  * better. */
 static int wpa_scan_result_compar(const void *a, const void *b)
 {
+#define IS_5GHZ(n) (n > 4000)
+#define MIN(a,b) a < b ? a : b
+
 	struct wpa_scan_res **_wa = (void *) a;
 	struct wpa_scan_res **_wb = (void *) b;
 	struct wpa_scan_res *wa = *_wa;
 	struct wpa_scan_res *wb = *_wb;
 	int wpa_a, wpa_b, maxrate_a, maxrate_b;
+	int snr_a, snr_b;
 
 	/* WPA/WPA2 support preferred */
 	wpa_a = wpa_scan_get_vendor_ie(wa, WPA_IE_VENDOR_TYPE) != NULL ||
@@ -711,23 +715,36 @@ static int wpa_scan_result_compar(const void *a, const void *b)
 	    (wb->caps & IEEE80211_CAP_PRIVACY) == 0)
 		return -1;
 
-	/* best/max rate preferred if signal level close enough XXX */
-	if ((wa->level && wb->level && abs(wb->level - wa->level) < 5) ||
+	snr_a = MIN(wa->level - wa->noise, GREAT_SNR);
+	snr_b = MIN(wb->level - wb->noise, GREAT_SNR);
+
+        wpa_printf(MSG_DEBUG, "Channel a: freq:%d level:%d noise:%d snr:%d",
+		   wa->freq, wa->level, wa->noise, snr_a);
+        wpa_printf(MSG_DEBUG, "Channel b: freq:%d level:%d noise:%d snr:%d",
+		   wb->freq, wb->level, wb->noise, snr_b);
+
+
+	/* best/max rate preferred if SNR close enough XXX */
+        if ((snr_a && snr_b && abs(snr_b - snr_a) < 5) ||
 	    (wa->qual && wb->qual && abs(wb->qual - wa->qual) < 10)) {
 		maxrate_a = wpa_scan_get_max_rate(wa);
 		maxrate_b = wpa_scan_get_max_rate(wb);
 		if (maxrate_a != maxrate_b)
 			return maxrate_b - maxrate_a;
+		if (IS_5GHZ(wa->freq) ^ IS_5GHZ(wb->freq))
+			return IS_5GHZ(wa->freq) ? -1 : 1;
 	}
 
 	/* use freq for channel preference */
 
-	/* all things being equal, use signal level; if signal levels are
+	/* all things being equal, use SNR; if SNRs are
 	 * identical, use quality values since some drivers may only report
 	 * that value and leave the signal level zero */
-	if (wb->level == wa->level)
+	if (snr_b == snr_a)
 		return wb->qual - wa->qual;
-	return wb->level - wa->level;
+	return snr_b - snr_a;
+#undef MIN
+#undef IS_5GHZ
 }
 
 
@@ -778,7 +795,6 @@ static int wpa_scan_result_wps_compar(const void *a, const void *b)
 }
 #endif /* CONFIG_WPS */
 
-
 /**
  * wpa_supplicant_get_scan_results - Get scan results
  * @wpa_s: Pointer to wpa_supplicant data
@@ -806,6 +822,8 @@ wpa_supplicant_get_scan_results(struct wpa_supplicant *wpa_s,
 		wpa_dbg(wpa_s, MSG_DEBUG, "Failed to get scan results");
 		return NULL;
 	}
+
+	wpa_drv_get_noise_for_scan_results(wpa_s, scan_res);
 
 #ifdef CONFIG_WPS
 	if (wpas_wps_in_progress(wpa_s)) {

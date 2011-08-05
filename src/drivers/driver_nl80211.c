@@ -1248,6 +1248,81 @@ static int nl80211_get_link_noise(struct wpa_driver_nl80211_data *drv,
 }
 
 
+static int get_noise_for_scan_results(struct nl_msg *msg, void *arg)
+{
+	struct nlattr *tb[NL80211_ATTR_MAX + 1];
+	struct genlmsghdr *gnlh = nlmsg_data(nlmsg_hdr(msg));
+	struct nlattr *sinfo[NL80211_SURVEY_INFO_MAX + 1];
+	static struct nla_policy survey_policy[NL80211_SURVEY_INFO_MAX + 1] = {
+		[NL80211_SURVEY_INFO_FREQUENCY] = { .type = NLA_U32 },
+		[NL80211_SURVEY_INFO_NOISE] = { .type = NLA_U8 },
+	};
+	struct wpa_scan_results *scan_results = arg;
+	struct wpa_scan_res *scan_res;
+	size_t i;
+
+	nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
+		  genlmsg_attrlen(gnlh, 0), NULL);
+
+	if (!tb[NL80211_ATTR_SURVEY_INFO]) {
+		wpa_printf(MSG_DEBUG, "nl80211: survey data missing!");
+		return NL_SKIP;
+	}
+
+	if (nla_parse_nested(sinfo, NL80211_SURVEY_INFO_MAX,
+			     tb[NL80211_ATTR_SURVEY_INFO],
+			     survey_policy)) {
+		wpa_printf(MSG_DEBUG, "nl80211: failed to parse nested "
+			   "attributes!");
+		return NL_SKIP;
+	}
+
+	if (!sinfo[NL80211_SURVEY_INFO_NOISE])
+		return NL_SKIP;
+
+	if (!sinfo[NL80211_SURVEY_INFO_FREQUENCY])
+		return NL_SKIP;
+
+	for (i = 0; i < scan_results->num; ++i) {
+		scan_res = scan_results->res[i];
+		if (!scan_res)
+			continue;
+		if (nla_get_u32(sinfo[NL80211_SURVEY_INFO_FREQUENCY]) !=
+		    scan_res->freq)
+			continue;
+		if (!(scan_res->flags & WPA_SCAN_NOISE_INVALID))
+			continue;
+		scan_res->noise = (s8) nla_get_u8(sinfo[NL80211_SURVEY_INFO_NOISE]);
+		scan_res->flags &= ~WPA_SCAN_NOISE_INVALID;
+	}
+
+	return NL_SKIP;
+}
+
+
+static int nl80211_get_noise_for_scan_results(void *priv,
+					      struct wpa_scan_results *scan_res)
+{
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	struct nl_msg *msg;
+
+	msg = nlmsg_alloc();
+	if (!msg)
+		return -ENOMEM;
+
+	genlmsg_put(msg, 0, 0, genl_family_get_id(drv->nl80211), 0,
+		    NLM_F_DUMP, NL80211_CMD_GET_SURVEY, 0);
+
+	NLA_PUT_U32(msg, NL80211_ATTR_IFINDEX, drv->ifindex);
+
+	return send_and_recv_msgs(drv, msg, get_noise_for_scan_results,
+				  scan_res);
+ nla_put_failure:
+	return -ENOBUFS;
+}
+
+
 static void nl80211_cqm_event(struct wpa_driver_nl80211_data *drv,
 			      struct nlattr *tb[])
 {
@@ -6612,6 +6687,7 @@ const struct wpa_driver_ops wpa_driver_nl80211_ops = {
 	.set_key = wpa_driver_nl80211_set_key,
 	.scan2 = wpa_driver_nl80211_scan,
 	.get_scan_results2 = wpa_driver_nl80211_get_scan_results,
+	.get_noise_for_scan_results = nl80211_get_noise_for_scan_results,
 	.deauthenticate = wpa_driver_nl80211_deauthenticate,
 	.disassociate = wpa_driver_nl80211_disassociate,
 	.authenticate = wpa_driver_nl80211_authenticate,
