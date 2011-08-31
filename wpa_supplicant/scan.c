@@ -718,12 +718,6 @@ static int wpa_scan_result_compar(const void *a, const void *b)
 	snr_a = MIN(wa->level - wa->noise, GREAT_SNR);
 	snr_b = MIN(wb->level - wb->noise, GREAT_SNR);
 
-        wpa_printf(MSG_DEBUG, "Channel a: freq:%d level:%d noise:%d snr:%d",
-		   wa->freq, wa->level, wa->noise, snr_a);
-        wpa_printf(MSG_DEBUG, "Channel b: freq:%d level:%d noise:%d snr:%d",
-		   wb->freq, wb->level, wb->noise, snr_b);
-
-
 	/* best/max rate preferred if SNR close enough XXX */
         if ((snr_a && snr_b && abs(snr_b - snr_a) < 5) ||
 	    (wa->qual && wb->qual && abs(wb->qual - wa->qual) < 10)) {
