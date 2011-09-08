@@ -270,6 +270,19 @@ void sme_authenticate(struct wpa_supplicant *wpa_s,
 }
 
 
+static void sme_auth_failed(struct wpa_supplicant *wpa_s)
+{
+	wpas_connection_failed(wpa_s, wpa_s->pending_bssid);
+	if (wpa_s->fast_reconnect) {
+		wpa_s->fast_reconnect = FALSE;
+		wpa_printf(MSG_INFO, "Fast reconnect failed");
+		wpa_supplicant_mark_disassoc(wpa_s);
+		/* NB: wpa_supplicant_mark_disassoc will not signal */
+		wpas_notify_bssid_changed(wpa_s);
+	}
+}
+
+
 void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 {
 	struct wpa_ssid *ssid = wpa_s->current_ssid;
@@ -310,7 +323,7 @@ void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 		    WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG ||
 		    wpa_s->sme.auth_alg == data->auth.auth_type ||
 		    wpa_s->current_ssid->auth_alg == WPA_AUTH_ALG_LEAP) {
-			wpas_connection_failed(wpa_s, wpa_s->pending_bssid);
+			sme_auth_failed(wpa_s);
 			return;
 		}
 
@@ -335,6 +348,8 @@ void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 			return;
 		}
 	}
+
+	wpa_s->fast_reconnect = FALSE;
 
 #ifdef CONFIG_IEEE80211R
 	if (data->auth.auth_type == WLAN_AUTH_FT) {
@@ -492,7 +507,7 @@ void sme_event_auth_timed_out(struct wpa_supplicant *wpa_s,
 			      union wpa_event_data *data)
 {
 	wpa_dbg(wpa_s, MSG_DEBUG, "SME: Authentication timed out");
-	wpas_connection_failed(wpa_s, wpa_s->pending_bssid);
+	sme_auth_failed(wpa_s);
 }
 
 

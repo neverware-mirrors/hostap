@@ -1003,6 +1003,8 @@ static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 		wpa_scan_results_free(scan_res);
 		if (skip)
 			return 0;
+		/* restore fast reconnect state */
+		wpa_s->fast_reconnect = was_fast_reconnect;
 		wpa_supplicant_connect(wpa_s, selected, ssid);
 		wpa_supplicant_rsn_preauth_scan_results(wpa_s);
 	} else if (was_fast_reconnect) {
