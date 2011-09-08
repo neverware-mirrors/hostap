@@ -200,8 +200,10 @@ int wpa_supplicant_trigger_scan(struct wpa_supplicant *wpa_s,
 	if (ret) {
 		wpa_supplicant_notify_scanning(wpa_s, 0);
 		wpas_notify_scan_done(wpa_s, 0);
-	} else
+	} else {
 		wpa_s->scan_runs++;
+		os_get_time(&wpa_s->last_scan_request);
+	}
 
 	return ret;
 }

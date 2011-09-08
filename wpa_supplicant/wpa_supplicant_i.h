@@ -367,6 +367,7 @@ struct wpa_supplicant {
 	int disconnected; /* all connections disabled; i.e., do no reassociate
 			   * before this has been cleared */
 	int fast_reconnect; /* reassociate or go to disconnected */
+	struct os_time last_scan_request;
 	struct wpa_ssid *current_ssid;
 	struct wpa_bss *current_bss;
 	int ap_ies_from_associnfo;

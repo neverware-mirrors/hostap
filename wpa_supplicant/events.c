@@ -858,6 +858,36 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 	return 1;
 }
 
+/*
+ * Filter scan results based on age.
+ */
+static void age_scan_results(struct wpa_supplicant *wpa_s,
+			     struct wpa_scan_results *scan_res,
+			     unsigned int max_age)
+{
+	ssize_t i, num;
+
+	for (i = 0, num = scan_res->num; i < num; i++) {
+		struct wpa_scan_res *res = scan_res->res[i];
+
+		if (res->age <= max_age)
+			continue;
+
+		wpa_dbg(wpa_s, MSG_DEBUG, "Discard old scan "
+			"result for " MACSTR " (age %u > %u)",
+			MAC2STR(res->bssid), res->age, max_age);
+		if (i+1 < num) {
+			/* copy down over entry to be tossed */
+			os_memmove(&scan_res->res[i],
+			    &scan_res->res[i+1],
+			    (num - (i+1)) * sizeof(res));
+			i--;	/* blech, counter the for loop */
+		}
+		os_free(res);
+		scan_res->num--, num--;
+	}
+}
+
 /* Return < 0 if no scan results could be fetched. */
 static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 					      union wpa_event_data *data)
@@ -887,6 +917,20 @@ static int _wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 			"scanning again");
 		wpa_supplicant_req_new_scan(wpa_s, 1, 0);
 		return -1;
+	}
+
+	if (was_fast_reconnect) {
+		struct os_time now, delta;
+		/*
+		 * Filter scan results based on age so we don't try to
+		 * re-join a cache'd result.  Each scan result has an age
+		 * (in milliseconds) so calculate the time since the last
+		 * scan request and toss anything older.
+		 */
+		os_get_time(&now);
+		os_time_sub(&now, &wpa_s->last_scan_request, &delta);
+		age_scan_results(wpa_s, scan_res,
+				 1000 * delta.sec + delta.usec / 1000);
 	}
 
 #ifndef CONFIG_NO_RANDOM_POOL
