@@ -2335,7 +2335,7 @@ static int wpa_driver_nl80211_scan(void *priv,
 	int ret = 0, timeout;
 	struct nl_msg *msg, *ssids, *freqs;
 	size_t i;
-	u8 flags;
+	u32 flags;
 
 	msg = nlmsg_alloc();
 	ssids = nlmsg_alloc();
