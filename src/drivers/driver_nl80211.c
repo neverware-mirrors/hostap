@@ -1629,7 +1629,6 @@ struct wiphy_info_data {
 	int connect_supported;
 	int offchan_tx_supported;
 	int max_remain_on_chan;
-	int fw_roam;
 };
 
 
@@ -1684,9 +1683,6 @@ static int wiphy_info_handler(struct nl_msg *msg, void *arg)
 
 	if (tb[NL80211_ATTR_OFFCHANNEL_TX_OK])
 		info->offchan_tx_supported = 1;
-
-	if (tb[NL80211_ATTR_ROAM_SUPPORT])
-		info->fw_roam = 1;
 
 	if (tb[NL80211_ATTR_MAX_REMAIN_ON_CHANNEL_DURATION])
 		info->max_remain_on_chan =
@@ -1759,11 +1755,6 @@ static int wpa_driver_nl80211_capa(struct wpa_driver_nl80211_data *drv)
 		wpa_printf(MSG_DEBUG, "nl80211: Using driver-based "
 			   "off-channel TX");
 		drv->capa.flags |= WPA_DRIVER_FLAGS_OFFCHANNEL_TX;
-	}
-
-	if (info.fw_roam) {
-		wpa_printf(MSG_INFO, "nl80211: Using driver-based roaming");
-		drv->capa.flags |= WPA_DRIVER_FLAGS_FW_ROAMING;
 	}
 
 	drv->capa.flags |= WPA_DRIVER_FLAGS_SANE_ERROR_CODES;

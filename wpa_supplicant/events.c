@@ -798,11 +798,6 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 	if (wpa_s->current_ssid != ssid)
 		return 1; /* different network block */
 
-	if (wpa_s->drv_flags & WPA_DRIVER_FLAGS_FW_ROAMING) {
-		wpa_dbg(wpa_s, MSG_DEBUG, "Skip roaming, fw handles this");
-		return 0;
-	}
-
 	for (i = 0; i < scan_res->num; i++) {
 		struct wpa_scan_res *res = scan_res->res[i];
 		const u8 *ie;

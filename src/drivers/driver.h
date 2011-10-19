@@ -570,8 +570,6 @@ struct wpa_driver_capa {
 #define WPA_DRIVER_FLAGS_OFFCHANNEL_TX			0x00008000
 /* Driver indicates TX status events for EAPOL Data frames */
 #define WPA_DRIVER_FLAGS_EAPOL_TX_STATUS		0x00010000
-/* Driver supports roaming in firmware */
-#define WPA_DRIVER_FLAGS_FW_ROAMING			0x00040000
 	unsigned int flags;
 
 	int max_scan_ssids;
