@@ -38,6 +38,8 @@ extern const char *wpa_supplicant_full_license5;
  */
 #define GREAT_SNR 30
 
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+
 struct wpa_sm;
 struct wpa_supplicant;
 struct ibss_rsn;
@@ -651,6 +653,7 @@ void wpa_supplicant_mark_disassoc(struct wpa_supplicant *wpa_s);
 void wpa_supplicant_connect(struct wpa_supplicant *wpa_s,
 			    struct wpa_bss *selected,
 			    struct wpa_ssid *ssid);
+int wpa_supplicant_need_scan_results(struct wpa_supplicant *wpa_s);
 
 /* eap_register.c */
 int eap_register_methods(void);

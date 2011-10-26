@@ -101,10 +101,10 @@ static void bgscan_simple_timeout(void *eloop_ctx, void *timeout_ctx)
 		params.freqs = data->ssid->scan_freq;
 
 	/*
-	 * TODO(sleffler) maybe don't abort if signal low and we
-	 * don't have recent results
+	 * If we might be roaming don't let our bgscan be aborted by
+	 * outbound traffic.  Otherwise it's ok; this is low priority work.
 	 */
-	params.tx_abort = TRUE;
+	params.tx_abort = !wpa_supplicant_need_scan_results(wpa_s);
 
 	wpa_printf(MSG_DEBUG, "bgscan simple: Request a background scan");
 	if (params.freqs != NULL)

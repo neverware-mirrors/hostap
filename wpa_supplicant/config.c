@@ -2173,6 +2173,8 @@ struct wpa_config * wpa_config_alloc_empty(const char *ctrl_interface,
 	config->bss_expiration_age = DEFAULT_BSS_EXPIRATION_AGE;
 	config->bss_expiration_scan_count = DEFAULT_BSS_EXPIRATION_SCAN_COUNT;
 	config->max_num_sta = DEFAULT_MAX_NUM_STA;
+	config->roam_threshold = DEFAULT_ROAM_THRESHOLD;
+	config->roam_min = DEFAULT_ROAM_MIN;
 
 	if (ctrl_interface)
 		config->ctrl_interface = os_strdup(ctrl_interface);
@@ -2445,7 +2447,9 @@ static const struct global_parse_data global_fields[] = {
 	{ INT(bss_expiration_scan_count), 0 },
 	{ INT_RANGE(filter_ssids, 0, 1), 0 },
 	{ INT(max_num_sta), 0 },
-	{ INT_RANGE(disassoc_low_ack, 0, 1), 0 }
+	{ INT_RANGE(disassoc_low_ack, 0, 1), 0 },
+	{ INT(roam_threshold), 0 },
+	{ INT(roam_min), 0 },
 };
 
 #undef FUNC
