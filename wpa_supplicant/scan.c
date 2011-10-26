@@ -689,8 +689,6 @@ struct wpabuf * wpa_scan_get_vendor_ie_multi_beacon(
 static int wpa_scan_result_compar(const void *a, const void *b)
 {
 #define IS_5GHZ(n) (n > 4000)
-#define MIN(a,b) a < b ? a : b
-
 	struct wpa_scan_res **_wa = (void *) a;
 	struct wpa_scan_res **_wb = (void *) b;
 	struct wpa_scan_res *wa = *_wa;
@@ -739,7 +737,6 @@ static int wpa_scan_result_compar(const void *a, const void *b)
 	if (snr_b == snr_a)
 		return wb->qual - wa->qual;
 	return snr_b - snr_a;
-#undef MIN
 #undef IS_5GHZ
 }
 
