@@ -337,6 +337,16 @@ static void wpa_bss_update(struct wpa_supplicant *wpa_s, struct wpa_bss *bss,
 }
 
 
+void wpa_bss_update_signal(struct wpa_supplicant *wpa_s,
+			   struct wpa_bss *bss, int cur_signal)
+{
+	if (bss->level != cur_signal) {
+		bss->level = cur_signal;
+		wpas_notify_bss_signal_changed(wpa_s, bss->id);
+	}
+}
+
+
 static int wpa_bss_in_use(struct wpa_supplicant *wpa_s, struct wpa_bss *bss)
 {
 	return bss == wpa_s->current_bss ||
