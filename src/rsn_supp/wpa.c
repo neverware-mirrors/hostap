@@ -2057,6 +2057,17 @@ struct wpa_sm * wpa_sm_init(struct wpa_sm_ctx *ctx)
 
 
 /**
+ * wpa_sm_cache_flush - Flush any cached credentials
+ * @sm: Pointer to WPA state machine data from wpa_sm_init()
+ */
+void wpa_sm_cache_flush(struct wpa_sm *sm)
+{
+	if (sm == NULL)
+		return;
+	pmksa_cache_flush(sm->pmksa);
+}
+
+/**
  * wpa_sm_deinit - Deinitialize WPA state machine
  * @sm: Pointer to WPA state machine data from wpa_sm_init()
  */

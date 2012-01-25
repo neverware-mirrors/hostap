@@ -92,6 +92,7 @@ struct rsn_supp_config {
 #ifndef CONFIG_NO_WPA
 
 struct wpa_sm * wpa_sm_init(struct wpa_sm_ctx *ctx);
+void wpa_sm_cache_flush(struct wpa_sm *sm);
 void wpa_sm_deinit(struct wpa_sm *sm);
 void wpa_sm_notify_assoc(struct wpa_sm *sm, const u8 *bssid);
 void wpa_sm_notify_disassoc(struct wpa_sm *sm);

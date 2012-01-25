@@ -1706,6 +1706,23 @@ DBusMessage * wpas_dbus_handler_flush_bss(DBusMessage *message,
 
 
 /**
+ * wpas_dbus_handler_reload_configuration - Reload configuration
+ * @message: Pointer to incoming dbus message
+ * @wpa_s: wpa_supplicant structure for a network interface
+ * Returns: NULL
+ *
+ * Handler function for "ReloadConfiguration" method call of network
+ * interface.  This clears all cached credentials as well.
+ */
+DBusMessage * wpas_dbus_handler_clear_cached_credentials(
+	DBusMessage *message, struct wpa_supplicant *wpa_s)
+{
+	wpas_clear_cached_credentials(wpa_s);
+	return NULL;
+}
+
+
+/**
  * wpas_dbus_getter_capabilities - Return interface capabilities
  * @message: Pointer to incoming dbus message
  * @wpa_s: wpa_supplicant structure for a network interface

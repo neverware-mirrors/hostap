@@ -2835,3 +2835,20 @@ int wpas_driver_bss_selection(struct wpa_supplicant *wpa_s)
 	return wpa_s->conf->ap_scan == 2 ||
 		(wpa_s->drv_flags & WPA_DRIVER_FLAGS_BSS_SELECTION);
 }
+
+/**
+ * wpa_supplicant_clear_cached_credentials - Clear all cached credentials
+ * @wpa_s: Pointer to wpa_supplicant data
+ *
+ * This function is used to de-configure any cached credentials held
+ * by the supplicant.  This is useful for ensuring that when other
+ * credentials are changed (e.g., WPA passphrase), that the next
+ * authentication attempt will use the new credential instead of
+ * first trying to use state derived from a previous authentication.
+ */
+void wpas_clear_cached_credentials(struct wpa_supplicant *wpa_s) {
+	wpa_dbg(wpa_s, MSG_DEBUG, "RSN: flushing PMKID list");
+	wpa_drv_flush_pmkid(wpa_s);
+	wpa_sm_cache_flush(wpa_s->wpa);
+	rsn_preauth_deinit(wpa_s->wpa);
+}

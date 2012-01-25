@@ -229,24 +229,47 @@ pmksa_cache_add(struct rsn_pmksa_cache *pmksa, const u8 *pmk, size_t pmk_len,
 
 
 /**
- * pmksa_cache_deinit - Free all entries in PMKSA cache
+ * pmksa_cache_flush - Free all entries in PMKSA cache
  * @pmksa: Pointer to PMKSA cache data from pmksa_cache_init()
  */
-void pmksa_cache_deinit(struct rsn_pmksa_cache *pmksa)
+void pmksa_cache_flush(struct rsn_pmksa_cache *pmksa)
 {
 	struct rsn_pmksa_cache_entry *entry, *prev;
 
 	if (pmksa == NULL)
 		return;
 
+	if (pmksa->sm != NULL)
+		pmksa->sm->cur_pmksa = NULL;
+
 	entry = pmksa->pmksa;
 	pmksa->pmksa = NULL;
+
+	pmksa_cache_set_expiration(pmksa);
+
 	while (entry) {
 		prev = entry;
 		entry = entry->next;
-		os_free(prev);
+		// NB: Do not call pmksa_cache_free_entry(), as the callback
+		// may be from a previous authentication due to other issues
+		// with this version of wpa_supplicant.
+                os_free(prev);
+		pmksa->pmksa_count--;
 	}
-	pmksa_cache_set_expiration(pmksa);
+}
+
+
+/**
+ * pmksa_cache_deinit - De-initialize PMKSA cache state
+ * @pmksa: Pointer to PMKSA cache data from pmksa_cache_init()
+ */
+void pmksa_cache_deinit(struct rsn_pmksa_cache *pmksa)
+{
+	if (pmksa == NULL)
+		return;
+
+	pmksa_cache_flush(pmksa);
+
 	os_free(pmksa);
 }
 

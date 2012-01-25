@@ -101,6 +101,9 @@ DBusMessage * wpas_dbus_handler_remove_blob(DBusMessage *message,
 DBusMessage * wpas_dbus_handler_flush_bss(DBusMessage *message,
 					  struct wpa_supplicant *wpa_s);
 
+DBusMessage * wpas_dbus_handler_clear_cached_credentials(
+	DBusMessage *message, struct wpa_supplicant *wpa_s);
+
 DBusMessage * wpas_dbus_getter_capabilities(DBusMessage *message,
 					    struct wpa_supplicant *wpa_s);
 
