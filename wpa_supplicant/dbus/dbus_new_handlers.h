@@ -116,6 +116,12 @@ DBusMessage * wpas_dbus_getter_ap_scan(DBusMessage *message,
 DBusMessage * wpas_dbus_setter_ap_scan(DBusMessage *message,
 				       struct wpa_supplicant *wpa_s);
 
+DBusMessage * wpas_dbus_getter_fast_reauth(DBusMessage *message,
+					   struct wpa_supplicant *wpa_s);
+
+DBusMessage * wpas_dbus_setter_fast_reauth(DBusMessage *message,
+					   struct wpa_supplicant *wpa_s);
+
 DBusMessage * wpas_dbus_getter_bss_expire_age(DBusMessage *message,
 					      struct wpa_supplicant *wpa_s);
 
