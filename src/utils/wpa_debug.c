@@ -250,6 +250,13 @@ static void _wpa_hexdump_ascii(int level, const char *title, const u8 *buf,
 
 	if (level < wpa_debug_level)
 		return;
+#ifdef CONFIG_DEBUG_SYSLOG
+	if (wpa_debug_syslog) {
+		/* punt, too hard to deal with formatting */
+		_wpa_hexdump(level, title, buf, len, show);
+		return;
+	}
+#endif
 	wpa_debug_print_timestamp();
 #ifdef CONFIG_DEBUG_FILE
 	if (out_file) {
