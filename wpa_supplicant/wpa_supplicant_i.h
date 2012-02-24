@@ -537,6 +537,9 @@ struct wpa_supplicant {
 	} hw;
 
 	int pno;
+
+	// WLAN_REASON_* reason codes.  Negative if locally generated.
+	int disconnect_reason;
 };
 
 

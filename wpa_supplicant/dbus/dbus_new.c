@@ -1633,6 +1633,9 @@ void wpas_dbus_signal_prop_changed(struct wpa_supplicant *wpa_s,
 	case WPAS_DBUS_PROP_CURRENT_AUTH_MODE:
 		prop = "CurrentAuthMode";
 		break;
+	case WPAS_DBUS_PROP_DISCONNECT_REASON:
+		prop = "DisconnectReason";
+		break;
 	default:
 		wpa_printf(MSG_ERROR, "dbus: %s: Unknown Property value %d",
 			   __func__, property);
@@ -2595,6 +2598,10 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	  NULL
 	},
 #endif /* CONFIG_P2P */
+	{ "DisconnectReason", WPAS_DBUS_NEW_IFACE_INTERFACE, "i",
+	  wpas_dbus_getter_disconnect_reason,
+	  NULL
+	},
 	{ NULL, NULL, NULL, NULL, NULL }
 };
 
