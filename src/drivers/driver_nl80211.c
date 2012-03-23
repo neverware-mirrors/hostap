@@ -3404,6 +3404,7 @@ static int wpa_driver_nl80211_scan(void *priv,
 	int ret = 0, timeout;
 	struct nl_msg *msg, *ssids, *freqs, *rates;
 	size_t i;
+	u32 flags;
 
 	drv->scan_for_auth = 0;
 
@@ -3453,6 +3454,11 @@ static int wpa_driver_nl80211_scan(void *priv,
 		}
 		nla_put_nested(msg, NL80211_ATTR_SCAN_FREQUENCIES, freqs);
 	}
+
+	flags = 0;
+	if (params->tx_abort)
+		flags |= NL80211_SCAN_FLAG_TX_ABORT;
+	NLA_PUT_U32(msg, NL80211_ATTR_SCAN_FLAGS, flags);
 
 	if (params->p2p_probe) {
 		/*
