@@ -20,7 +20,6 @@
 #include "wpa_supplicant_i.h"
 #include "wps_supplicant.h"
 #include "dbus/dbus_common.h"
-#include "dbus/dbus_common_i.h"
 #include "dbus/dbus_old.h"
 #include "dbus/dbus_new.h"
 #include "rsn_supp/wpa.h"
@@ -107,8 +106,6 @@ void wpas_notify_state_changed(struct wpa_supplicant *wpa_s,
 void wpas_notify_disconnect_reason(struct wpa_supplicant *wpa_s)
 {
 	wpas_dbus_signal_prop_changed(wpa_s, WPAS_DBUS_PROP_DISCONNECT_REASON);
-        wpa_dbus_flush_object_changed_properties(wpa_s->global->dbus->con,
-						 wpa_s->dbus_new_path);
 }
 
 

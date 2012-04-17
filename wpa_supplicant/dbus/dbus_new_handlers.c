@@ -2242,7 +2242,7 @@ dbus_bool_t wpas_dbus_setter_fast_reauth(DBusMessageIter *iter,
 }
 
 /**
- * wpas_dbus_getter_disconenct_reason - Get most recent reason for disconect
+ * wpas_dbus_getter_disconnect_reason - Get most recent reason for disconect
  * @iter: Pointer to incoming dbus message iter
  * @error: Location to store error on failure
  * @user_data: Function specific data
