@@ -211,6 +211,8 @@ void wpas_dbus_signal_certification(struct wpa_supplicant *wpa_s,
 				    int depth, const char *subject,
 				    const char *cert_hash,
 				    const struct wpabuf *cert);
+void wpas_dbus_signal_eap_status(struct wpa_supplicant *wpa_s,
+				 const char *status, const char *parameter);
 
 #else /* CONFIG_CTRL_IFACE_DBUS_NEW */
 
@@ -465,6 +467,12 @@ static inline void wpas_dbus_signal_certification(struct wpa_supplicant *wpa_s,
 						  const char *subject,
 						  const char *cert_hash,
 						  const struct wpabuf *cert)
+{
+}
+
+static inline void wpas_dbus_signal_eap_status(struct wpa_supplicant *wpa_s,
+					       const char *status,
+					       const char *parameter)
 {
 }
 

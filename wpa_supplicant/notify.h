@@ -128,5 +128,7 @@ void wpas_notify_p2p_wps_failed(struct wpa_supplicant *wpa_s,
 void wpas_notify_certification(struct wpa_supplicant *wpa_s, int depth,
 			       const char *subject, const char *cert_hash,
 			       const struct wpabuf *cert);
+void wpas_notify_eap_status(struct wpa_supplicant *wpa_s, const char *status,
+			    const char *parameter);
 
 #endif /* NOTIFY_H */

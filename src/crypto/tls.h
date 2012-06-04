@@ -27,8 +27,10 @@ struct tls_keys {
 };
 
 enum tls_event {
+	TLS_CERT_CHAIN_SUCCESS,
 	TLS_CERT_CHAIN_FAILURE,
-	TLS_PEER_CERTIFICATE
+	TLS_PEER_CERTIFICATE,
+	TLS_ALERT
 };
 
 /*
@@ -63,6 +65,12 @@ union tls_event_data {
 		const u8 *hash;
 		size_t hash_len;
 	} peer_cert;
+
+	struct {
+		int is_local;
+		const char *type;
+		const char *description;
+	} alert;
 };
 
 struct tls_config {

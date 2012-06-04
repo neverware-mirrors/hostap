@@ -1853,6 +1853,17 @@ static void eapol_sm_notify_cert(void *ctx, int depth, const char *subject,
 				 cert_hash, cert);
 }
 
+
+static void eapol_sm_notify_status(void *ctx, const char *status,
+				   const char *parameter)
+{
+	struct eapol_sm *sm = ctx;
+
+	if (sm->ctx->status_cb)
+		sm->ctx->status_cb(sm->ctx->ctx, status, parameter);
+}
+
+
 static struct eapol_callbacks eapol_cb =
 {
 	eapol_sm_get_config,
@@ -1865,7 +1876,8 @@ static struct eapol_callbacks eapol_cb =
 	eapol_sm_get_config_blob,
 	eapol_sm_notify_pending,
 	eapol_sm_eap_param_needed,
-	eapol_sm_notify_cert
+	eapol_sm_notify_cert,
+	eapol_sm_notify_status
 };
 
 

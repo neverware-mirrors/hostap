@@ -614,3 +614,9 @@ void wpas_notify_certification(struct wpa_supplicant *wpa_s, int depth,
 	/* notify the new DBus API */
 	wpas_dbus_signal_certification(wpa_s, depth, subject, cert_hash, cert);
 }
+
+void wpas_notify_eap_status(struct wpa_supplicant *wpa_s, const char *status,
+			    const char *parameter)
+{
+	wpas_dbus_signal_eap_status(wpa_s, status, parameter);
+}
