@@ -8323,18 +8323,19 @@ static int nl80211_signal_monitor(void *priv, int threshold, int hysteresis)
 
 	cqm = nlmsg_alloc();
 	if (cqm == NULL)
-		return -1;
+		goto nla_put_failure;
 
 	NLA_PUT_U32(cqm, NL80211_ATTR_CQM_RSSI_THOLD, threshold);
 	NLA_PUT_U32(cqm, NL80211_ATTR_CQM_RSSI_HYST, hysteresis);
 	nla_put_nested(msg, NL80211_ATTR_CQM, cqm);
+
+	nlmsg_free(cqm);
 
 	if (send_and_recv_msgs(drv, msg, NULL, NULL) == 0)
 		return 0;
 	msg = NULL;
 
 nla_put_failure:
-	nlmsg_free(cqm);
 	nlmsg_free(msg);
 	return -1;
 }
