@@ -35,6 +35,7 @@ struct bgscan_simple_data {
 	int long_interval; /* use if signal > threshold */
 	int *supp_freqs;
 	int n_supp_freqs;
+	int *scan_freqs;
 	int freq_idx;
 	struct os_time last_bgscan;
 	struct bgscan_signal_monitor_state signal_monitor;
@@ -43,13 +44,12 @@ struct bgscan_simple_data {
 
 static int * bgscan_simple_get_freqs(struct bgscan_simple_data *data)
 {
-	int *freqs;
+	int *freqs = data->scan_freqs;
 	int i, j;
 
 	if (data->supp_freqs == NULL)
 		return NULL;
 
-	freqs = os_malloc((data->n_supp_freqs + 1) * sizeof(int));
 	if (freqs == NULL)
 		return NULL;
 
@@ -224,6 +224,7 @@ static void bgscan_simple_setup_freqs(struct wpa_supplicant *wpa_s,
 		/* TODO(sleffler) priority order freqs */
 		data->supp_freqs = freqs;
 		data->n_supp_freqs = count;
+		data->scan_freqs = os_malloc((count + 1) * sizeof(int));
 
 		log_freqs("Supported", freqs);
 	}
@@ -296,6 +297,7 @@ static void bgscan_simple_deinit(void *priv)
 	if (data->signal_threshold)
 		bgscan_deinit_signal_monitor(&data->signal_monitor);
 	os_free(data->supp_freqs);
+	os_free(data->scan_freqs);
 	os_free(data);
 }
 
