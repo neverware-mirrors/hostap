@@ -8330,12 +8330,14 @@ static int nl80211_signal_monitor(void *priv, int threshold, int hysteresis)
 	nla_put_nested(msg, NL80211_ATTR_CQM, cqm);
 
 	nlmsg_free(cqm);
+	cqm = NULL;
 
 	if (send_and_recv_msgs(drv, msg, NULL, NULL) == 0)
 		return 0;
 	msg = NULL;
 
 nla_put_failure:
+	nlmsg_free(cqm);
 	nlmsg_free(msg);
 	return -1;
 }
