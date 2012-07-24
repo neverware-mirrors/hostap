@@ -1928,6 +1928,8 @@ static int tls_connection_engine_ca_cert(void *_ssl_ctx,
 	wpa_printf(MSG_DEBUG, "OpenSSL: %s - added CA certificate from engine "
 		   "to certificate store", __func__);
 	SSL_set_verify(conn->ssl, SSL_VERIFY_PEER, tls_verify_cb);
+	conn->ca_cert_verify = 1;
+
 	return 0;
 
 #else /* OPENSSL_NO_ENGINE */
@@ -2091,7 +2093,7 @@ static int tls_connection_private_key(void *_ssl_ctx,
 	ERR_clear_error();
 	SSL_CTX_set_default_passwd_cb(ssl_ctx, NULL);
 	os_free(passwd);
-	
+
 	if (!SSL_check_private_key(conn->ssl)) {
 		tls_show_errors(MSG_INFO, __func__, "Private key failed "
 				"verification");
@@ -2137,7 +2139,7 @@ static int tls_global_private_key(SSL_CTX *ssl_ctx, const char *private_key,
 	os_free(passwd);
 	ERR_clear_error();
 	SSL_CTX_set_default_passwd_cb(ssl_ctx, NULL);
-	
+
 	if (!SSL_CTX_check_private_key(ssl_ctx)) {
 		tls_show_errors(MSG_INFO, __func__,
 				"Private key failed verification");
