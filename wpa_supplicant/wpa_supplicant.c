@@ -639,7 +639,7 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 #ifdef CONFIG_BGSCAN
 	if (state == WPA_COMPLETED)
 		wpa_supplicant_start_bgscan(wpa_s);
-	else
+	else if (state != WPA_GROUP_HANDSHAKE)
 		wpa_supplicant_stop_bgscan(wpa_s);
 #endif /* CONFIG_BGSCAN */
 
