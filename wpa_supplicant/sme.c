@@ -793,9 +793,8 @@ void sme_sched_obss_scan(struct wpa_supplicant *wpa_s, int enable)
 	if (!enable)
 		return;
 
-	if (!(wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME) || ssid == NULL ||
-	    ssid->mode != IEEE80211_MODE_INFRA)
-		return; /* Not using station SME in wpa_supplicant */
+	if (ssid == NULL || ssid->mode != IEEE80211_MODE_INFRA)
+		return;
 
 	if (!wpa_s->hw.modes ||
 	    !(wpa_s->hw.modes->ht_capab & HT_CAP_INFO_SUPP_CHANNEL_WIDTH_SET))
