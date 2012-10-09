@@ -249,6 +249,7 @@ struct wpa_driver_nl80211_data {
 	unsigned int scan_for_auth:1;
 	unsigned int retry_auth:1;
 	unsigned int use_monitor:1;
+	unsigned int ignore_next_local_disconnect:1;
 
 	u64 remain_on_chan_cookie;
 	u64 send_action_cookie;
@@ -1155,6 +1156,7 @@ static void mlme_event_disconnect(struct wpa_driver_nl80211_data *drv,
 				  struct nlattr *by_ap)
 {
 	union wpa_event_data data;
+	unsigned int locally_generated = by_ap == NULL;
 
 	if (drv->capa.flags & WPA_DRIVER_FLAGS_SME) {
 		/*
@@ -1165,12 +1167,23 @@ static void mlme_event_disconnect(struct wpa_driver_nl80211_data *drv,
 			   "event when using userspace SME");
 		return;
 	}
+	if (drv->ignore_next_local_disconnect) {
+		drv->ignore_next_local_disconnect = 0;
+		if (locally_generated) {
+			wpa_printf(MSG_DEBUG, "nl80211: Ignore disconnect "
+				   "event triggered during reassociation");
+			return;
+		}
+		wpa_printf(MSG_WARNING, "nl80211: Was expecting local "
+			   "disconnect but got another disconnect "
+			   "event first");
+	}
 
 	drv->associated = 0;
 	os_memset(&data, 0, sizeof(data));
 	if (reason)
 		data.disassoc_info.reason_code = nla_get_u16(reason);
-	data.disassoc_info.locally_generated = by_ap == NULL;
+	data.disassoc_info.locally_generated = locally_generated;
 	wpa_supplicant_event(drv->ctx, EVENT_DISASSOC, &data);
 }
 
@@ -4363,6 +4376,7 @@ static int wpa_driver_nl80211_disconnect(struct wpa_driver_nl80211_data *drv,
 {
 	wpa_printf(MSG_DEBUG, "%s(addr=" MACSTR " reason_code=%d)",
 		   __func__, MAC2STR(addr), reason_code);
+	drv->ignore_next_local_disconnect = 0;
 	drv->associated = 0;
 	return wpa_driver_nl80211_mlme(drv, addr, NL80211_CMD_DISCONNECT,
 				       reason_code, 0);
@@ -6521,7 +6535,7 @@ static int nl80211_disconnect(struct wpa_driver_nl80211_data *drv,
 }
 
 
-static int wpa_driver_nl80211_connect(
+static int wpa_driver_nl80211_try_connect(
 	struct wpa_driver_nl80211_data *drv,
 	struct wpa_driver_associate_params *params)
 {
@@ -6679,14 +6693,6 @@ skip_auth_type:
 	if (ret) {
 		wpa_printf(MSG_DEBUG, "nl80211: MLME connect failed: ret=%d "
 			   "(%s)", ret, strerror(-ret));
-		/*
-		 * cfg80211 does not currently accept new connection if we are
-		 * already connected. As a workaround, force disconnection and
-		 * try again once the driver indicates it completed
-		 * disconnection.
-		 */
-		if (ret == -EALREADY)
-			nl80211_disconnect(drv, params->bssid);
 		goto nla_put_failure;
 	}
 	ret = 0;
@@ -6696,6 +6702,30 @@ nla_put_failure:
 	nlmsg_free(msg);
 	return ret;
 
+}
+
+
+static int wpa_driver_nl80211_connect(
+	struct wpa_driver_nl80211_data *drv,
+	struct wpa_driver_associate_params *params)
+{
+	int ret = wpa_driver_nl80211_try_connect(drv, params);
+	if (ret == -EALREADY) {
+		/*
+		 * cfg80211 does not currently accept new connections if
+		 * we are already connected. As a workaround, force
+		 * disconnection and try again.
+		 */
+		wpa_printf(MSG_DEBUG, "nl80211: Explicitly "
+			   "disconnecting before reassociation "
+			   "attempt");
+		if (nl80211_disconnect(drv, NULL))
+			return -1;
+		/* Ignore the next local disconnect message. */
+		drv->ignore_next_local_disconnect = 1;
+		ret = wpa_driver_nl80211_try_connect(drv, params);
+	}
+	return ret;
 }
 
 
