@@ -810,6 +810,14 @@ struct wpa_driver_capa {
 #define WPA_DRIVER_FLAGS_PROBE_RESP_OFFLOAD		0x00200000
 /* Driver supports U-APSD in AP mode */
 #define WPA_DRIVER_FLAGS_AP_UAPSD			0x00400000
+/* Driver supports inactivity timer in AP mode */
+#define WPA_DRIVER_FLAGS_INACTIVITY_TIMER		0x00800000
+/* Driver expects user space implementation of MLME in AP mode */
+#define WPA_DRIVER_FLAGS_AP_MLME			0x01000000
+/* Driver supports SAE with user space SME */
+#define WPA_DRIVER_FLAGS_SAE				0x02000000
+/* Driver makes use of OBSS scan mechanism in wpa_supplicant */
+#define WPA_DRIVER_FLAGS_OBSS_SCAN			0x04000000
 	unsigned int flags;
 
 	int max_scan_ssids;
