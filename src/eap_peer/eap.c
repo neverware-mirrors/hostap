@@ -879,6 +879,7 @@ static void eap_sm_processIdentity(struct eap_sm *sm, const struct wpabuf *req)
 
 	wpa_msg(sm->msg_ctx, MSG_INFO, WPA_EVENT_EAP_STARTED
 		"EAP authentication started");
+	eap_notify_status(sm, "started", "");
 
 	/*
 	 * RFC 3748 - 5.1: Identity
