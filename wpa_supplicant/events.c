@@ -2376,6 +2376,11 @@ static void wpa_supplicant_event_assoc(struct wpa_supplicant *wpa_s,
 	if (wpa_s->l2)
 		l2_packet_notify_auth_start(wpa_s->l2);
 
+        if (wpa_s->conf->disable_high_bitrates)
+                if (wpa_drv_disable_high_bitrates(wpa_s))
+                        wpa_msg(wpa_s, MSG_WARNING,
+                                "Failed to disable high bitrates.");
+
 	already_authorized = data && data->assoc_info.authorized;
 
 	/*

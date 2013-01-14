@@ -918,6 +918,20 @@ static inline int wpa_drv_set_prob_oper_freq(struct wpa_supplicant *wpa_s,
 	return wpa_s->driver->set_prob_oper_freq(wpa_s->drv_priv, freq);
 }
 
+static inline int wpa_drv_disable_high_bitrates(struct wpa_supplicant *wpa_s)
+{
+	if (!wpa_s->driver->disable_high_bitrates)
+		return -1;
+	return wpa_s->driver->disable_high_bitrates(wpa_s->drv_priv);
+}
+
+static inline int wpa_drv_enable_high_bitrates(struct wpa_supplicant *wpa_s)
+{
+	if (!wpa_s->driver->enable_high_bitrates)
+		return -1;
+	return wpa_s->driver->enable_high_bitrates(wpa_s->drv_priv);
+}
+
 static inline int wpa_drv_abort_scan(struct wpa_supplicant *wpa_s)
 {
 	if (!wpa_s->driver->abort_scan)
