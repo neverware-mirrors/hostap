@@ -2606,7 +2606,8 @@ static const struct global_parse_data global_fields[] = {
 	{ STR(home_milenage), 0 },
 	{ INT_RANGE(interworking, 0, 1), 0 },
 	{ FUNC(hessid), 0 },
-	{ INT_RANGE(access_network_type, 0, 15), 0 }
+	{ INT_RANGE(access_network_type, 0, 15), 0 },
+	{ INT_RANGE(disable_high_bitrates, 0, 1), 0 }
 };
 
 #undef FUNC

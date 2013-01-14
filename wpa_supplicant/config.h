@@ -509,6 +509,16 @@ struct wpa_config {
 	 *	<Ki>:<OPc>:<SQN> format
 	 */
 	char *home_milenage;
+
+	/**
+	 * disable_high_bitrates - Disable high bitrates on new associations
+	 *
+	 * By default, we use all available bitrates negotiated with an AP
+	 * during association.  However, this flag can be set to disable the use
+	 * of high bitrates for frame transmission (if supported by the driver).
+	 * The user can later re-enable high bitrates via EnableHighBitrates().
+	 */
+	int disable_high_bitrates;
 };
 
 

@@ -1425,6 +1425,8 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 	wpa_supplicant_apply_ht_overrides(wpa_s, ssid, &params);
 #endif /* CONFIG_HT_OVERRIDES */
 
+	params.disable_high_bitrates = wpa_s->conf->disable_high_bitrates;
+
 	ret = wpa_drv_associate(wpa_s, &params);
 	if (ret < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Association request to the driver "
@@ -1708,6 +1710,18 @@ void wpa_supplicant_select_network(struct wpa_supplicant *wpa_s,
 		wpas_notify_network_selected(wpa_s, ssid);
 }
 
+/**
+ * wpa_supplicant_enable_high_bitrates - Enable high bitrates on an interface.
+ * @wpa_s: wpa_supplicant structure for a network interface
+ *
+ * Enables high bitrates on the interface until the next association.  If
+ * disable_high_bitrates is set on the next association, high rates will be
+ * disabled again.
+ */
+int wpa_supplicant_enable_high_bitrates(struct wpa_supplicant *wpa_s)
+{
+	return wpa_drv_enable_high_bitrates(wpa_s);
+}
 
 /**
  * wpa_supplicant_set_ap_scan - Set AP scan mode for interface
