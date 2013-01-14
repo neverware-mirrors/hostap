@@ -2353,6 +2353,13 @@ static const struct wpa_dbus_method_desc wpas_dbus_interface_methods[] = {
 		  END_ARGS
 	  }
 	},
+	{ "EnableHighBitrates", WPAS_DBUS_NEW_IFACE_INTERFACE,
+	  (WPADBusMethodHandler) &wpas_dbus_handler_enable_high_bitrates,
+	  {
+		  END_ARGS
+	  }
+	},
+
 #ifdef CONFIG_WPS
 	{ "Start", WPAS_DBUS_NEW_IFACE_WPS,
 	  (WPADBusMethodHandler) &wpas_dbus_handler_wps_start,
@@ -2613,6 +2620,10 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	{ "ScanInterval", WPAS_DBUS_NEW_IFACE_INTERFACE, "i",
 	  wpas_dbus_getter_scan_interval,
 	  wpas_dbus_setter_scan_interval
+	},
+	{ "DisableHighBitrates", WPAS_DBUS_NEW_IFACE_INTERFACE, "b",
+	  wpas_dbus_getter_disable_high_bitrates,
+	  wpas_dbus_setter_disable_high_bitrates
 	},
 #ifdef CONFIG_WPS
 	{ "ProcessCredentials", WPAS_DBUS_NEW_IFACE_WPS, "b",

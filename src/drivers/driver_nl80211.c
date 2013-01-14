@@ -337,6 +337,8 @@ static inline int have_ifidx(struct wpa_driver_nl80211_data *drv, int ifidx)
 static int i802_set_freq(void *priv, struct hostapd_freq_params *freq);
 static int nl80211_disable_11b_rates(struct wpa_driver_nl80211_data *drv,
 				     int ifindex, int disabled);
+static int nl80211_disable_high_bitrates(struct wpa_driver_nl80211_data *drv,
+					 int ifindex, int disabled);
 
 static int nl80211_leave_ibss(struct wpa_driver_nl80211_data *drv);
 static int wpa_driver_nl80211_authenticate_retry(
@@ -6695,8 +6697,20 @@ skip_auth_type:
 			   "(%s)", ret, strerror(-ret));
 		goto nla_put_failure;
 	}
-	ret = 0;
 	wpa_printf(MSG_DEBUG, "nl80211: Connect request send successfully");
+
+	ret = nl80211_disable_high_bitrates(drv, drv->ifindex,
+					    params->disable_high_bitrates);
+	if (ret) {
+		/*
+		 * Not all drivers with an nl80211 interface support this API.
+		 * Don't kill those association attempts because we've failed
+		 * to provide this functionality.
+		 */
+		wpa_printf(MSG_ERROR, "nl80211: Failed to disable high "
+			   "bitrates");
+	}
+	ret = 0;
 
 nla_put_failure:
 	nlmsg_free(msg);
@@ -6869,9 +6883,21 @@ static int wpa_driver_nl80211_associate(
 		nl80211_dump_scan(drv);
 		goto nla_put_failure;
 	}
-	ret = 0;
 	wpa_printf(MSG_DEBUG, "nl80211: Association request send "
 		   "successfully");
+
+	ret = nl80211_disable_high_bitrates(drv, drv->ifindex,
+					    params->disable_high_bitrates);
+	if (ret) {
+		/*
+		 * Not all drivers with an nl80211 interface support this API.
+		 * Don't kill those association attempts because we've failed
+		 * to provide this functionality.
+		 */
+		wpa_printf(MSG_ERROR, "nl80211: Failed to disable high "
+			   "bitrates");
+	}
+	ret = 0;
 
 nla_put_failure:
 	nlmsg_free(msg);
@@ -8215,13 +8241,25 @@ static int wpa_driver_nl80211_probe_req_report(void *priv, int report)
 	return -1;
 }
 
-
-static int nl80211_disable_11b_rates(struct wpa_driver_nl80211_data *drv,
-				     int ifindex, int disabled)
+/**
+ * Enable or disable rates considered for use by the driver.  Passing NULL for
+ * a set of allowed bands enables all bitrates in that band.  This function
+ * completely overwrites previous calls, rather than adding or removing rates.
+ */
+static int nl80211_set_allowed_rates(struct wpa_driver_nl80211_data *drv,
+				     int ifindex,
+				     u8 *legacy_2ghz_rates,
+				     int legacy_2ghz_rates_len,
+				     u8 *legacy_5ghz_rates,
+				     int legacy_5ghz_rates_len,
+				     u8 *mcs_2ghz_rates,
+				     int mcs_2ghz_rates_len,
+				     u8 *mcs_5ghz_rates,
+				     int mcs_5ghz_rates_len)
 {
-	struct nl_msg *msg;
+	struct nl_msg *msg = NULL;
 	struct nlattr *bands, *band;
-	int ret;
+	int ret = -1;
 
 	msg = nlmsg_alloc();
 	if (!msg)
@@ -8234,19 +8272,41 @@ static int nl80211_disable_11b_rates(struct wpa_driver_nl80211_data *drv,
 	if (!bands)
 		goto nla_put_failure;
 
-	/*
-	 * Disable 2 GHz rates 1, 2, 5.5, 11 Mbps by masking out everything
-	 * else apart from 6, 9, 12, 18, 24, 36, 48, 54 Mbps from non-MCS
-	 * rates. All 5 GHz rates are left enabled.
-	 */
-	band = nla_nest_start(msg, NL80211_BAND_2GHZ);
-	if (!band)
-		goto nla_put_failure;
-	if (disabled) {
-		NLA_PUT(msg, NL80211_TXRATE_LEGACY, 8,
-			"\x0c\x12\x18\x24\x30\x48\x60\x6c");
+	if (legacy_2ghz_rates && legacy_2ghz_rates_len >= 0) {
+		band = nla_nest_start(msg, NL80211_BAND_2GHZ);
+		if (!band)
+			goto nla_put_failure;
+		NLA_PUT(msg, NL80211_TXRATE_LEGACY,
+			legacy_2ghz_rates_len, legacy_2ghz_rates);
+		nla_nest_end(msg, band);
 	}
-	nla_nest_end(msg, band);
+
+	if (legacy_5ghz_rates && legacy_5ghz_rates_len >= 0) {
+		band = nla_nest_start(msg, NL80211_BAND_5GHZ);
+		if (!band)
+			goto nla_put_failure;
+		NLA_PUT(msg, NL80211_TXRATE_LEGACY,
+			legacy_5ghz_rates_len, legacy_5ghz_rates);
+		nla_nest_end(msg, band);
+	}
+
+	if (mcs_2ghz_rates && mcs_2ghz_rates_len >= 0) {
+		band = nla_nest_start(msg, NL80211_BAND_2GHZ);
+		if (!band)
+			goto nla_put_failure;
+		NLA_PUT(msg, NL80211_TXRATE_MCS,
+			mcs_2ghz_rates_len, mcs_2ghz_rates);
+		nla_nest_end(msg, band);
+	}
+
+	if (mcs_5ghz_rates && mcs_5ghz_rates_len >= 0) {
+		band = nla_nest_start(msg, NL80211_BAND_5GHZ);
+		if (!band)
+			goto nla_put_failure;
+		NLA_PUT(msg, NL80211_TXRATE_MCS,
+			mcs_5ghz_rates_len, mcs_5ghz_rates);
+		nla_nest_end(msg, band);
+	}
 
 	nla_nest_end(msg, bands);
 
@@ -8257,13 +8317,50 @@ static int nl80211_disable_11b_rates(struct wpa_driver_nl80211_data *drv,
 			   "(%s)", ret, strerror(-ret));
 	}
 
-	return ret;
-
 nla_put_failure:
 	nlmsg_free(msg);
-	return -1;
+	return ret;
 }
 
+static int nl80211_disable_11b_rates(struct wpa_driver_nl80211_data *drv,
+				     int ifindex, int disabled)
+{
+	/*
+	 * Disable 2 GHz rates 1, 2, 5.5, 11 Mbps by masking out everything
+	 * else apart from 6, 9, 12, 18, 24, 36, 48, 54 Mbps from non-MCS
+	 * rates. All 5 GHz rates are left enabled.
+	 */
+	if (disabled) {
+		return nl80211_set_allowed_rates(drv, ifindex,
+						 "\x0c\x12\x18\x24\x30\x48\x60\x6c", 8,
+						 NULL, 0,
+						 NULL, 0,
+						 NULL, 0);
+	}
+	return nl80211_set_allowed_rates(drv, ifindex, NULL, 0, NULL, 0,
+					 NULL, 0, NULL, 0);
+}
+
+static int nl80211_disable_high_bitrates(struct wpa_driver_nl80211_data *drv,
+				     int ifindex, int disabled)
+{
+	/*
+	 * Allow only legacy bitrates less than 12 Mbps and the two slowest MCS
+	 * rates for outgoing traffic.
+	 */
+	if (disabled) {
+		wpa_printf(MSG_DEBUG, "nl80211: Disabling high bitrates");
+		return nl80211_set_allowed_rates(drv, ifindex,
+						 "\x02\x04\x0b\x0c\x16", 5,
+						 "\x02\x04\x0b\x0c\x16", 5,
+						 "\x00\x01", 2,
+						 "\x00\x01", 2);
+	}
+
+	wpa_printf(MSG_DEBUG, "nl80211: Enabling high bitrates");
+	return nl80211_set_allowed_rates(drv, ifindex, NULL, 0, NULL, 0,
+					 NULL, 0, NULL, 0);
+}
 
 static int wpa_driver_nl80211_deinit_ap(void *priv)
 {
@@ -8685,6 +8782,12 @@ static void nl80211_poll_client(void *priv, const u8 *own_addr, const u8 *addr,
 	nlmsg_free(msg);
 }
 
+static int nl80211_enable_high_bitrates(void *priv)
+{
+	struct i802_bss *bss = priv;
+	struct wpa_driver_nl80211_data *drv = bss->drv;
+	return nl80211_disable_high_bitrates(drv, drv->ifindex, 0);
+}
 
 static int nl80211_set_power_save(struct i802_bss *bss, int enabled)
 {
@@ -9022,4 +9125,5 @@ const struct wpa_driver_ops wpa_driver_nl80211_ops = {
 	.send_tdls_mgmt = nl80211_send_tdls_mgmt,
 	.tdls_oper = nl80211_tdls_oper,
 #endif /* CONFIG_TDLS */
+	.enable_high_bitrates = nl80211_enable_high_bitrates,
 };

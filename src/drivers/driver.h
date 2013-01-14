@@ -537,6 +537,13 @@ struct wpa_driver_associate_params {
 	int disable_ht;
 
 	/**
+	 * disable_high_bitrates - Disable high bitrates on an interface when
+	 * associating/associated with this SSID.  (e.g. legacy rates over
+	 * 11Mbps and all but the lowest two MCS rates)
+	 */
+	int disable_high_bitrates;
+
+	/**
 	 * HT Capabilities over-rides. Only bits set in the mask will be used,
 	 * and not all values are used by the kernel anyway. Currently, MCS,
 	 * MPDU and MSDU fields are used.
@@ -2510,6 +2517,18 @@ struct wpa_driver_ops {
 	 */
 	void (*poll_client)(void *priv, const u8 *own_addr,
 			    const u8 *addr, int qos);
+
+	/**
+	 * enable_high_bitrates - Request driver to enable high bitrates.
+	 * @priv: private driver interface data.
+	 *
+	 * Returns: 0 on success, -1 on failure
+	 *
+	 * This may be overwritten by future associations to the same SSID,
+	 * each of which will disable high bitrates again if
+	 * disable_high_bitrates is set in the association parameters.
+	 */
+	int (*enable_high_bitrates)(void *priv);
 };
 
 

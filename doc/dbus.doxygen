@@ -316,6 +316,16 @@ fi.w1.wpa_supplicant1.CreateInterface.
 	  <dd>A blob with the specified name doesn't exist.</dd>
 	</dl>
       </li>
+
+      <li>
+	<h3>EnableHighBitrates ( ) --> nothing</h3>
+	<p>Enable high bitrates on this interface if currently disabled.</p>
+	<h4>Possible errors</h4>
+	<dl>
+	  <dt>fi.w1.wpa_supplicant1.UnknownError</dt>
+	  <dd>Enabling high bitrates failed for an unknown reason.</dd>
+	</dl>
+      </li>
     </ul>
 
 \subsection dbus_interface_properties Properties
@@ -414,6 +424,11 @@ fi.w1.wpa_supplicant1.CreateInterface.
       <li>
 	<h3>ScanInterval - i - (read/write)</h3>
 	<p>Time (in seconds) between scans for a suitable AP. Must be >= 0.</p>
+      </li>
+
+      <li>
+	<h3>DisableHighBitrates- b - (read/write)</h3>
+	<p>Identical to disable_high_bitrates entry in %wpa_supplicant configuration file.</p>
       </li>
     </ul>
 
