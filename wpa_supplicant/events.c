@@ -1280,6 +1280,48 @@ static void wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_NO_SCAN_PROCESSING */
 
 
+wpa_supplicant_fast_associate(struct wpa_supplicant *wpa_s,
+			      struct wpa_ssid *ssid)
+{
+#ifdef CONFIG_NO_SCAN_PROCESSING
+	return -1;
+#else /* CONFIG_NO_SCAN_PROCESSING */
+	struct wpa_scan_results *scan_res;
+	struct wpa_bss *selected_bss;
+	struct wpa_ssid *selected_ssid = NULL;
+
+	scan_res = wpa_supplicant_get_scan_results(wpa_s, NULL, 0);
+	if (scan_res == NULL) {
+		wpa_printf(MSG_DEBUG, "Fast associate: scan results not found");
+		return -1;
+	}
+
+	selected_bss = wpa_supplicant_pick_network(wpa_s, scan_res,
+						   &selected_ssid);
+	wpa_scan_results_free(scan_res);
+
+	if (!selected_bss) {
+		wpa_dbg(wpa_s, MSG_DEBUG, "Fast associate: no suitable bss");
+		return -1;
+	}
+
+	if (selected_ssid != ssid) {
+		wpa_dbg(wpa_s, MSG_DEBUG, "Fast associate: ssid mismatch?!");
+		return -1;
+	}
+
+	if (wpa_supplicant_connect(wpa_s, selected_bss, ssid) < 0) {
+		wpa_dbg(wpa_s, MSG_DEBUG, "Fast associate: Connect failed");
+		return -1;
+	}
+
+	wpa_dbg(wpa_s, MSG_DEBUG, "Fast associate: Connect initiated!");
+
+	return 0;
+#endif /* CONFIG_NO_SCAN_PROCESSING */
+}
+
+
 static int wpa_supplicant_event_associnfo(struct wpa_supplicant *wpa_s,
 					  union wpa_event_data *data)
 {
