@@ -8248,13 +8248,13 @@ static int wpa_driver_nl80211_probe_req_report(void *priv, int report)
  */
 static int nl80211_set_allowed_rates(struct wpa_driver_nl80211_data *drv,
 				     int ifindex,
-				     u8 *legacy_2ghz_rates,
+				     const char *legacy_2ghz_rates,
 				     int legacy_2ghz_rates_len,
-				     u8 *legacy_5ghz_rates,
+				     const char *legacy_5ghz_rates,
 				     int legacy_5ghz_rates_len,
-				     u8 *mcs_2ghz_rates,
+				     const char *mcs_2ghz_rates,
 				     int mcs_2ghz_rates_len,
-				     u8 *mcs_5ghz_rates,
+				     const char *mcs_5ghz_rates,
 				     int mcs_5ghz_rates_len)
 {
 	struct nl_msg *msg = NULL;
