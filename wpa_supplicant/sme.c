@@ -250,7 +250,8 @@ void sme_authenticate(struct wpa_supplicant *wpa_s,
 	wpa_supplicant_cancel_scan(wpa_s);
 
 	wpa_msg(wpa_s, MSG_INFO, "SME: Trying to authenticate with " MACSTR
-		" (freq=%d MHz)", MAC2STR(params.bssid), params.freq);
+		" (SSID='%s' freq=%d MHz)", MAC2STR(params.bssid),
+		wpa_ssid_txt(params.ssid, params.ssid_len), params.freq);
 
 	wpa_clear_keys(wpa_s, bss->bssid);
 	wpa_supplicant_set_state(wpa_s, WPA_AUTHENTICATING);
@@ -402,7 +403,9 @@ void sme_associate(struct wpa_supplicant *wpa_s, enum wpas_mode mode,
 		params.prev_bssid = wpa_s->sme.prev_bssid;
 
 	wpa_msg(wpa_s, MSG_INFO, "Trying to associate with " MACSTR
-		" (freq=%d MHz)", MAC2STR(params.bssid), params.freq);
+		" (SSID='%s' freq=%d MHz)", MAC2STR(params.bssid),
+		params.ssid ? wpa_ssid_txt(params.ssid, params.ssid_len) : "",
+		params.freq);
 
 	wpa_supplicant_set_state(wpa_s, WPA_ASSOCIATING);
 

@@ -1159,7 +1159,8 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 		const u8 *ie, *md = NULL;
 #endif /* CONFIG_IEEE80211R */
 		wpa_msg(wpa_s, MSG_INFO, "Trying to associate with " MACSTR
-			" (freq=%d MHz)", MAC2STR(bss->bssid), bss->freq);
+			" (SSID='%s' freq=%d MHz)", MAC2STR(bss->bssid),
+			wpa_ssid_txt(bss->ssid, bss->ssid_len), bss->freq);
 		bssid_changed = !is_zero_ether_addr(wpa_s->bssid);
 		os_memset(wpa_s->bssid, 0, ETH_ALEN);
 		os_memcpy(wpa_s->pending_bssid, bss->bssid, ETH_ALEN);
@@ -1187,7 +1188,7 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 		return;
 #endif /* CONFIG_WPS */
 	} else {
-		wpa_msg(wpa_s, MSG_DEBUG, "Trying to associate with SSID '%s'",
+		wpa_msg(wpa_s, MSG_INFO, "Trying to associate with SSID '%s'",
 			wpa_ssid_txt(ssid->ssid, ssid->ssid_len));
 		os_memset(wpa_s->pending_bssid, 0, ETH_ALEN);
 	}
