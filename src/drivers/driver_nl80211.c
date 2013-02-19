@@ -6699,8 +6699,8 @@ skip_auth_type:
 	}
 	wpa_printf(MSG_DEBUG, "nl80211: Connect request send successfully");
 
-//	ret = nl80211_disable_high_bitrates(drv, drv->ifindex,
-//					    params->disable_high_bitrates);
+	ret = nl80211_disable_high_bitrates(drv, drv->ifindex,
+					    params->disable_high_bitrates);
 	if (ret) {
 		/*
 		 * Not all drivers with an nl80211 interface support this API.
@@ -6886,8 +6886,8 @@ static int wpa_driver_nl80211_associate(
 	wpa_printf(MSG_DEBUG, "nl80211: Association request send "
 		   "successfully");
 
-//	ret = nl80211_disable_high_bitrates(drv, drv->ifindex,
-//					    params->disable_high_bitrates);
+	ret = nl80211_disable_high_bitrates(drv, drv->ifindex,
+					    params->disable_high_bitrates);
 	if (ret) {
 		/*
 		 * Not all drivers with an nl80211 interface support this API.
