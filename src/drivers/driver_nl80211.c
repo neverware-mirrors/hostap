@@ -8344,6 +8344,9 @@ static int nl80211_disable_11b_rates(struct wpa_driver_nl80211_data *drv,
 static int nl80211_disable_high_bitrates(struct wpa_driver_nl80211_data *drv,
 				     int ifindex, int disabled)
 {
+	// TODO(quiche): Remove this hack fix for crosbug.com/p/17764.
+	return 0;
+
 	/*
 	 * Allow only legacy bitrates less than 12 Mbps and the two slowest MCS
 	 * rates for outgoing traffic.
