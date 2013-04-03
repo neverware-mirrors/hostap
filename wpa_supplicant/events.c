@@ -1765,7 +1765,7 @@ static void wpa_supplicant_event_disassoc(struct wpa_supplicant *wpa_s,
 	bssid = wpa_s->bssid;
 	if (is_zero_ether_addr(bssid))
 		bssid = wpa_s->pending_bssid;
-	if (wpa_s->wpa_state >= WPA_AUTHENTICATING)
+	if (wpa_s->wpa_state >= WPA_AUTHENTICATING && !locally_generated)
 		wpas_connection_failed(wpa_s, bssid);
 	wpa_sm_notify_disassoc(wpa_s->wpa);
 	wpa_s->disconnect_reason = reason_code;
