@@ -43,6 +43,10 @@
 #define OPENSSL_d2i_TYPE unsigned char **
 #endif
 
+#if defined(SSL_CTX_get_app_data) && defined(SSL_CTX_set_app_data)
+#define OPENSSL_SUPPORTS_CTX_APP_DATA
+#endif
+
 #ifdef SSL_F_SSL_SET_SESSION_TICKET_EXT
 #ifdef SSL_OP_NO_TICKET
 /*
@@ -55,17 +59,18 @@
 
 static int tls_openssl_ref_count = 0;
 
-struct tls_global {
+struct tls_context {
 	void (*event_cb)(void *ctx, enum tls_event ev,
 			 union tls_event_data *data);
 	void *cb_ctx;
 	int cert_in_cb;
 };
 
-static struct tls_global *tls_global = NULL;
+static struct tls_context *tls_global = NULL;
 
 
 struct tls_connection {
+	struct tls_context *context;
 	SSL *ssl;
 	BIO *ssl_in, *ssl_out;
 #ifndef OPENSSL_NO_ENGINE
@@ -91,6 +96,19 @@ struct tls_connection {
 	unsigned int flags;
 };
 
+
+static struct tls_context *tls_context_new(const struct tls_config *conf)
+{
+	struct tls_context *context = os_zalloc(sizeof(*context));
+	if (context == NULL)
+		return NULL;
+	if (conf) {
+		context->event_cb = conf->event_cb;
+		context->cb_ctx = conf->cb_ctx;
+		context->cert_in_cb = conf->cert_in_cb;
+	}
+	return context;
+}
 
 #ifdef CONFIG_NO_STDOUT_DEBUG
 
@@ -517,6 +535,8 @@ static void ssl_info_cb(const SSL *ssl, int where, int ret)
 		wpa_printf(MSG_DEBUG, "SSL: %s:%s",
 			   str, SSL_state_string_long(ssl));
 	} else if (where & SSL_CB_ALERT) {
+		struct tls_connection *conn = SSL_get_app_data((SSL *) ssl);
+		struct tls_context *context = conn->context;
 		wpa_printf(MSG_INFO, "SSL: SSL3 alert: %s:%s:%s",
 			   where & SSL_CB_READ ?
 			   "read (remote end reported an error)" :
@@ -524,21 +544,18 @@ static void ssl_info_cb(const SSL *ssl, int where, int ret)
 			   SSL_alert_type_string_long(ret),
 			   SSL_alert_desc_string_long(ret));
 		if ((ret >> 8) == SSL3_AL_FATAL) {
-			struct tls_connection *conn =
-				SSL_get_app_data((SSL *) ssl);
 			if (where & SSL_CB_READ)
 				conn->read_alerts++;
 			else
 				conn->write_alerts++;
 		}
-		if (tls_global->event_cb != NULL) {
+		if (context->event_cb != NULL) {
 			union tls_event_data ev;
 			os_memset(&ev, 0, sizeof(ev));
 			ev.alert.is_local = !(where & SSL_CB_READ);
 			ev.alert.type = SSL_alert_type_string_long(ret);
 			ev.alert.description = SSL_alert_desc_string_long(ret);
-			tls_global->event_cb(tls_global->cb_ctx, TLS_ALERT,
-					     &ev);
+			context->event_cb(context->cb_ctx, TLS_ALERT, &ev);
 		}
 	} else if (where & SSL_CB_EXIT && ret <= 0) {
 		wpa_printf(MSG_DEBUG, "SSL: %s:%s in %s",
@@ -696,17 +713,12 @@ static int tls_engine_load_dynamic_opensc(const char *opensc_so_path)
 void * tls_init(const struct tls_config *conf)
 {
 	SSL_CTX *ssl;
+	struct tls_context *context;
 
 	if (tls_openssl_ref_count == 0) {
-		tls_global = os_zalloc(sizeof(*tls_global));
-		if (tls_global == NULL)
+		tls_global = context = tls_context_new(conf);
+		if (context == NULL)
 			return NULL;
-		if (conf) {
-			tls_global->event_cb = conf->event_cb;
-			tls_global->cb_ctx = conf->cb_ctx;
-			tls_global->cert_in_cb = conf->cert_in_cb;
-		}
-
 #ifdef CONFIG_FIPS
 #ifdef OPENSSL_FIPS
 		if (conf && conf->fips_mode) {
@@ -748,6 +760,13 @@ void * tls_init(const struct tls_config *conf)
 #endif /* OPENSSL_NO_RC2 */
 		PKCS12_PBE_add();
 #endif  /* PKCS12_FUNCS */
+#ifdef OPENSSL_SUPPORTS_CTX_APP_DATA
+	} else {
+		/* Newer OpenSSL can store app-data per-SSL */
+		context = tls_context_new(conf);
+		if (context == NULL)
+			return NULL;
+#endif /* OPENSSL_SUPPORTS_CTX_APP_DATA */
 	}
 	tls_openssl_ref_count++;
 
@@ -756,6 +775,9 @@ void * tls_init(const struct tls_config *conf)
 		return NULL;
 
 	SSL_CTX_set_info_callback(ssl, ssl_info_cb);
+#ifdef OPENSSL_SUPPORTS_CTX_APP_DATA
+	SSL_CTX_set_app_data(ssl, context);
+#endif
 
 #ifndef OPENSSL_NO_ENGINE
 	if (conf &&
@@ -781,6 +803,13 @@ void * tls_init(const struct tls_config *conf)
 void tls_deinit(void *ssl_ctx)
 {
 	SSL_CTX *ssl = ssl_ctx;
+#ifdef OPENSSL_SUPPORTS_CTX_APP_DATA
+	struct tls_context *context =
+		(struct tls_context *)SSL_CTX_get_app_data(ssl);
+	if (context != tls_global) {
+		os_free(context);
+	}
+#endif
 	SSL_CTX_free(ssl);
 
 	tls_openssl_ref_count--;
@@ -917,6 +946,10 @@ struct tls_connection * tls_connection_init(void *ssl_ctx)
 	SSL_CTX *ssl = ssl_ctx;
 	struct tls_connection *conn;
 	long options;
+	struct tls_context *context = tls_global;
+#ifdef OPENSSL_SUPPORTS_CTX_APP_DATA
+	context = (struct tls_context *)SSL_CTX_get_app_data(ssl);
+#endif
 
 	conn = os_zalloc(sizeof(*conn));
 	if (conn == NULL)
@@ -929,6 +962,7 @@ struct tls_connection * tls_connection_init(void *ssl_ctx)
 		return NULL;
 	}
 
+	conn->context = context;
 	SSL_set_app_data(conn->ssl, conn);
 	options = SSL_OP_NO_SSLv2 | SSL_OP_NO_SSLv3 |
 		SSL_OP_SINGLE_DH_USE;
@@ -1126,8 +1160,9 @@ static void openssl_tls_fail_event(struct tls_connection *conn,
 {
 	union tls_event_data ev;
 	struct wpabuf *cert = NULL;
+	struct tls_context *context = conn->context;
 
-	if (tls_global->event_cb == NULL)
+	if (context->event_cb == NULL)
 		return;
 
 	cert = get_x509_cert(err_cert);
@@ -1138,7 +1173,7 @@ static void openssl_tls_fail_event(struct tls_connection *conn,
 	ev.cert_fail.subject = subject;
 	ev.cert_fail.reason_txt = err_str;
 	ev.cert_fail.cert = cert;
-	tls_global->event_cb(tls_global->cb_ctx, TLS_CERT_CHAIN_FAILURE, &ev);
+	context->event_cb(context->cb_ctx, TLS_CERT_CHAIN_FAILURE, &ev);
 	wpabuf_free(cert);
 }
 
@@ -1149,15 +1184,16 @@ static void openssl_tls_cert_event(struct tls_connection *conn,
 {
 	struct wpabuf *cert = NULL;
 	union tls_event_data ev;
+	struct tls_context *context = conn->context;
 #ifdef CONFIG_SHA256
 	u8 hash[32];
 #endif /* CONFIG_SHA256 */
 
-	if (tls_global->event_cb == NULL)
+	if (context->event_cb == NULL)
 		return;
 
 	os_memset(&ev, 0, sizeof(ev));
-	if (conn->cert_probe || tls_global->cert_in_cb) {
+	if (conn->cert_probe || context->cert_in_cb) {
 		cert = get_x509_cert(err_cert);
 		ev.peer_cert.cert = cert;
 	}
@@ -1175,7 +1211,7 @@ static void openssl_tls_cert_event(struct tls_connection *conn,
 #endif /* CONFIG_SHA256 */
 	ev.peer_cert.depth = depth;
 	ev.peer_cert.subject = subject;
-	tls_global->event_cb(tls_global->cb_ctx, TLS_PEER_CERTIFICATE, &ev);
+	context->event_cb(context->cb_ctx, TLS_PEER_CERTIFICATE, &ev);
 	wpabuf_free(cert);
 }
 
@@ -1187,6 +1223,7 @@ static int tls_verify_cb(int preverify_ok, X509_STORE_CTX *x509_ctx)
 	int err, depth;
 	SSL *ssl;
 	struct tls_connection *conn;
+	struct tls_context *context;
 	char *match, *altmatch;
 	const char *err_str;
 
@@ -1200,6 +1237,7 @@ static int tls_verify_cb(int preverify_ok, X509_STORE_CTX *x509_ctx)
 	conn = SSL_get_app_data(ssl);
 	if (conn == NULL)
 		return 0;
+	context = conn->context;
 	match = conn->subject_match;
 	altmatch = conn->altsubject_match;
 
@@ -1282,9 +1320,9 @@ static int tls_verify_cb(int preverify_ok, X509_STORE_CTX *x509_ctx)
 				       TLS_FAIL_SERVER_CHAIN_PROBE);
 	}
 
-	if (preverify_ok && tls_global->event_cb != NULL)
-		tls_global->event_cb(tls_global->cb_ctx,
-				     TLS_CERT_CHAIN_SUCCESS, NULL);
+	if (preverify_ok && context->event_cb != NULL)
+		context->event_cb(context->cb_ctx,
+				  TLS_CERT_CHAIN_SUCCESS, NULL);
 
 	return preverify_ok;
 }
