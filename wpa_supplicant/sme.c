@@ -390,7 +390,6 @@ void sme_associate(struct wpa_supplicant *wpa_s, enum wpas_mode mode,
 	params.htcaps_mask = (u8 *) &htcaps_mask;
 	wpa_supplicant_apply_ht_overrides(wpa_s, wpa_s->current_ssid, &params);
 #endif /* CONFIG_HT_OVERRIDES */
-	params.disable_high_bitrates = wpa_s->conf->disable_high_bitrates;
 #ifdef CONFIG_IEEE80211R
 	if (auth_type == WLAN_AUTH_FT && wpa_s->sme.ft_ies) {
 		params.wpa_ie = wpa_s->sme.ft_ies;

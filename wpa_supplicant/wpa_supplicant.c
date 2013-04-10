@@ -1426,8 +1426,6 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 	wpa_supplicant_apply_ht_overrides(wpa_s, ssid, &params);
 #endif /* CONFIG_HT_OVERRIDES */
 
-	params.disable_high_bitrates = wpa_s->conf->disable_high_bitrates;
-
 	ret = wpa_drv_associate(wpa_s, &params);
 	if (ret < 0) {
 		wpa_msg(wpa_s, MSG_INFO, "Association request to the driver "

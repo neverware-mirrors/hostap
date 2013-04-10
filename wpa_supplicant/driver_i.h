@@ -663,6 +663,14 @@ static inline void wpa_drv_set_rekey_info(struct wpa_supplicant *wpa_s,
 	wpa_s->driver->set_rekey_info(wpa_s->drv_priv, kek, kck, replay_ctr);
 }
 
+static inline int wpa_drv_disable_high_bitrates(struct wpa_supplicant *wpa_s)
+{
+	if (wpa_s->driver->disable_high_bitrates) {
+		return wpa_s->driver->disable_high_bitrates(wpa_s->drv_priv);
+	}
+	return -1;
+}
+
 static inline int wpa_drv_enable_high_bitrates(struct wpa_supplicant *wpa_s)
 {
 	if (wpa_s->driver->enable_high_bitrates) {
