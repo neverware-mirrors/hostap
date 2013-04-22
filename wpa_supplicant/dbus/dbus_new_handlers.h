@@ -124,6 +124,12 @@ DBusMessage * wpas_dbus_handler_enable_high_bitrates(
 DBusMessage * wpas_dbus_handler_flush_bss(DBusMessage *message,
 					  struct wpa_supplicant *wpa_s);
 
+DBusMessage * wpas_dbus_handler_eap_logoff(DBusMessage *message,
+					   struct wpa_supplicant *wpa_s);
+
+DBusMessage * wpas_dbus_handler_eap_logon(DBusMessage *message,
+					  struct wpa_supplicant *wpa_s);
+
 dbus_bool_t wpas_dbus_getter_capabilities(DBusMessageIter *iter,
 					  DBusError *error, void *user_data);
 

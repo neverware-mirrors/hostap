@@ -326,6 +326,16 @@ fi.w1.wpa_supplicant1.CreateInterface.
 	  <dd>Enabling high bitrates failed for an unknown reason.</dd>
 	</dl>
       </li>
+
+      <li>
+	<h3>EAPLogoff ( ) --> nothing</h3>
+	<p>IEEE 802.1X EAPOL state machine logoff.</p>
+      </li>
+
+      <li>
+	<h3>EAPLogon ( ) --> nothing</h3>
+	<p>IEEE 802.1X EAPOL state machine logon.</p>
+      </li>
     </ul>
 
 \subsection dbus_interface_properties Properties
