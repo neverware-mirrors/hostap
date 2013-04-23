@@ -48,6 +48,12 @@
 #define EXTRACT_LEN 16
 #define MIN_READY_MARK 2
 
+#ifdef CONFIG_WEAK_URANDOM_LOW_SECURITY
+#define RANDOM_DEVICE "/dev/urandom"
+#else
+#define RANDOM_DEVICE "/dev/random"
+#endif
+
 static u32 pool[POOL_WORDS];
 static unsigned int input_rotate = 0;
 static unsigned int pool_pos = 0;
@@ -214,13 +220,13 @@ int random_pool_ready(void)
 	 * so use non-blocking read to avoid blocking the application
 	 * completely.
 	 */
-	fd = open("/dev/random", O_RDONLY | O_NONBLOCK);
+	fd = open(RANDOM_DEVICE, O_RDONLY | O_NONBLOCK);
 	if (fd < 0) {
 #ifndef CONFIG_NO_STDOUT_DEBUG
 		int error = errno;
-		perror("open(/dev/random)");
-		wpa_printf(MSG_ERROR, "random: Cannot open /dev/random: %s",
-			   strerror(error));
+		perror("open(" RANDOM_DEVICE ")");
+		wpa_printf(MSG_ERROR, "random: Cannot open %s: %s",
+			   RANDOM_DEVICE, strerror(error));
 #endif /* CONFIG_NO_STDOUT_DEBUG */
 		return -1;
 	}
@@ -228,13 +234,14 @@ int random_pool_ready(void)
 	res = read(fd, dummy_key + dummy_key_avail,
 		   sizeof(dummy_key) - dummy_key_avail);
 	if (res < 0) {
-		wpa_printf(MSG_ERROR, "random: Cannot read from /dev/random: "
-			   "%s", strerror(errno));
+		wpa_printf(MSG_ERROR, "random: Cannot read from %s: %s",
+			   RANDOM_DEVICE, strerror(errno));
 		res = 0;
 	}
-	wpa_printf(MSG_DEBUG, "random: Got %u/%u bytes from "
-		   "/dev/random", (unsigned) res,
-		   (unsigned) (sizeof(dummy_key) - dummy_key_avail));
+	wpa_printf(MSG_DEBUG, "random: Got %u/%u bytes from %s",
+		   (unsigned) res,
+		   (unsigned) (sizeof(dummy_key) - dummy_key_avail),
+		   RANDOM_DEVICE);
 	dummy_key_avail += res;
 	close(fd);
 
@@ -246,8 +253,9 @@ int random_pool_ready(void)
 	}
 
 	wpa_printf(MSG_INFO, "random: Only %u/%u bytes of strong "
-		   "random data available from /dev/random",
-		   (unsigned) dummy_key_avail, (unsigned) sizeof(dummy_key));
+		   "random data available from %s",
+		   (unsigned) dummy_key_avail, (unsigned) sizeof(dummy_key),
+		   RANDOM_DEVICE);
 
 	if (own_pool_ready >= MIN_READY_MARK ||
 	    total_collected + 10 * own_pool_ready > MIN_COLLECT_ENTROPY) {
@@ -299,14 +307,15 @@ static void random_read_fd(int sock, void *eloop_ctx, void *sock_ctx)
 	res = read(sock, dummy_key + dummy_key_avail,
 		   sizeof(dummy_key) - dummy_key_avail);
 	if (res < 0) {
-		wpa_printf(MSG_ERROR, "random: Cannot read from /dev/random: "
-			   "%s", strerror(errno));
+		wpa_printf(MSG_ERROR, "random: Cannot read from %s: %s",
+			   RANDOM_DEVICE, strerror(errno));
 		return;
 	}
 
-	wpa_printf(MSG_DEBUG, "random: Got %u/%u bytes from /dev/random",
+	wpa_printf(MSG_DEBUG, "random: Got %u/%u bytes from %s",
 		   (unsigned) res,
-		   (unsigned) (sizeof(dummy_key) - dummy_key_avail));
+		   (unsigned) (sizeof(dummy_key) - dummy_key_avail),
+		   RANDOM_DEVICE);
 	dummy_key_avail += res;
 
 	if (dummy_key_avail == sizeof(dummy_key)) {
@@ -399,18 +408,18 @@ void random_init(const char *entropy_file)
 	if (random_fd >= 0)
 		return;
 
-	random_fd = open("/dev/random", O_RDONLY | O_NONBLOCK);
+	random_fd = open(RANDOM_DEVICE, O_RDONLY | O_NONBLOCK);
 	if (random_fd < 0) {
 #ifndef CONFIG_NO_STDOUT_DEBUG
 		int error = errno;
-		perror("open(/dev/random)");
-		wpa_printf(MSG_ERROR, "random: Cannot open /dev/random: %s",
-			   strerror(error));
+		perror("open(" RANDOM_DEVICE ")");
+		wpa_printf(MSG_ERROR, "random: Cannot open %s: %s",
+			   RANDOM_DEVICE, strerror(error));
 #endif /* CONFIG_NO_STDOUT_DEBUG */
 		return;
 	}
 	wpa_printf(MSG_DEBUG, "random: Trying to read entropy from "
-		   "/dev/random");
+		   RANDOM_DEVICE);
 
 	eloop_register_read_sock(random_fd, random_read_fd, NULL, NULL);
 #endif /* __linux__ */

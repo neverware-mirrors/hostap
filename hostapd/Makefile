@@ -777,6 +777,10 @@ ifdef CONFIG_DEBUG_FILE
 CFLAGS += -DCONFIG_DEBUG_FILE
 endif
 
+ifdef CONFIG_WEAK_URANDOM_LOW_SECURITY
+CFLAGS += -DCONFIG_WEAK_URANDOM_LOW_SECURITY
+endif
+
 ALL=hostapd hostapd_cli
 
 all: verify_config $(ALL)
