@@ -253,3 +253,8 @@ CONFIG_IPV6=y
 # where security is not actually necessary.  Never use this if you want your
 # network to be secure!
 #CONFIG_WEAK_URANDOM_LOW_SECURITY=n
+
+# Provide the Spectrum Management capability flag in 802.11 headers, although
+# it isn't really supported.  This allows testing of 802.11h features in
+# connected clients.
+#CONFIG_SPECTRUM_MANAGEMENT_CAPABILITY=n

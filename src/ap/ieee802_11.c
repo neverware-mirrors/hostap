@@ -153,6 +153,9 @@ u16 hostapd_own_capab_info(struct hostapd_data *hapd, struct sta_info *sta,
 
 	if (privacy)
 		capab |= WLAN_CAPABILITY_PRIVACY;
+#ifdef CONFIG_SPECTRUM_MANAGEMENT_CAPABILITY
+	capab |= WLAN_CAPABILITY_SPECTRUM_MGMT;
+#endif
 
 	if (hapd->iface->current_mode &&
 	    hapd->iface->current_mode->mode == HOSTAPD_MODE_IEEE80211G &&
