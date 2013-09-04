@@ -811,6 +811,7 @@ static void sme_obss_scan_timeout(void *eloop_ctx, void *timeout_ctx)
 
 	os_memset(&params, 0, sizeof(params));
 	wpa_setband_scan_freqs_list(wpa_s, HOSTAPD_MODE_IEEE80211G, &params);
+	params.tx_abort = 1;  /* Perform scan at low priority */
 	wpa_printf(MSG_DEBUG, "SME OBSS: Request an OBSS scan");
 
 	if (wpa_supplicant_trigger_scan(wpa_s, &params))
