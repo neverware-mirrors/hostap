@@ -1970,6 +1970,8 @@ struct hostapd_config * hostapd_config_read(const char *fname)
 			}
 		} else if (os_strcmp(buf, "require_ht") == 0) {
 			conf->require_ht = atoi(pos);
+		} else if (os_strcmp(buf, "obss_interval") == 0) {
+			conf->obss_interval = atoi(pos);
 #endif /* CONFIG_IEEE80211N */
 		} else if (os_strcmp(buf, "max_listen_interval") == 0) {
 			bss->max_listen_interval = atoi(pos);

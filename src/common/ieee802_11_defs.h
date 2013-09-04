@@ -541,6 +541,18 @@ struct ieee80211_ht_operation {
 	u8 basic_set[16];
 } STRUCT_PACKED;
 
+
+struct ieee80211_obss_scan_parameters {
+	le16 scan_passive_dwell;
+	le16 scan_active_dwell;
+	le16 width_trigger_scan_interval;
+	le16 scan_passive_total_per_channel;
+	le16 scan_active_total_per_channel;
+	le16 channel_transition_delay_factor;
+	le16 scan_activity_threshold;
+} STRUCT_PACKED;
+
+
 #ifdef _MSC_VER
 #pragma pack(pop)
 #endif /* _MSC_VER */
