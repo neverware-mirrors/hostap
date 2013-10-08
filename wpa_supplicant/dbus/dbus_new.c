@@ -2633,6 +2633,10 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	  wpas_dbus_getter_scan_interval,
 	  wpas_dbus_setter_scan_interval
 	},
+	{ "RoamThreshold", WPAS_DBUS_NEW_IFACE_INTERFACE, "q",
+	  wpas_dbus_getter_roam_threshold,
+	  wpas_dbus_setter_roam_threshold
+	},
 	{ "DisableHighBitrates", WPAS_DBUS_NEW_IFACE_INTERFACE, "b",
 	  wpas_dbus_getter_disable_high_bitrates,
 	  wpas_dbus_setter_disable_high_bitrates
