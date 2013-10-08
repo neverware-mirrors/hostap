@@ -3220,6 +3220,11 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	  NULL,
 	  NULL
 	},
+	{ "RoamThreshold", WPAS_DBUS_NEW_IFACE_INTERFACE, "q",
+	  wpas_dbus_getter_roam_threshold,
+	  wpas_dbus_setter_roam_threshold,
+	  NULL
+	},
 	{ "DisableHighBitrates", WPAS_DBUS_NEW_IFACE_INTERFACE, "b",
 	  wpas_dbus_getter_disable_high_bitrates,
 	  wpas_dbus_setter_disable_high_bitrates,

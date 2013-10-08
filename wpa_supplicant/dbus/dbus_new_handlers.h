@@ -149,6 +149,8 @@ DECLARE_ACCESSOR(wpas_dbus_getter_country);
 DECLARE_ACCESSOR(wpas_dbus_setter_country);
 DECLARE_ACCESSOR(wpas_dbus_getter_scan_interval);
 DECLARE_ACCESSOR(wpas_dbus_setter_scan_interval);
+DECLARE_ACCESSOR(wpas_dbus_getter_roam_threshold);
+DECLARE_ACCESSOR(wpas_dbus_setter_roam_threshold);
 DECLARE_ACCESSOR(wpas_dbus_getter_disable_high_bitrates);
 DECLARE_ACCESSOR(wpas_dbus_setter_disable_high_bitrates);
 DECLARE_ACCESSOR(wpas_dbus_getter_ifname);
