@@ -1280,8 +1280,8 @@ static void wpa_supplicant_event_scan_results(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_NO_SCAN_PROCESSING */
 
 
-wpa_supplicant_fast_associate(struct wpa_supplicant *wpa_s,
-			      struct wpa_ssid *ssid)
+int wpa_supplicant_fast_associate(struct wpa_supplicant *wpa_s,
+				  struct wpa_ssid *ssid)
 {
 #ifdef CONFIG_NO_SCAN_PROCESSING
 	return -1;

@@ -195,7 +195,7 @@ static void wpa_bss_add(struct wpa_supplicant *wpa_s,
 	if (wpa_s->num_bss > wpa_s->conf->bss_max_count &&
 	    wpa_bss_remove_oldest(wpa_s) != 0) {
 		wpa_printf(MSG_ERROR, "Increasing the MAX BSS count "
-			   " to %d because all BSSes are in use.  We should "
+			   " to %zd because all BSSes are in use.  We should "
 			   " normally not get here!", wpa_s->num_bss);
 		wpa_s->conf->bss_max_count = wpa_s->num_bss;
 	}

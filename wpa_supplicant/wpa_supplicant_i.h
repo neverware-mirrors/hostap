@@ -624,6 +624,7 @@ void wpa_supplicant_clear_status(struct wpa_supplicant *wpa_s);
 void wpas_connection_failed(struct wpa_supplicant *wpa_s, const u8 *bssid);
 int wpas_driver_bss_selection(struct wpa_supplicant *wpa_s);
 void wpa_supplicant_proc_40mhz_intolerant(struct wpa_supplicant *wpa_s);
+int wpa_supplicant_enable_high_bitrates(struct wpa_supplicant *wpa_s);
 
 /* events.c */
 void wpa_supplicant_mark_disassoc(struct wpa_supplicant *wpa_s);

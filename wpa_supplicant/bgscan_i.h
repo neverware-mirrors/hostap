@@ -45,7 +45,7 @@ void bgscan_init_signal_monitor(struct bgscan_signal_monitor_state *sm_state,
 				int signal_threshold,
 				int hysteresis);
 void bgscan_deinit_signal_monitor(struct bgscan_signal_monitor_state *sm_state);
-void bgscan_udpate_signal_monitor(struct bgscan_signal_monitor_state *sm_state,
+void bgscan_update_signal_monitor(struct bgscan_signal_monitor_state *sm_state,
 				  int current_signal, int current_noise);
 int bgscan_poll_signal_monitor(struct bgscan_signal_monitor_state *sm_state,
 			       struct wpa_signal_info *siginfo_ret);

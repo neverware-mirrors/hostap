@@ -15,6 +15,7 @@
 #include "includes.h"
 
 #include "common.h"
+#include "eloop.h"
 #include "wpa_supplicant_i.h"
 #include "config_ssid.h"
 #include "driver_i.h"
