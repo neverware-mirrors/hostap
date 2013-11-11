@@ -370,6 +370,7 @@ int wpa_tdls_init(struct wpa_sm *sm);
 void wpa_tdls_deinit(struct wpa_sm *sm);
 void wpa_tdls_enable(struct wpa_sm *sm, int enabled);
 void wpa_tdls_disable_link(struct wpa_sm *sm, const u8 *addr);
+char *wpa_tdls_get_link_status(struct wpa_sm *sm, const u8 *addr);
 int wpa_tdls_is_external_setup(struct wpa_sm *sm);
 
 #endif /* WPA_H */
