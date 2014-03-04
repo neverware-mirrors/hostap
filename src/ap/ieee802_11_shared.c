@@ -179,12 +179,19 @@ u8 * hostapd_eid_ext_capab(struct hostapd_data *hapd, u8 *eid)
 		len = 5;
 	if (len < 4 && hapd->conf->interworking)
 		len = 4;
+	if (len < 1 && hapd->iconf->obss_interval)
+		len = 1;
 	if (len == 0)
 		return eid;
 
 	*pos++ = WLAN_EID_EXT_CAPAB;
 	*pos++ = len;
-	*pos++ = 0x00;
+	*pos = 0x00;
+	if (hapd->iconf->obss_interval)
+		*pos |= 0x01; /* Bit 0 - Coexistence management supported */
+	pos++;
+	if (len < 4)
+		return pos;
 	*pos++ = 0x00;
 	*pos++ = 0x00;
 
