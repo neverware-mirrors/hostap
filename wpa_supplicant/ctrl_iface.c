@@ -3424,6 +3424,16 @@ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
 			wpa_s->reassociate = 1;
 			wpa_supplicant_req_scan(wpa_s, 0, 0);
 		}
+	} else if (os_strcmp(buf, "REATTACH") == 0) {
+		wpa_s->normal_scans = 0;
+		if (wpa_s->wpa_state == WPA_INTERFACE_DISABLED)
+			reply_len = -1;
+		else {
+			wpa_s->disconnected = 0;
+			wpa_s->reassociate = 1;
+			wpa_s->reattach = 1;
+			wpa_supplicant_req_scan(wpa_s, 0, 0);
+		}
 	} else if (os_strcmp(buf, "RECONNECT") == 0) {
 		wpa_s->normal_scans = 0;
 		if (wpa_s->wpa_state == WPA_INTERFACE_DISABLED)

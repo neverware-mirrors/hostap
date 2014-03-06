@@ -1376,6 +1376,33 @@ DBusMessage * wpas_dbus_handler_reassociate(DBusMessage *message,
 
 
 /**
+ * wpas_dbus_handler_reattach - Reattach to current AP
+ * @message: Pointer to incoming dbus message
+ * @wpa_s: wpa_supplicant structure for a network interface
+ * Returns: NotConnected DBus error message if not connected
+ * or NULL otherwise.
+ *
+ * Handler function for "Reattach" method call of network interface.
+ */
+DBusMessage * wpas_dbus_handler_reattach(DBusMessage *message,
+					 struct wpa_supplicant *wpa_s)
+{
+	if (wpa_s->current_ssid != NULL) {
+		wpa_s->normal_scans = 0;
+		wpa_s->disconnected = 0;
+		wpa_s->reassociate = 1;
+		wpa_s->reattach = 1;
+		wpa_supplicant_req_scan(wpa_s, 0, 0);
+
+		return NULL;
+	}
+
+	return dbus_message_new_error(message, WPAS_DBUS_ERROR_NOT_CONNECTED,
+				      "This interface is not connected");
+}
+
+
+/**
  * wpas_dbus_handler_remove_network - Remove a configured network
  * @message: Pointer to incoming dbus message
  * @wpa_s: wpa_supplicant structure for a network interface

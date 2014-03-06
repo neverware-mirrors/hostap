@@ -610,6 +610,13 @@ static int wpa_cli_cmd_reassociate(struct wpa_ctrl *ctrl, int argc,
 }
 
 
+static int wpa_cli_cmd_reattach(struct wpa_ctrl *ctrl, int argc,
+				char *argv[])
+{
+	return wpa_ctrl_command(ctrl, "REATTACH");
+}
+
+
 static int wpa_cli_cmd_preauthenticate(struct wpa_ctrl *ctrl, int argc,
 				       char *argv[])
 {
@@ -2742,6 +2749,9 @@ static struct wpa_cli_cmd wpa_cli_commands[] = {
 	{ "reassociate", wpa_cli_cmd_reassociate,
 	  cli_cmd_flag_none,
 	  "= force reassociation" },
+	{ "reattach", wpa_cli_cmd_reattach,
+	  cli_cmd_flag_none,
+	  "= force reattach" },
 	{ "preauthenticate", wpa_cli_cmd_preauthenticate,
 	  cli_cmd_flag_none,
 	  "<BSSID> = force preauthentication" },
