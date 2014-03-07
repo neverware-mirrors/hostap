@@ -8329,7 +8329,7 @@ static int nl80211_toggle_high_bitrates(struct wpa_driver_nl80211_data *drv,
 		wpa_printf(MSG_DEBUG, "nl80211: Disabling high bitrates");
 		return nl80211_set_allowed_rates(drv, ifindex,
 						 "\x02\x04\x0b\x0c\x16", 5,
-						 "\x02\x04\x0b\x0c\x16", 5,
+						 "\x0c\x12\x18", 3,
 						 "\x00\x01", 2,
 						 "\x00\x01", 2);
 	}
