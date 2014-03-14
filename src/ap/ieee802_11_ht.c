@@ -61,7 +61,8 @@ u8 * hostapd_eid_ht_capabilities(struct hostapd_data *hapd, u8 *eid)
 		scan_params->width_trigger_scan_interval =
 			host_to_le16(hapd->iconf->obss_interval);
 
-		/* Fill in default values for remaining parameters (7.3.2.60) */
+		/* Fill in default values for remaining parameters
+		 * (IEEE Std 802.11-2012, 8.4.2.61 and MIB defval) */
 		scan_params->scan_passive_dwell =
 			host_to_le16(20);
 		scan_params->scan_active_dwell =
@@ -73,7 +74,7 @@ u8 * hostapd_eid_ht_capabilities(struct hostapd_data *hapd, u8 *eid)
 		scan_params->channel_transition_delay_factor =
 			host_to_le16(5);
 		scan_params->scan_activity_threshold =
-			host_to_le16(5);
+			host_to_le16(25);
 
 		pos += sizeof(*scan_params);
 	}
