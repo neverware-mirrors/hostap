@@ -543,6 +543,13 @@ struct wpa_driver_associate_params {
 	 */
 	const u8 *htcaps;       /* struct ieee80211_ht_capabilities * */
 	const u8 *htcaps_mask;  /* struct ieee80211_ht_capabilities * */
+
+#ifdef CONFIG_VHT_OVERRIDES
+	/**
+	 * disable_vht - Disable VHT for this connection
+	 */
+	int disable_vht;
+#endif /* CONFIG_VHT_OVERRIDES */
 };
 
 enum hide_ssid {

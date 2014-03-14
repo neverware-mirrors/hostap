@@ -1425,6 +1425,9 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 	params.htcaps_mask = (u8 *) &htcaps_mask;
 	wpa_supplicant_apply_ht_overrides(wpa_s, ssid, &params);
 #endif /* CONFIG_HT_OVERRIDES */
+#ifdef CONFIG_VHT_OVERRIDES
+	params.disable_vht = ssid->disable_vht;
+#endif /* CONFIG_VHT_OVERRIDES */
 
 	ret = wpa_drv_associate(wpa_s, &params);
 	if (ret < 0) {

@@ -476,6 +476,15 @@ struct wpa_ssid {
 	 */
 	char *ht_mcs;
 #endif /* CONFIG_HT_OVERRIDES */
+#ifdef CONFIG_VHT_OVERRIDES
+	/**
+	 * disable_vht - Disable VHT (IEEE 802.11ac) for this network
+	 *
+	 * By default, use it if it is available, but this can be configured
+	 * to 1 to have it disabled.
+	 */
+	int disable_vht;
+#endif /* CONFIG_VHT_OVERRIDES */
 };
 
 #endif /* CONFIG_SSID_H */

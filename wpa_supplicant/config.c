@@ -1606,6 +1606,9 @@ static const struct parse_data ssid_fields[] = {
 	{ INT_RANGE(ampdu_density, -1, 7) },
 	{ STR(ht_mcs) },
 #endif /* CONFIG_HT_OVERRIDES */
+#ifdef CONFIG_VHT_OVERRIDES
+	{ INT_RANGE(disable_vht, 0, 1) },
+#endif /* CONFIG_VHT_OVERRIDES */
 };
 
 #undef OFFSET
