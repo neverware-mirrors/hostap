@@ -1221,7 +1221,10 @@ DBusMessage * wpas_dbus_handler_scan(DBusMessage *message,
 				"passive scan");
 			goto out;
 		} else if (params.freqs && params.freqs[0]) {
-			wpa_supplicant_trigger_scan(wpa_s, &params);
+			if (wpa_supplicant_trigger_scan(wpa_s, &params)) {
+				reply = wpas_dbus_error_unknown_error(
+				message, "Scan request rejected");
+			}
 		} else {
 			wpa_s->scan_req = 2;
 			wpa_supplicant_req_scan(wpa_s, 0, 0);
@@ -1231,7 +1234,10 @@ DBusMessage * wpas_dbus_handler_scan(DBusMessage *message,
 			/* Add wildcard ssid */
 			params.num_ssids++;
 		}
-		wpa_supplicant_trigger_scan(wpa_s, &params);
+		if (wpa_supplicant_trigger_scan(wpa_s, &params)) {
+			reply = wpas_dbus_error_unknown_error(
+				message, "Scan request rejected");
+		}
 	} else {
 		wpa_printf(MSG_DEBUG, "wpas_dbus_handler_scan[dbus]: "
 			   "Unknown scan type: %s", type);
