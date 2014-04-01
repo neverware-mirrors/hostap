@@ -294,6 +294,7 @@ static void wpa_driver_nl80211_scan_timeout(void *eloop_ctx,
 					    void *timeout_ctx);
 static int wpa_driver_nl80211_set_mode(struct i802_bss *bss,
 				       enum nl80211_iftype nlmode);
+static int wpa_driver_nl80211_set_mode_ibss(struct i802_bss *bss, int freq);
 static int
 wpa_driver_nl80211_finish_drv_init(struct wpa_driver_nl80211_data *drv);
 static int wpa_driver_nl80211_mlme(struct wpa_driver_nl80211_data *drv,
@@ -6417,8 +6418,7 @@ static int wpa_driver_nl80211_ibss(struct wpa_driver_nl80211_data *drv,
 
 	wpa_printf(MSG_DEBUG, "nl80211: Join IBSS (ifindex=%d)", drv->ifindex);
 
-	if (wpa_driver_nl80211_set_mode(&drv->first_bss,
-					NL80211_IFTYPE_ADHOC)) {
+	if (wpa_driver_nl80211_set_mode_ibss(&drv->first_bss, params->freq)) {
 		wpa_printf(MSG_INFO, "nl80211: Failed to set interface into "
 			   "IBSS mode");
 		return -1;
@@ -6925,8 +6925,9 @@ nla_put_failure:
 }
 
 
-static int wpa_driver_nl80211_set_mode(struct i802_bss *bss,
-				       enum nl80211_iftype nlmode)
+static int wpa_driver_nl80211_set_mode_impl(struct i802_bss *bss,
+					    enum nl80211_iftype nlmode,
+					    struct hostapd_freq_params *desired_freq_params)
 {
 	struct wpa_driver_nl80211_data *drv = bss->drv;
 	int ret = -1;
@@ -6968,6 +6969,17 @@ static int wpa_driver_nl80211_set_mode(struct i802_bss *bss,
 			wpa_printf(MSG_DEBUG, "nl80211: Failed to set "
 				   "interface down");
 			continue;
+		}
+		/* Setting the mode will fail if the phy is on a frequency
+		 * where that mode is disallowed from a previous association.
+		 */
+		if (desired_freq_params) {
+			res = i802_set_freq(bss, desired_freq_params);
+			if (res) {
+				wpa_printf(MSG_DEBUG, "nl80211: Failed to set "
+					   "frequency on interface.");
+				continue;
+			}
 		}
 		/* Try to set the mode again while the interface is down */
 		mode_switch_res = nl80211_set_mode(drv, drv->ifindex, nlmode);
@@ -7020,6 +7032,24 @@ done:
 			   "frame processing - ignore for now");
 
 	return 0;
+}
+
+
+static int wpa_driver_nl80211_set_mode(struct i802_bss *bss,
+				       enum nl80211_iftype nlmode)
+{
+	return wpa_driver_nl80211_set_mode_impl(bss, nlmode, NULL);
+}
+
+
+static int wpa_driver_nl80211_set_mode_ibss(struct i802_bss *bss,
+					    int freq)
+{
+	struct hostapd_freq_params freq_params;
+	os_memset(&freq_params, 0, sizeof(freq_params));
+	freq_params.freq = freq;
+	return wpa_driver_nl80211_set_mode_impl(bss, NL80211_IFTYPE_ADHOC,
+					        &freq_params);
 }
 
 
