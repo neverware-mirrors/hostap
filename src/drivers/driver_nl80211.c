@@ -6988,14 +6988,6 @@ static int wpa_driver_nl80211_set_mode_impl(struct i802_bss *bss,
 				   "while interface going down.");
 			continue;
 		}
-		/* Bring the interface back up */
-		res = linux_set_iface_flags(drv->global->ioctl_sock,
-					    bss->ifname, 1);
-		if (res != 0) {
-			wpa_printf(MSG_DEBUG, "nl80211: Failed to set "
-				   "interface up after switching mode.");
-			continue;
-		}
 		ret = mode_switch_res;
 		break;
 	}
@@ -7005,6 +6997,15 @@ static int wpa_driver_nl80211_set_mode_impl(struct i802_bss *bss,
 			   "interface is down");
 		drv->nlmode = nlmode;
 		drv->ignore_if_down_event = 1;
+	}
+
+	/* Bring the interface back up */
+	res = linux_set_iface_flags(drv->global->ioctl_sock,
+						bss->ifname, 1);
+	if (res != 0) {
+		wpa_printf(MSG_ERROR, "nl80211: Failed to set "
+				 "interface up after switching mode.");
+		ret = -1;
 	}
 
 done:
