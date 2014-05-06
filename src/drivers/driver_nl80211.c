@@ -6978,7 +6978,6 @@ static int wpa_driver_nl80211_set_mode_impl(struct i802_bss *bss,
 			if (res) {
 				wpa_printf(MSG_DEBUG, "nl80211: Failed to set "
 					   "frequency on interface.");
-				continue;
 			}
 		}
 		/* Try to set the mode again while the interface is down */
