@@ -1357,10 +1357,8 @@ void wpa_supplicant_associate(struct wpa_supplicant *wpa_s,
 	if (bss) {
 		params.ssid = bss->ssid;
 		params.ssid_len = bss->ssid_len;
-		if (!wpas_driver_bss_selection(wpa_s)) {
-			params.bssid = bss->bssid;
-			params.freq = bss->freq;
-		}
+		params.bssid = bss->bssid;
+		params.freq = bss->freq;
 	} else {
 		params.ssid = ssid->ssid;
 		params.ssid_len = ssid->ssid_len;
