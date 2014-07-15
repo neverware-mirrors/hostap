@@ -8301,41 +8301,41 @@ static int nl80211_set_allowed_rates(struct wpa_driver_nl80211_data *drv,
 	if (!bands)
 		goto nla_put_failure;
 
+	band = nla_nest_start(msg, NL80211_BAND_2GHZ);
+	if (!band)
+		goto nla_put_failure;
 	if (legacy_2ghz_rates && legacy_2ghz_rates_len >= 0) {
-		band = nla_nest_start(msg, NL80211_BAND_2GHZ);
-		if (!band)
-			goto nla_put_failure;
 		NLA_PUT(msg, NL80211_TXRATE_LEGACY,
 			legacy_2ghz_rates_len, legacy_2ghz_rates);
-		nla_nest_end(msg, band);
 	}
+	nla_nest_end(msg, band);
 
+	band = nla_nest_start(msg, NL80211_BAND_5GHZ);
+	if (!band)
+		goto nla_put_failure;
 	if (legacy_5ghz_rates && legacy_5ghz_rates_len >= 0) {
-		band = nla_nest_start(msg, NL80211_BAND_5GHZ);
-		if (!band)
-			goto nla_put_failure;
 		NLA_PUT(msg, NL80211_TXRATE_LEGACY,
 			legacy_5ghz_rates_len, legacy_5ghz_rates);
-		nla_nest_end(msg, band);
 	}
+	nla_nest_end(msg, band);
 
+	band = nla_nest_start(msg, NL80211_BAND_2GHZ);
+	if (!band)
+		goto nla_put_failure;
 	if (mcs_2ghz_rates && mcs_2ghz_rates_len >= 0) {
-		band = nla_nest_start(msg, NL80211_BAND_2GHZ);
-		if (!band)
-			goto nla_put_failure;
 		NLA_PUT(msg, NL80211_TXRATE_MCS,
 			mcs_2ghz_rates_len, mcs_2ghz_rates);
-		nla_nest_end(msg, band);
 	}
+	nla_nest_end(msg, band);
 
+	band = nla_nest_start(msg, NL80211_BAND_5GHZ);
+	if (!band)
+		goto nla_put_failure;
 	if (mcs_5ghz_rates && mcs_5ghz_rates_len >= 0) {
-		band = nla_nest_start(msg, NL80211_BAND_5GHZ);
-		if (!band)
-			goto nla_put_failure;
 		NLA_PUT(msg, NL80211_TXRATE_MCS,
 			mcs_5ghz_rates_len, mcs_5ghz_rates);
-		nla_nest_end(msg, band);
 	}
+	nla_nest_end(msg, band);
 
 	nla_nest_end(msg, bands);
 
