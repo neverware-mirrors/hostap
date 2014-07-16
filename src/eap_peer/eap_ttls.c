@@ -476,16 +476,6 @@ static int eap_ttls_phase2_request_mschapv2(struct eap_sm *sm,
 	wpabuf_put(msg, pos - buf);
 	*resp = msg;
 
-	if (sm->workaround) {
-		/* At least FreeRADIUS seems to be terminating
-		 * EAP-TTLS/MSHCAPV2 without the expected MS-CHAP-v2 Success
-		 * packet. */
-		wpa_printf(MSG_DEBUG, "EAP-TTLS/MSCHAPV2: EAP workaround - "
-			   "allow success without tunneled response");
-		ret->methodState = METHOD_MAY_CONT;
-		ret->decision = DECISION_COND_SUCC;
-	}
-
 	return 0;
 }
 
