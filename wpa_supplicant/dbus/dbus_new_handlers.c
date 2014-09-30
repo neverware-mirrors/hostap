@@ -2030,6 +2030,69 @@ DBusMessage * wpas_dbus_handler_enable_high_bitrates(DBusMessage *message,
 	return reply;
 }
 
+/**
+ * wpas_dbus_handler_set_ht40_enable - Enable/disable HT40 for a network.
+ * @message: Pointer to incoming dbus message
+ * @wpa_s: wpa_supplicant structure for a network interface
+ * Returns: NULL on success or dbus error on failure
+ *
+ * Handler function for "SetHT40Enable" method call of network interface.
+ */
+DBusMessage * wpas_dbus_handler_set_ht40_enable(DBusMessage *message,
+						 struct wpa_supplicant *wpa_s)
+{
+#ifdef CONFIG_HT_OVERRIDES
+	DBusMessage *reply = NULL;
+	const char *op;
+	dbus_bool_t enable;
+	char *iface, *net_id;
+	int id;
+	struct wpa_ssid *ssid;
+
+	if (!dbus_message_get_args(message, NULL,
+				   DBUS_TYPE_OBJECT_PATH, &op,
+				   DBUS_TYPE_BOOLEAN, &enable,
+				   DBUS_TYPE_INVALID))
+		return wpas_dbus_error_invalid_args(message, NULL);
+
+	/* Extract the network ID and ensure the network */
+	/* is actually a child of this interface */
+	iface = wpas_dbus_new_decompose_object_path(op,
+						    WPAS_DBUS_NEW_NETWORKS_PART,
+						    &net_id);
+	if (iface == NULL || net_id == NULL ||
+	    os_strcmp(iface, wpa_s->dbus_new_path) != 0) {
+		reply = wpas_dbus_error_invalid_args(message, op);
+		goto out;
+	}
+
+	errno = 0;
+	id = strtoul(net_id, NULL, 10);
+	if (errno != 0) {
+		reply = wpas_dbus_error_invalid_args(message, op);
+		goto out;
+	}
+
+	ssid = wpa_config_get_network(wpa_s->conf, id);
+	if (ssid == NULL) {
+		reply = wpas_dbus_error_network_unknown(message);
+		goto out;
+	}
+
+	if (enable)
+		ssid->disable_ht40 = 0;
+	else
+		ssid->disable_ht40 = 1;
+
+out:
+	os_free(iface);
+	return reply;
+#else /* CONFIG_HT_OVERRIDES */
+	return wpas_dbus_error_unknown_error(message,
+					     "HT Overrides not supported");
+#endif /* CONFIG_HT_OVERRIDES */
+}
+
 /*
  * wpas_dbus_handler_flush_bss - Flush the BSS cache
  * @message: Pointer to incoming dbus message
