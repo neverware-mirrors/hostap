@@ -615,6 +615,8 @@ int main(int argc, char *argv[])
 
 	if (log_file)
 		wpa_debug_open_file(log_file);
+	else
+		wpa_debug_setup_stdout();
 
 	interfaces.count = argc - optind;
 	interfaces.iface = os_zalloc(interfaces.count *
