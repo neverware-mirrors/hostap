@@ -3094,6 +3094,8 @@ static int hostapd_fill_csa_settings(struct hostapd_data *hapd,
 
 	settings->counter_offset_beacon[0] = hapd->cs_c_off_beacon;
 	settings->counter_offset_presp[0] = hapd->cs_c_off_proberesp;
+	settings->counter_offset_beacon[1] = hapd->cs_c_off_ecsa_beacon;
+	settings->counter_offset_presp[1] = hapd->cs_c_off_ecsa_proberesp;
 
 	return 0;
 }
@@ -3107,6 +3109,8 @@ void hostapd_cleanup_cs_params(struct hostapd_data *hapd)
 	hapd->cs_c_off_beacon = 0;
 	hapd->cs_c_off_proberesp = 0;
 	hapd->csa_in_progress = 0;
+	hapd->cs_c_off_ecsa_beacon = 0;
+	hapd->cs_c_off_ecsa_proberesp = 0;
 }
 
 #define IS_5GHZ_BAND(n) (n > 4000)
