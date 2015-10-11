@@ -105,6 +105,9 @@ static int openssl_digest_vector(const EVP_MD *type, size_t num_elem,
 	size_t i;
 	unsigned int mac_len;
 
+	if (TEST_FAIL())
+		return -1;
+
 	EVP_MD_CTX_init(&ctx);
 	if (!EVP_DigestInit_ex(&ctx, type, NULL)) {
 		wpa_printf(MSG_ERROR, "OpenSSL: EVP_DigestInit_ex failed: %s",
@@ -852,6 +855,9 @@ done:
 	HMAC_CTX ctx;
 	size_t i;
 	int res;
+
+	if (TEST_FAIL())
+		return -1;
 
 	HMAC_CTX_init(&ctx);
 	if (HMAC_Init_ex(&ctx, key, key_len, type, NULL) != 1)
