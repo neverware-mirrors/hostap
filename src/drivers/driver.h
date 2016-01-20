@@ -1288,6 +1288,8 @@ struct wpa_driver_capa {
 #define WPA_DRIVER_FLAGS_FULL_AP_CLIENT_STATE	0x0000010000000000ULL
 /** Driver supports P2P Listen offload */
 #define WPA_DRIVER_FLAGS_P2P_LISTEN_OFFLOAD     0x0000020000000000ULL
+/* Driver supports critical protocol */
+#define WPA_DRIVER_FLAGS_CRIT_PROTOCOL		0x0000040000000000ULL
 	u64 flags;
 
 #define FULL_AP_CLIENT_STATE_SUPP(drv_flags) \
