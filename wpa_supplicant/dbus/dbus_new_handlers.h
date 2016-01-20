@@ -186,6 +186,8 @@ DECLARE_ACCESSOR(wpas_dbus_getter_network_properties);
 DECLARE_ACCESSOR(wpas_dbus_setter_network_properties);
 DECLARE_ACCESSOR(wpas_dbus_getter_sched_scan);
 DECLARE_ACCESSOR(wpas_dbus_setter_sched_scan);
+DECLARE_ACCESSOR(wpas_dbus_getter_scan);
+DECLARE_ACCESSOR(wpas_dbus_setter_scan);
 
 DBusMessage * wpas_dbus_handler_wps_start(DBusMessage *message,
 					  struct wpa_supplicant *wpa_s);

@@ -703,6 +703,11 @@ static void wpa_supplicant_scan(void *eloop_ctx, void *timeout_ctx)
 	size_t max_ssids;
 	int connect_without_scan = 0;
 
+	if (wpa_s->conf->disable_scan) {
+		wpa_dbg(wpa_s, MSG_DEBUG, "Skip scan - scans are disabled");
+		return;
+	}
+
 	if (wpa_s->pno || wpa_s->pno_sched_pending) {
 		wpa_dbg(wpa_s, MSG_DEBUG, "Skip scan - PNO is in progress");
 		return;
@@ -1177,6 +1182,12 @@ void wpa_supplicant_update_scan_int(struct wpa_supplicant *wpa_s, int sec)
 void wpa_supplicant_req_scan(struct wpa_supplicant *wpa_s, int sec, int usec)
 {
 	int res;
+
+	if (wpa_s->conf->disable_scan) {
+		wpa_dbg(wpa_s, MSG_DEBUG, "Ignore new scan request for %d.%06d sec since scans are disabled",
+			sec, usec);
+		return;
+	}
 
 	if (wpa_s->p2p_mgmt) {
 		wpa_dbg(wpa_s, MSG_DEBUG,

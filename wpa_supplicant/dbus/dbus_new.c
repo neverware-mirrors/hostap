@@ -3223,6 +3223,11 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 	  wpas_dbus_setter_sched_scan,
 	  NULL
 	},
+	{ "Scan", WPAS_DBUS_NEW_IFACE_INTERFACE, "b",
+	  wpas_dbus_getter_scan,
+	  wpas_dbus_setter_scan,
+	  NULL
+	},
 	{ "PKCS11EnginePath", WPAS_DBUS_NEW_IFACE_INTERFACE, "s",
 	  wpas_dbus_getter_pkcs11_engine_path,
 	  NULL,
