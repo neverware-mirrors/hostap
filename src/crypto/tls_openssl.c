@@ -846,6 +846,7 @@ void * tls_init(const struct tls_config *conf)
 		}
 #endif /* OPENSSL_FIPS */
 #endif /* CONFIG_FIPS */
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 		SSL_load_error_strings();
 		SSL_library_init();
 #ifndef OPENSSL_NO_SHA256
@@ -867,6 +868,7 @@ void * tls_init(const struct tls_config *conf)
 #endif /* OPENSSL_NO_RC2 */
 		PKCS12_PBE_add();
 #endif  /* PKCS12_FUNCS */
+#endif /* < 1.1.0 */
 	} else {
 		context = tls_context_new(conf);
 		if (context == NULL)
@@ -968,6 +970,7 @@ void tls_deinit(void *ssl_ctx)
 
 	tls_openssl_ref_count--;
 	if (tls_openssl_ref_count == 0) {
+#if OPENSSL_VERSION_NUMBER < 0x10100000L
 #ifndef OPENSSL_NO_ENGINE
 		ENGINE_cleanup();
 #endif /* OPENSSL_NO_ENGINE */
@@ -975,6 +978,7 @@ void tls_deinit(void *ssl_ctx)
 		ERR_remove_thread_state(NULL);
 		ERR_free_strings();
 		EVP_cleanup();
+#endif /* < 1.1.0 */
 		os_free(tls_global->ocsp_stapling_response);
 		tls_global->ocsp_stapling_response = NULL;
 		os_free(tls_global);
