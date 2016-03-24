@@ -79,6 +79,27 @@ static int wpas_wps_in_use(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_WPS */
 
 
+static int wpa_setup_mac_addr_rand_params(struct wpa_driver_scan_params *params,
+					  const u8 *mac_addr)
+{
+	u8 *tmp;
+
+	if (!mac_addr)
+		return 0;
+
+	params->mac_addr_rand = 1;
+
+	tmp = os_malloc(2 * ETH_ALEN);
+	if (!tmp)
+		return -1;
+
+	os_memcpy(tmp, mac_addr, 2 * ETH_ALEN);
+	params->mac_addr = tmp;
+	params->mac_addr_mask = tmp + ETH_ALEN;
+	return 0;
+}
+
+
 /**
  * wpa_supplicant_enabled_networks - Check whether there are enabled networks
  * @wpa_s: Pointer to wpa_supplicant data
@@ -175,6 +196,11 @@ static void wpas_trigger_scan_cb(struct wpa_radio_work *work, int deinit)
 			   "Request driver to clear scan cache due to local BSS flush");
 		params->only_new_results = 1;
 	}
+
+	if (!wpa_s->current_ssid &&
+	    wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCAN)
+		wpa_setup_mac_addr_rand_params(params, wpa_s->mac_addr_scan);
+
 	ret = wpa_drv_scan(wpa_s, params);
 	wpa_scan_free_params(params);
 	work->ctx = NULL;
@@ -1052,13 +1078,9 @@ ssid_list_set:
 	}
 #endif /* CONFIG_P2P */
 
-	if (wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCAN) {
-		params.mac_addr_rand = 1;
-		if (wpa_s->mac_addr_scan) {
-			params.mac_addr = wpa_s->mac_addr_scan;
-			params.mac_addr_mask = wpa_s->mac_addr_scan + ETH_ALEN;
-		}
-	}
+	if (!wpa_s->current_ssid &&
+	    wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCAN)
+		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_scan);
 
 	if (!is_zero_ether_addr(wpa_s->next_scan_bssid)) {
 		struct wpa_bss *bss;
@@ -1483,14 +1505,9 @@ scan:
 
 	wpa_setband_scan_freqs(wpa_s, scan_params);
 
-	if (wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCHED_SCAN) {
-		params.mac_addr_rand = 1;
-		if (wpa_s->mac_addr_sched_scan) {
-			params.mac_addr = wpa_s->mac_addr_sched_scan;
-			params.mac_addr_mask = wpa_s->mac_addr_sched_scan +
-				ETH_ALEN;
-		}
-	}
+	if (!wpa_s->current_ssid &&
+	    wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCHED_SCAN)
+		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_sched_scan);
 
 	ret = wpa_supplicant_start_sched_scan(wpa_s, scan_params);
 	wpabuf_free(extra_ie);
@@ -1576,6 +1593,21 @@ void wpa_supplicant_cancel_sched_scan(struct wpa_supplicant *wpa_s)
 	wpa_dbg(wpa_s, MSG_DEBUG, "Cancelling sched scan");
 	eloop_cancel_timeout(wpa_supplicant_sched_scan_timeout, wpa_s, NULL);
 	wpa_supplicant_stop_sched_scan(wpa_s);
+}
+
+
+/**
+ * wpa_supplicant_restart_sched_scan - Simulate a timeout for a scheduled scan
+ * @wpa_s: Pointer to wpa_supplicant data
+ *
+ * This function is used to stop a periodic scheduled scan and pretend it
+ * timed out, so that the scheduled scan will restart.
+ */
+void wpa_supplicant_restart_sched_scan(struct wpa_supplicant *wpa_s)
+{
+	wpa_s->sched_scan_timed_out = 1;
+	wpa_s->prev_sched_ssid = NULL;
+	wpa_supplicant_cancel_sched_scan(wpa_s);
 }
 
 
@@ -2323,23 +2355,9 @@ wpa_scan_clone_params(const struct wpa_driver_scan_params *src)
 		params->sched_scan_plans_num = src->sched_scan_plans_num;
 	}
 
-	if (src->mac_addr_rand) {
-		params->mac_addr_rand = src->mac_addr_rand;
-
-		if (src->mac_addr && src->mac_addr_mask) {
-			u8 *mac_addr;
-
-			mac_addr = os_malloc(2 * ETH_ALEN);
-			if (!mac_addr)
-				goto failed;
-
-			os_memcpy(mac_addr, src->mac_addr, ETH_ALEN);
-			os_memcpy(mac_addr + ETH_ALEN, src->mac_addr_mask,
-				  ETH_ALEN);
-			params->mac_addr = mac_addr;
-			params->mac_addr_mask = mac_addr + ETH_ALEN;
-		}
-	}
+	if (src->mac_addr_rand &&
+	    wpa_setup_mac_addr_rand_params(params, (const u8 *)src->mac_addr))
+		goto failed;
 
 	if (src->bssid) {
 		u8 *bssid;
@@ -2523,13 +2541,9 @@ int wpas_start_pno(struct wpa_supplicant *wpa_s)
 		params.freqs = wpa_s->manual_sched_scan_freqs;
 	}
 
-	if (wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_PNO) {
-		params.mac_addr_rand = 1;
-		if (wpa_s->mac_addr_pno) {
-			params.mac_addr = wpa_s->mac_addr_pno;
-			params.mac_addr_mask = wpa_s->mac_addr_pno + ETH_ALEN;
-		}
-	}
+	if (!wpa_s->current_ssid &&
+	    wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_PNO)
+		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_pno);
 
 	ret = wpa_supplicant_start_sched_scan(wpa_s, &params);
 	os_free(params.filter_ssids);

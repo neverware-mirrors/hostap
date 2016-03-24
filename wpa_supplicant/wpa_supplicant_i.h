@@ -1205,7 +1205,6 @@ void wpas_rrm_handle_link_measurement_request(struct wpa_supplicant *wpa_s,
 					      const u8 *frame, size_t len,
 					      int rssi);
 
-
 /* MBO functions */
 int wpas_mbo_ie(struct wpa_supplicant *wpa_s, u8 *buf, size_t len);
 const u8 * wpas_mbo_get_bss_attr(struct wpa_bss *bss, enum mbo_attr_id attr);
@@ -1222,6 +1221,10 @@ size_t wpas_mbo_ie_bss_trans_reject(struct wpa_supplicant *wpa_s, u8 *pos,
 void wpas_mbo_update_cell_capa(struct wpa_supplicant *wpa_s, u8 mbo_cell_capa);
 struct wpabuf * mbo_build_anqp_buf(struct wpa_supplicant *wpa_s,
 				   struct wpa_bss *bss);
+
+int wpas_enable_mac_addr_randomization(struct wpa_supplicant *wpa_s,
+				       int type, u8 *addr, u8 *mask);
+int wpas_disable_mac_addr_randomization(struct wpa_supplicant *wpa_s, int type);
 
 /**
  * wpa_supplicant_ctrl_iface_ctrl_rsp_handle - Handle a control response
