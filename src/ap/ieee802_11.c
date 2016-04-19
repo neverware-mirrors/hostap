@@ -253,6 +253,62 @@ static u16 auth_shared_key(struct hostapd_data *hapd, struct sta_info *sta,
 }
 #endif /* CONFIG_NO_RC4 */
 
+#ifdef CONFIG_MESH
+void mesh_send_probe_req(struct hostapd_data *hapd, const u8 *dst,
+			 u8 *meshid, size_t meshid_len)
+{
+	struct ieee80211_mgmt *prb_req;
+	u8 supp_rates[2 + 2 + 32];
+	u8 *buf, *pos, *tmp;
+	size_t rlen;
+
+	/* sanity check the meshid length */
+	if (meshid_len > 0xff)
+		return;
+
+	rlen = IEEE80211_HDRLEN
+		+ 2                   /* wild card ssid */
+		+ 2 + 2 + 32          /* supported rate set */
+		+ 2 + meshid_len;     /* Mesh ID */
+	buf = os_zalloc(rlen);
+	if (buf == NULL)
+		return;
+
+	prb_req = (struct ieee80211_mgmt *) buf;
+	prb_req->frame_control = IEEE80211_FC(WLAN_FC_TYPE_MGMT,
+					      WLAN_FC_STYPE_PROBE_REQ);
+	os_memcpy(prb_req->da, dst, ETH_ALEN);
+	os_memcpy(prb_req->sa, hapd->own_addr, ETH_ALEN);
+	os_memcpy(prb_req->bssid, dst, ETH_ALEN);
+
+	pos = prb_req->u.probe_req.variable;
+
+	/* ssid */
+	*pos++ = WLAN_EID_SSID;
+	*pos++ = 0;
+
+	/* supported rates  */
+	tmp = hostapd_eid_supp_rates(hapd, supp_rates);
+	tmp = hostapd_eid_ext_supp_rates(hapd, tmp);
+	os_memcpy(pos, supp_rates, tmp - supp_rates);
+	pos += (tmp - supp_rates);
+
+	/* mesh id */
+	*pos++ = WLAN_EID_MESH_ID;
+	*pos++ = meshid_len;
+	os_memcpy(pos, meshid, meshid_len);
+	pos += meshid_len;
+	rlen = (pos - buf);
+
+	if (hostapd_drv_send_mlme(hapd, prb_req, rlen, 1) < 0)
+		wpa_printf(MSG_INFO, "mesh_send_probe_req: send failed");
+	else
+		wpa_printf(MSG_INFO, "mesh_send_probe_req: send success");
+
+	os_free(buf);
+}
+
+#endif
 
 static void send_auth_reply(struct hostapd_data *hapd,
 			    const u8 *dst, const u8 *bssid,
@@ -1086,6 +1142,14 @@ static void handle_auth(struct hostapd_data *hapd,
 			wpabuf_free(hapd->mesh_pending_auth);
 			hapd->mesh_pending_auth = wpabuf_alloc_copy(mgmt, len);
 			os_get_reltime(&hapd->mesh_pending_auth_time);
+			/*
+			 * Peer found us , but we have not found him yet. Send a
+			 * directed probe req  to find him. Without probe req we
+			 * need to wait for beacon from peers before we can start
+			 * auth with peer. The typical mesh beacon interval is 1 sec.
+			 */
+			mesh_send_probe_req(hapd, mgmt->sa, hapd->conf->ssid.ssid,
+					    hapd->conf->ssid.ssid_len);
 			return;
 		}
 #endif /* CONFIG_MESH */

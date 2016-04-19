@@ -105,4 +105,9 @@ static inline void sae_clear_retransmit_timer(struct hostapd_data *hapd,
 }
 #endif /* CONFIG_SAE */
 
+#ifdef CONFIG_MESH
+void mesh_send_probe_req(struct hostapd_data *hapd, const u8 *dst,
+			 u8 *meshid, size_t meshid_len);
+
+#endif
 #endif /* IEEE802_11_H */

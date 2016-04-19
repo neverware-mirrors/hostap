@@ -25,6 +25,7 @@
 #include "mesh_mpm.h"
 #include "mesh_rsn.h"
 #include "mesh.h"
+#include "ap/ap_drv_ops.h"
 
 
 static void wpa_supplicant_mesh_deinit(struct wpa_supplicant *wpa_s)
@@ -309,6 +310,7 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 {
 	struct wpa_driver_mesh_join_params params;
 	int ret = 0;
+	struct hostapd_data *hapd;
 
 	if (!ssid || !ssid->ssid || !ssid->ssid_len || !ssid->frequency) {
 		ret = -ENOENT;
@@ -392,6 +394,15 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 
 	/* hostapd sets the interface down until we associate */
 	wpa_drv_set_operstate(wpa_s, 1);
+
+	/*
+	 * send probe request to find and peer with mesh points quickly.
+	 * without probe req we need to wait for beacon from peers before
+	 * we can start auth with peer. The typical mesh beacon interval
+	 * is 1 sec.
+	*/
+	hapd = wpa_s->ifmsh->bss[0];
+	mesh_send_probe_req(hapd, broadcast_ether_addr, ssid->ssid, ssid->ssid_len);
 
 out:
 	return ret;
