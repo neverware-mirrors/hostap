@@ -1845,13 +1845,6 @@ static void handle_assoc(struct hostapd_data *hapd,
 
 	sta = ap_get_sta(hapd, mgmt->sa);
 
-#ifdef HOSTAPD
-	if (should_steer_on_assoc(hapd, mgmt->sa, ssi_signal, reassoc)) {
-		resp = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
-		goto fail;
-	}
-#endif
-
 #ifdef CONFIG_IEEE80211R
 	if (sta && sta->auth_alg == WLAN_AUTH_FT &&
 	    (sta->flags & WLAN_STA_AUTH) == 0) {
@@ -1906,6 +1899,13 @@ static void handle_assoc(struct hostapd_data *hapd,
 	resp = check_assoc_ies(hapd, sta, pos, left, reassoc);
 	if (resp != WLAN_STATUS_SUCCESS)
 		goto fail;
+
+#ifdef HOSTAPD
+	if (should_steer_on_assoc(hapd, mgmt->sa, ssi_signal, reassoc)) {
+		resp = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
+		goto fail;
+	}
+#endif
 
 	if (hostapd_get_aid(hapd, sta) < 0) {
 		hostapd_logger(hapd, mgmt->sa, HOSTAPD_MODULE_IEEE80211,
