@@ -2197,10 +2197,12 @@ wpa_driver_nl80211_finish_drv_init(struct wpa_driver_nl80211_data *drv,
 	wpa_printf(MSG_DEBUG, "nl80211: interface %s in phy %s",
 		   bss->ifname, drv->phyname);
 
+	if (linux_set_iface_flags(drv->global->ioctl_sock, bss->ifname, 0))
+		return -1;
+
 	if (set_addr &&
-	    (linux_set_iface_flags(drv->global->ioctl_sock, bss->ifname, 0) ||
-	     linux_set_ifhwaddr(drv->global->ioctl_sock, bss->ifname,
-				set_addr)))
+		linux_set_ifhwaddr(drv->global->ioctl_sock, bss->ifname,
+				set_addr))
 		return -1;
 
 	if (first && nl80211_get_ifmode(bss) == NL80211_IFTYPE_AP)
