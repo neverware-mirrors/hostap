@@ -385,6 +385,7 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 	struct sockaddr_in *paddr, uaddr;
 	struct iapp_data *iapp;
 	struct ip_mreqn mreq;
+ 	int reuse_port=1;
 
 	iapp = os_zalloc(sizeof(*iapp));
 	if (iapp == NULL)
@@ -439,6 +440,13 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 	if (paddr->sin_family != AF_INET) {
 		wpa_printf(MSG_INFO, "Invalid address family %i (SIOCGIFBRDADDR)",
 			   paddr->sin_family);
+		iapp_deinit(iapp);
+		return NULL;
+	}
+	if (setsockopt(iapp->udp_sock, SOL_SOCKET, SO_REUSEPORT, &reuse_port,
+		sizeof(reuse_port)) < 0) {
+		wpa_printf(MSG_INFO, "iapp_init - setsockopt[UDP,SO_REUSEPORT]: %s",
+			strerror(errno));
 		iapp_deinit(iapp);
 		return NULL;
 	}
