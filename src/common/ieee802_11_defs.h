@@ -357,6 +357,7 @@
 #define WLAN_RRM_NEIGHBOR_REPORT_RESPONSE 5
 
 /* Radio Measurement capabilities (from RRM Capabilities IE) */
+#define WLAN_RRM_ENABLED_CAPABILITIES_IE_LEN 5
 /* byte 1 (out of 5) */
 #define WLAN_RRM_CAPS_LINK_MEASUREMENT BIT(0)
 #define WLAN_RRM_CAPS_NEIGHBOR_REPORT BIT(1)

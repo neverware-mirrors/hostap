@@ -24,6 +24,18 @@
 #include "ap_drv_ops.h"
 
 
+static int print_bitmap(char *buf, size_t buflen, u8 *bitmap, size_t bitmap_len)
+{
+	int i, ret, len = 0;
+	ret = os_snprintf(buf + len, buflen - len, "0x");
+	len += ret;
+	for (i = 0; i < bitmap_len; ++i) {
+		ret = os_snprintf(buf + len, buflen - len, "%02x", bitmap[i]);
+		len += ret;
+	}
+	return len;
+}
+
 static int hostapd_get_sta_tx_rx(struct hostapd_data *hapd,
 				 struct sta_info *sta,
 				 char *buf, size_t buflen)
@@ -119,6 +131,49 @@ static int hostapd_ctrl_iface_sta_mib(struct hostapd_data *hapd,
 		len += ret;
 	}
 
+	if (sta->ext_capab) {
+		ret = os_snprintf(buf + len, buflen - len, "\next_capability=");
+		len += ret;
+		ret = print_bitmap(buf + len, buflen-len, sta->ext_capab,
+				   sta->ext_capab_len);
+		len += ret;
+	}
+
+	if (sta->ht_capabilities) {
+	    ret = os_snprintf(buf + len, buflen - len, "\nhtcap=0x%x\nhtextcap=0x%x\n"
+			      "ampdu_params=0x%x",
+			      sta->ht_capabilities->ht_capabilities_info,
+			      sta->ht_capabilities->ht_extended_capabilities,
+			      sta->ht_capabilities->a_mpdu_params);
+		len += ret;
+		ret = os_snprintf(buf + len, buflen - len, "\nht_supported_mcs_set=");
+		len += ret;
+		ret = print_bitmap(buf + len, buflen-len,
+				   sta->ht_capabilities->supported_mcs_set,
+				   sizeof(sta->ht_capabilities->supported_mcs_set));
+		len += ret;
+	}
+	if (sta->vht_capabilities) {
+	    ret = os_snprintf(buf + len, buflen - len,
+			      "\nvhtcap=0x%x\n"
+			      "vht_supported_mcs_set_rx_map=0x%x\n"
+			      "vht_supported_mcs_set_rx_highest=0x%x\n"
+			      "vht_supported_mcs_set_tx_map=0x%x\n"
+			      "vht_supported_mcs_set_tx_highest=0x%x",
+			      sta->vht_capabilities->vht_capabilities_info,
+			      sta->vht_capabilities->vht_supported_mcs_set.rx_map,
+			      sta->vht_capabilities->vht_supported_mcs_set.rx_highest,
+			      sta->vht_capabilities->vht_supported_mcs_set.tx_map,
+			      sta->vht_capabilities->vht_supported_mcs_set.tx_highest);
+		len += ret;
+	}
+	if (sta->rrm_enabled_capab) {
+		ret = os_snprintf(buf + len, buflen - len, "\nrrm_enabled_capab=");
+		len += ret;
+		ret = print_bitmap(buf + len, buflen-len, sta->rrm_enabled_capab,
+				   WLAN_RRM_ENABLED_CAPABILITIES_IE_LEN);
+		len += ret;
+	}
 	ret = os_snprintf(buf + len, buflen - len, "\ntimeout_next=%s\n",
 			  timeout_next_str(sta->timeout_next));
 	if (os_snprintf_error(buflen - len, ret))

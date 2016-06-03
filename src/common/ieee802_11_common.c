@@ -364,6 +364,10 @@ ParseRes ieee802_11_parse_elems(const u8 *start, size_t len,
 			elems->ampe = pos;
 			elems->ampe_len = elen;
 			break;
+		case WLAN_EID_RRM_ENABLED_CAPABILITIES:
+			elems->rrm_enabled_capab = pos;
+			elems->rrm_enabled_capab_len = elen;
+			break;
 		case WLAN_EID_MIC:
 			elems->mic = pos;
 			elems->mic_len = elen;

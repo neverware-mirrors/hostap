@@ -57,6 +57,7 @@ struct ieee802_11_elems {
 	const u8 *ssid_list;
 	const u8 *osen;
 	const u8 *ampe;
+	const u8 *rrm_enabled_capab;
 	const u8 *mic;
 	const u8 *pref_freq_list;
 	const u8 *google_debug_dialog_token;
@@ -87,6 +88,7 @@ struct ieee802_11_elems {
 	u8 ssid_list_len;
 	u8 osen_len;
 	u8 ampe_len;
+	u8 rrm_enabled_capab_len;
 	u8 mic_len;
 	u8 pref_freq_list_len;
 	u8 google_debug_dialog_token_len;

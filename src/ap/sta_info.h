@@ -171,6 +171,10 @@ struct sta_info {
 	/* Last Authentication/(Re)Association Request/Action frame subtype */
 	u8 last_subtype;
 
+	u8 ext_capab_len;
+	u8 *ext_capab;
+	/* RM enabled capability bitmap from RM enabled capability IE */
+	u8 *rrm_enabled_capab;
 #ifdef CONFIG_CLIENT_TAXONOMY
 /* Length of 1536 is arbitrary but larger than any current signature. */
 #define TAXONOMY_STRING_LEN 1536
