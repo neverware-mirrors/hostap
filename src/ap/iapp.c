@@ -415,6 +415,14 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 	}
 	ifindex = ifr.ifr_ifindex;
 
+	if (setsockopt(iapp->udp_sock, SOL_SOCKET, SO_BINDTODEVICE, iface,
+		       strlen(iface)) < 0) {
+		wpa_printf(MSG_INFO, "iapp_init - setsockopt[UDP,SO_BINDTODEVICE]: %s",
+			   strerror(errno));
+		iapp_deinit(iapp);
+		return NULL;
+	}
+
 	if (ioctl(iapp->udp_sock, SIOCGIFADDR, &ifr) != 0) {
 		wpa_printf(MSG_INFO, "iapp_init - ioctl(SIOCGIFADDR): %s",
 			   strerror(errno));
@@ -466,7 +474,7 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 	os_memset(&mreq, 0, sizeof(mreq));
 	mreq.imr_multiaddr = iapp->multicast;
 	mreq.imr_address.s_addr = INADDR_ANY;
-	mreq.imr_ifindex = 0;
+	mreq.imr_ifindex = ifindex;
 	if (setsockopt(iapp->udp_sock, SOL_IP, IP_ADD_MEMBERSHIP, &mreq,
 		       sizeof(mreq)) < 0) {
 		wpa_printf(MSG_INFO, "iapp_init - setsockopt[UDP,IP_ADD_MEMBERSHIP]: %s",
