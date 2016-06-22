@@ -34,6 +34,7 @@
 #include "wnm_ap.h"
 #include "ndisc_snoop.h"
 #include "sta_info.h"
+#include "connect_log.h"
 
 #ifdef HOSTAPD
 #include "ap/steering.h"	/* for write_connect_timestamp() proto */
@@ -363,12 +364,12 @@ void ap_handle_timer(void *eloop_ctx, void *timeout_ctx)
 		   __func__, MAC2STR(sta->addr), sta->flags,
 		   sta->timeout_next);
 	if (sta->timeout_next == STA_REMOVE) {
-		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
-			       HOSTAPD_LEVEL_INFO, "deauthenticated due to "
-			       "local deauth request (reason: deauth=%d)",
-			       sta->deauth_reason);
-		ap_free_sta(hapd, sta);
-		return;
+	    hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
+			   HOSTAPD_LEVEL_INFO, "deauthenticated due to "
+			   "local deauth request (reason: deauth=%d)",
+			   sta->deauth_reason);
+	    ap_free_sta(hapd, sta);
+	    return;
 	}
 
 	if ((sta->flags & WLAN_STA_ASSOC) &&
@@ -495,6 +496,11 @@ skip_poll:
 		reason = (sta->timeout_next == STA_DISASSOC) ?
 			WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY :
 			WLAN_REASON_PREV_AUTH_NOT_VALID;
+		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT, 1,
+				  (sta->timeout_next == STA_DISASSOC) ?
+				  REASON_NONE : REASON_DISCONNECT_BSS_TM_REQ_CLI,
+				  NULL, reason, INVALID_SIGNAL,
+				  INVALID_STEERING_REASON, NULL, NULL);
 		sta->timeout_next = STA_DEAUTH;
 		wpa_printf(MSG_DEBUG, "%s: register ap_handle_timer timeout "
 			   "for " MACSTR " (%d seconds - AP_DEAUTH_DELAY)",
@@ -688,7 +694,10 @@ static void ap_sta_remove_in_other_bss(struct hostapd_data *hapd,
 		sta2 = ap_get_sta(bss, sta->addr);
 		if (!sta2)
 			continue;
-
+		connect_log_event(bss, sta2->addr, CONNECTION_EVENT_DISCONNECT,
+				  1, REASON_DISCONNECT_ASSOC_OTHER_BSS, NULL,
+				  WLAN_REASON_PREV_AUTH_NOT_VALID, INVALID_SIGNAL,
+				  INVALID_STEERING_REASON, NULL, NULL);
 		ap_sta_disconnect(bss, sta2, sta2->addr,
 				  WLAN_REASON_PREV_AUTH_NOT_VALID);
 	}
@@ -1066,6 +1075,9 @@ void ap_sta_set_authorized(struct hostapd_data *hapd, struct sta_info *sta,
 		hostapd_logger(hapd->msg_ctx, sta->addr,
 		               HOSTAPD_MODULE_IEEE80211,
 		               HOSTAPD_LEVEL_INFO, "Connected");
+		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_CONNECT,
+				  1, REASON_NONE, sta, INVALID_FRAME_STATUS,
+				  INVALID_SIGNAL, INVALID_STEERING_REASON, NULL, NULL);
 		wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_CONNECTED "%s%s",
 			buf, ip_addr);
 

@@ -48,6 +48,7 @@
 #include "ieee802_11.h"
 #include "sta_info.h"
 #include "iapp.h"
+#include "connect_log.h"
 
 
 #define IAPP_MULTICAST "224.0.1.178"
@@ -294,6 +295,10 @@ static void iapp_process_add_notify(struct iapp_data *iapp,
 	hostapd_logger(iapp->hapd, add->mac_addr, HOSTAPD_MODULE_IAPP,
 		       HOSTAPD_LEVEL_DEBUG,
 		       "Removing STA due to IAPP ADD-notify");
+
+	connect_log_event(iapp->hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
+			  1, REASON_DISCONNECT_IAPP_NOTIFY, sta, 0,
+			  INVALID_SIGNAL, INVALID_STEERING_REASON, NULL, NULL);
 	ap_sta_disconnect(iapp->hapd, sta, NULL, 0);
 }
 

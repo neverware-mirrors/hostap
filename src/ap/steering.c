@@ -555,12 +555,18 @@ int write_disconnect_timestamp(const struct hostapd_data *hapd,
  * |mac| should be steered, 0 otherwise.
  */
 int should_steer_on_assoc(const struct hostapd_data *hapd,
-                          const u8 *sta_mac, int ssi_signal, int reassoc) {
+                          const u8 *sta_mac, int ssi_signal,
+			  int reassoc, steering_reason *s_reason,
+			  struct os_reltime *p_probe_delta_time,
+			  struct os_reltime *p_steer_delta_time) {
 	struct os_reltime now, probe_time, bandsteer_time, probe_delta_time,
             steer_delta_time, defer_time;
 	int have_timestamp;
 	char *steering_name;
         char buf[128];
+	os_memset(p_probe_delta_time, 0, sizeof(*p_probe_delta_time));
+	os_memset(p_steer_delta_time, 0, sizeof(*p_steer_delta_time));
+
 	if (steering_target_interface == NULL) {
 		return FALSE;
 	}
@@ -573,6 +579,7 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
 		               AP_STA_NO_STEERING MACSTR " target-interface %d",
 		               MAC2STR(sta_mac), ssi_signal);
+		*s_reason = NOSTEER_TARGET_INTERFACE;
 		return FALSE;
 	}
 	/* Steering is enabled and this is not the target interface. */
@@ -585,6 +592,7 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
 		               AP_STA_NO_STEERING MACSTR " reassoc %d",
 		               MAC2STR(sta_mac), ssi_signal);
+		*s_reason = NOSTEER_REASSOC;
 		return FALSE;
 	}
 
@@ -600,6 +608,7 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
 		               AP_STA_NO_STEERING MACSTR " new-station %d",
 		               MAC2STR(sta_mac), ssi_signal);
+		*s_reason = NOSTEER_NEW_STATION;
 		return FALSE;
         }
 
@@ -622,6 +631,7 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
 		               AP_STA_NO_STEERING MACSTR " deferred %d",
 		               MAC2STR(sta_mac), ssi_signal);
+		*s_reason = NOSTEER_DEFERRED;
 		return FALSE;
 	}
 
@@ -634,6 +644,7 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
 		               AP_STA_NO_STEERING MACSTR " non-candidate %d",
 		               MAC2STR(sta_mac), ssi_signal);
+		*s_reason = NOSTEER_NON_CANDIDATE;
 		return FALSE;
 	}
 
@@ -660,6 +671,8 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
 		               AP_STA_NO_STEERING MACSTR " weak-signal %d",
 		               MAC2STR(sta_mac), ssi_signal);
+		*s_reason = NOSTEER_WEAK_SIGNAL;
+		*p_probe_delta_time = probe_delta_time;
 		return FALSE;
 	}
 
@@ -686,8 +699,11 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		               probe_delta_time.sec,
 		               probe_delta_time.usec / 10000);
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
-		               AP_STA_STEERING MACSTR " %d",
-		               MAC2STR(sta_mac), ssi_signal);
+			AP_STA_STEERING MACSTR " %d",
+			MAC2STR(sta_mac), ssi_signal);
+		*p_probe_delta_time = probe_delta_time;
+		*p_steer_delta_time = steer_delta_time;
+		*s_reason = STEER;
 		return TRUE;
 	}
 
@@ -701,5 +717,8 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 	wpa_printf(MSG_INFO, "Bandsteering failed for "
 	           MACSTR ", associating on %s/%s",
 	           MAC2STR(sta_mac), steering_name, hapd->conf->iface);
+	*p_probe_delta_time = probe_delta_time;
+	*p_steer_delta_time = steer_delta_time;
+	*s_reason = NOSTEER_RECENTLY_STEERED;
 	return FALSE;
 }

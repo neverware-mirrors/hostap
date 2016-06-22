@@ -22,6 +22,7 @@
 #include "p2p_hostapd.h"
 #include "ctrl_iface_ap.h"
 #include "ap_drv_ops.h"
+#include "connect_log.h"
 
 
 static int print_bitmap(char *buf, size_t buflen, u8 *bitmap, size_t bitmap_len)
@@ -395,8 +396,12 @@ int hostapd_ctrl_iface_deauthenticate(struct hostapd_data *hapd,
 
 	hostapd_drv_sta_deauth(hapd, addr, reason);
 	sta = ap_get_sta(hapd, addr);
-	if (sta)
-		ap_sta_deauthenticate(hapd, sta, reason);
+	if (sta) {
+	    connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
+			      1, REASON_DISCONNECT_DEAUTH_CLI, NULL, reason,
+			      INVALID_SIGNAL, INVALID_STEERING_REASON, NULL, NULL);
+	    ap_sta_deauthenticate(hapd, sta, reason);
+	}
 	else if (addr[0] == 0xff)
 		hostapd_free_stas(hapd);
 
@@ -455,8 +460,12 @@ int hostapd_ctrl_iface_disassociate(struct hostapd_data *hapd,
 
 	hostapd_drv_sta_disassoc(hapd, addr, reason);
 	sta = ap_get_sta(hapd, addr);
-	if (sta)
-		ap_sta_disassociate(hapd, sta, reason);
+	if (sta) {
+	    connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
+			      1, REASON_DISCONNECT_DISASSOC_CLI, NULL, reason,
+			      INVALID_SIGNAL, INVALID_STEERING_REASON, NULL, NULL);
+	    ap_sta_disassociate(hapd, sta, reason);
+	}
 	else if (addr[0] == 0xff)
 		hostapd_free_stas(hapd);
 

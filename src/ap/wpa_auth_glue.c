@@ -25,6 +25,7 @@
 #include "ap_config.h"
 #include "wpa_auth.h"
 #include "wpa_auth_glue.h"
+#include "connect_log.h"
 
 
 static void hostapd_wpa_auth_conf(struct hostapd_bss_config *conf,
@@ -141,6 +142,10 @@ static void hostapd_wpa_auth_disconnect(void *ctx, const u8 *addr,
 	wpa_printf(MSG_DEBUG, "%s: WPA authenticator requests disconnect: "
 		   "STA " MACSTR " reason %d",
 		   __func__, MAC2STR(addr), reason);
+	connect_log_event(hapd, addr, CONNECTION_EVENT_DISCONNECT,
+			  1, REASON_DISCONNECT_WPA_AUTH, NULL,
+			  reason, INVALID_SIGNAL,
+			  INVALID_STEERING_REASON, NULL, NULL);
 	ap_sta_disconnect(hapd, NULL, addr, reason);
 }
 

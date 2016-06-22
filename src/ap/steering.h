@@ -48,11 +48,26 @@ typedef enum {
   STEER_EVENT_SUCCESSFUL,
   STEER_EVENT_CONNECT,
   STEER_EVENT_DEFER,
-  NUM_STEER_EVENTS } steer_event_type;
+  NUM_STEER_EVENTS
+} steer_event_type;
+
 typedef enum {
   CURRENT_INTERFACE,
   TARGET_INTERFACE,
-  NUM_STEERING_PATH_TYPES } steering_interface_type;
+  NUM_STEERING_PATH_TYPES
+} steering_interface_type;
+
+typedef enum {
+    NOSTEER_REASON_UNKNOWN = 0, /* Not steered for unknown reason */
+    STEER = 1,  /* Station was steered. */
+    NOSTEER_TARGET_INTERFACE = 2,  /* Assoc attempt was on target interface. */
+    NOSTEER_REASSOC = 3,  /* Assoc was actually a reassoc attempt. */
+    NOSTEER_NEW_STATION = 4,  /* Assoc was from a previously unseen station. */
+    NOSTEER_DEFERRED = 5,  /* Steering is currently deferred to the target. */
+    NOSTEER_NON_CANDIDATE = 6,  /* Station is not a known candidate for steering */
+    NOSTEER_WEAK_SIGNAL = 7,  /* Station not steered because signal is too weak.*/
+    NOSTEER_RECENTLY_STEERED = 8  /* Station was recently steered. */
+} steering_reason;
 
 /**
  * Initializes infrastructure needed by band steering code. This should be
@@ -101,7 +116,10 @@ int write_disconnect_timestamp(const struct hostapd_data *hapd,
  * Return 1 if it shold be steered, 0 otherwise.
  */
 int should_steer_on_assoc(const struct hostapd_data *hapd,
-                          const u8 *sta_mac, int ssi_signal, int reassoc);
+                          const u8 *sta_mac, int ssi_signal,
+			  int reassoc, steering_reason *s_reason,
+			  struct os_reltime *probe_delta_time,
+			  struct os_reltime *steer_delta_time);
 
 extern int steering_mechanism;
 

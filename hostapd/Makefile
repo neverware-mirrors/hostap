@@ -940,6 +940,7 @@ OBJS += ../src/ap/taxonomy.o
 endif
 
 OBJS += ../src/ap/steering.o
+OBJS += ../src/ap/connect_log.o
 
 ALL=hostapd hostapd_cli
 
