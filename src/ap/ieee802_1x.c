@@ -2263,7 +2263,7 @@ int ieee802_1x_eapol_tx_status(struct hostapd_data *hapd, struct sta_info *sta,
 	if (!ack && pos + sizeof(*key) <= buf + len) {
 		key = (struct ieee802_1x_eapol_key *) pos;
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE8021X,
-			       HOSTAPD_LEVEL_DEBUG, "did not Ack EAPOL-Key "
+			       HOSTAPD_LEVEL_INFO, "did not Ack EAPOL-Key "
 			       "frame (%scast index=%d)",
 			       key->key_index & BIT(7) ? "uni" : "broad",
 			       key->key_index & ~BIT(7));

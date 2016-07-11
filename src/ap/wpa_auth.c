@@ -1070,7 +1070,7 @@ void wpa_receive(struct wpa_authenticator *wpa_auth,
 					 "ignore retransmitted EAPOL-Key %s - "
 					 "SNonce did not change", msgtxt);
 		} else {
-			wpa_auth_vlogger(wpa_auth, sm->addr, LOGGER_DEBUG,
+			wpa_auth_vlogger(wpa_auth, sm->addr, LOGGER_INFO,
 					 "received EAPOL-Key %s with "
 					 "unexpected replay counter", msgtxt);
 		}
@@ -1225,7 +1225,7 @@ continue_processing:
 		break;
 	}
 
-	wpa_auth_vlogger(wpa_auth, sm->addr, LOGGER_DEBUG,
+	wpa_auth_vlogger(wpa_auth, sm->addr, LOGGER_INFO,
 			 "received EAPOL-Key frame (%s)", msgtxt);
 
 	if (key_info & WPA_KEY_INFO_ACK) {
@@ -1393,7 +1393,7 @@ static void wpa_send_eapol_timeout(void *eloop_ctx, void *timeout_ctx)
 	struct wpa_state_machine *sm = timeout_ctx;
 
 	sm->pending_1_of_4_timeout = 0;
-	wpa_auth_logger(wpa_auth, sm->addr, LOGGER_DEBUG, "EAPOL-Key timeout");
+	wpa_auth_logger(wpa_auth, sm->addr, LOGGER_INFO, "EAPOL-Key timeout");
 	sm->TimeoutEvt = TRUE;
 	wpa_sm_step(sm);
 }
@@ -1969,7 +1969,7 @@ SM_STATE(WPA_PTK, PTKSTART)
 		return;
 	}
 
-	wpa_auth_logger(sm->wpa_auth, sm->addr, LOGGER_DEBUG,
+	wpa_auth_logger(sm->wpa_auth, sm->addr, LOGGER_INFO,
 			"sending 1/4 msg of 4-Way Handshake");
 	/*
 	 * TODO: Could add PMKID even with WPA2-PSK, but only if there is only
@@ -2206,7 +2206,7 @@ SM_STATE(WPA_PTK, PTKINITNEGOTIATING)
 			wpa_ie = wpa_ie + wpa_ie[1] + 2;
 		wpa_ie_len = wpa_ie[1] + 2;
 	}
-	wpa_auth_logger(sm->wpa_auth, sm->addr, LOGGER_DEBUG,
+	wpa_auth_logger(sm->wpa_auth, sm->addr, LOGGER_INFO,
 			"sending 3/4 msg of 4-Way Handshake");
 	if (sm->wpa == WPA_VERSION_WPA2) {
 		/* WPA2 send GTK in the 4-way handshake */
@@ -2466,7 +2466,7 @@ SM_STEP(WPA_PTK)
 		else if (sm->TimeoutCtr >
 			 (int) dot11RSNAConfigPairwiseUpdateCount) {
 			wpa_auth->dot11RSNA4WayHandshakeFailures++;
-			wpa_auth_vlogger(sm->wpa_auth, sm->addr, LOGGER_DEBUG,
+			wpa_auth_vlogger(sm->wpa_auth, sm->addr, LOGGER_INFO,
 					 "PTKSTART: Retry limit %d reached",
 					 dot11RSNAConfigPairwiseUpdateCount);
 			SM_ENTER(WPA_PTK, DISCONNECT);
@@ -2545,7 +2545,7 @@ SM_STATE(WPA_PTK_GROUP, REKEYNEGOTIATING)
 	os_memset(rsc, 0, WPA_KEY_RSC_LEN);
 	if (gsm->wpa_group_state == WPA_GROUP_SETKEYSDONE)
 		wpa_auth_get_seqnum(sm->wpa_auth, NULL, gsm->GN, rsc);
-	wpa_auth_logger(sm->wpa_auth, sm->addr, LOGGER_DEBUG,
+	wpa_auth_logger(sm->wpa_auth, sm->addr, LOGGER_INFO,
 			"sending 1/2 msg of Group Key Handshake");
 
 	gtk = gsm->GTK[gsm->GN - 1];
