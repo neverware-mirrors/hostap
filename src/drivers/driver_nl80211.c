@@ -5228,6 +5228,60 @@ static int i802_flush(void *priv)
 	return res;
 }
 
+static void parse_bitrate(struct nlattr *bitrate_attr,
+			  unsigned long *rate, struct rate_info *info)
+{
+	struct nlattr *rinfo[NL80211_RATE_INFO_MAX + 1];
+	static struct nla_policy rate_policy[NL80211_RATE_INFO_MAX + 1] = {
+		[NL80211_RATE_INFO_BITRATE] = { .type = NLA_U16 },
+		[NL80211_RATE_INFO_BITRATE32] = { .type = NLA_U32 },
+		[NL80211_RATE_INFO_MCS] = { .type = NLA_U8 },
+		[NL80211_RATE_INFO_40_MHZ_WIDTH] = { .type = NLA_FLAG },
+		[NL80211_RATE_INFO_SHORT_GI] = { .type = NLA_FLAG },
+	};
+
+	if (nla_parse_nested(rinfo, NL80211_RATE_INFO_MAX,
+			     bitrate_attr, rate_policy)) {
+		wpa_printf(MSG_INFO, "failed to parse nested rate attributes!");
+		return;
+	}
+
+	if (rinfo[NL80211_RATE_INFO_BITRATE32])
+		*rate = nla_get_u32(rinfo[NL80211_RATE_INFO_BITRATE32]);
+	else if (rinfo[NL80211_RATE_INFO_BITRATE])
+		*rate = nla_get_u16(rinfo[NL80211_RATE_INFO_BITRATE]);
+
+	if (rinfo[NL80211_RATE_INFO_MCS])
+		info->mcs = nla_get_u8(rinfo[NL80211_RATE_INFO_MCS]);
+	else
+		info->mcs = -1;
+
+	if (rinfo[NL80211_RATE_INFO_VHT_MCS])
+		info->vht_mcs = nla_get_u8(rinfo[NL80211_RATE_INFO_VHT_MCS]);
+	else
+		info->vht_mcs = -1;
+
+	if (rinfo[NL80211_RATE_INFO_80P80_MHZ_WIDTH] ||
+		rinfo[NL80211_RATE_INFO_160_MHZ_WIDTH])
+		info->bw = 160;
+	else if (rinfo[NL80211_RATE_INFO_80_MHZ_WIDTH])
+		info->bw = 80;
+	else if (rinfo[NL80211_RATE_INFO_40_MHZ_WIDTH])
+		info->bw = 40;
+	else if (rinfo[NL80211_RATE_INFO_40_MHZ_WIDTH])
+		info->bw = 10;
+	else if (rinfo[NL80211_RATE_INFO_5_MHZ_WIDTH])
+		info->bw = 5;
+	else
+		info->bw = 20;
+
+	info->sgi = rinfo[NL80211_RATE_INFO_SHORT_GI] ? TRUE:FALSE;
+
+	if (rinfo[NL80211_RATE_INFO_VHT_NSS])
+		info->vht_nss = nla_get_u8(rinfo[NL80211_RATE_INFO_VHT_NSS]);
+	else
+		info->vht_nss = -1;
+}
 
 static int get_sta_handler(struct nl_msg *msg, void *arg)
 {
@@ -5280,6 +5334,18 @@ static int get_sta_handler(struct nl_msg *msg, void *arg)
 	if (stats[NL80211_STA_INFO_TX_FAILED])
 		data->tx_retry_failed =
 			nla_get_u32(stats[NL80211_STA_INFO_TX_FAILED]);
+
+	if (stats[NL80211_STA_INFO_SIGNAL_AVG])
+		data->avg_rssi =
+			(s8)nla_get_u8(stats[NL80211_STA_INFO_SIGNAL_AVG]);
+
+	if (stats[NL80211_STA_INFO_TX_BITRATE])
+		parse_bitrate(stats[NL80211_STA_INFO_TX_BITRATE],
+			      &data->current_tx_rate, &data->tx_rate_info);
+
+	if (stats[NL80211_STA_INFO_RX_BITRATE])
+		parse_bitrate(stats[NL80211_STA_INFO_RX_BITRATE],
+			      &data->current_rx_rate, &data->rx_rate_info);
 
 	return NL_SKIP;
 }

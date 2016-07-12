@@ -1325,9 +1325,17 @@ struct wpa_driver_capa {
 
 struct hostapd_data;
 
+struct rate_info {
+	s8 mcs;
+	u8 bw;
+	Boolean sgi;
+	s8 vht_mcs;
+	s8 vht_nss;
+};
+
 struct hostap_sta_driver_data {
 	unsigned long rx_packets, tx_packets, rx_bytes, tx_bytes;
-	unsigned long current_tx_rate;
+	unsigned long current_tx_rate, current_rx_rate;
 	unsigned long inactive_msec;
 	unsigned long flags;
 	unsigned long num_ps_buf_frames;
@@ -1335,6 +1343,9 @@ struct hostap_sta_driver_data {
 	unsigned long tx_retry_count;
 	int last_rssi;
 	int last_ack_rssi;
+	s8 avg_rssi;
+	struct rate_info tx_rate_info;
+	struct rate_info rx_rate_info;
 };
 
 struct hostapd_sta_add_params {
