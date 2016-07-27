@@ -4548,6 +4548,13 @@ static int wpa_supplicant_init_iface(struct wpa_supplicant *wpa_s,
 	wpa_printf(MSG_INFO, "MPM: Debug Dialog Token initialized %u (0x%x)",
 		wpa_s->google_debug_dialog_token, wpa_s->google_debug_dialog_token);
 
+#ifdef CONFIG_MESH
+	wpa_s->google_mesh_group_privacy_mode_version =
+		VENDOR_GOOGLE_MESH_GROUP_PRIVACY_MODE_VERSION_NUMBER;
+	wpa_printf(MSG_INFO, "Mesh: Group Privacy Mode initialized to %d",
+		wpa_s->google_mesh_group_privacy_mode_version);
+#endif /* CONFIG_MESH */
+
 	return 0;
 }
 

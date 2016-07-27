@@ -169,6 +169,10 @@ static int ieee802_11_parse_vendor_specific(const u8 *pos, size_t elen,
 			elems->google_debug_dialog_token = pos;
 			elems->google_debug_dialog_token_len = elen;
 			break;
+		case VENDOR_GOOGLE_MESH_GROUP_PRIVACY_MODE_TYPE:
+			elems->google_mesh_group_privacy_mode = pos;
+			elems->google_mesh_group_privacy_mode_len = elen;
+			break;
 		default:
 			wpa_printf(MSG_EXCESSIVE, "Unknown Google "
 				"information element ignored "

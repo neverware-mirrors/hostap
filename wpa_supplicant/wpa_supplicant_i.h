@@ -736,6 +736,7 @@ struct wpa_supplicant {
 	unsigned int mesh_ht_enabled:1;
 	unsigned int mesh_vht_enabled:1;
 	int mesh_auth_block_duration; /* sec */
+	u8 google_mesh_group_privacy_mode_version;
 #endif /* CONFIG_MESH */
 
 	unsigned int off_channel_freq;
@@ -1000,6 +1001,7 @@ struct wpa_supplicant {
 #endif /* CONFIG_FST */
 
 	u32 google_debug_dialog_token;
+
 };
 
 

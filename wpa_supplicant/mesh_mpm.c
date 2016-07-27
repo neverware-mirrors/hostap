@@ -238,6 +238,7 @@ static void mesh_mpm_send_plink_action(struct wpa_supplicant *wpa_s,
 		  2 + 7 +  /* mesh config */
 		  2 + 23 + /* peering management */
 		  2 + 8 +  /* Debug Dialog Token */
+		  2 + 5 +  /* Mesh Group Privacy Mode */
 		  2 + 96 + /* AMPE */
 		  2 + 16;  /* MIC */
 #ifdef CONFIG_IEEE80211N
@@ -370,6 +371,13 @@ static void mesh_mpm_send_plink_action(struct wpa_supplicant *wpa_s,
 	wpabuf_put_be32(buf, (OUI_GOOGLE << 8) | VENDOR_GOOGLE_DEBUG_DIALOG_TOKEN_TYPE);
 	wpabuf_put_le32(buf, wpa_s->google_debug_dialog_token);
 
+	/* IE: Google Mesh Group Privacy Mode */
+	wpabuf_put_u8(buf, WLAN_EID_VENDOR_SPECIFIC);
+	wpabuf_put_u8(buf, 5);
+	wpabuf_put_be32(buf, (OUI_GOOGLE << 8) |
+			VENDOR_GOOGLE_MESH_GROUP_PRIVACY_MODE_TYPE);
+	wpabuf_put_u8(buf, wpa_s->google_mesh_group_privacy_mode_version);
+
 	if (ampe && mesh_rsn_protect_frame(wpa_s->mesh_rsn, sta, cat, buf)) {
 		wpa_msg(wpa_s, MSG_INFO,
 			"Mesh MPM: failed to add AMPE and MIC IE");
@@ -377,9 +385,11 @@ static void mesh_mpm_send_plink_action(struct wpa_supplicant *wpa_s,
 	}
 
 	wpa_printf(MSG_INFO, "Mesh MPM: Sending peering frame type %d (%s) to "
-		MACSTR " (my_lid=0x%x peer_lid=0x%x) (Debug Dialog Token: %u)",
+		MACSTR " (my_lid=0x%x peer_lid=0x%x) (Debug Dialog Token: %u)"
+		" (version number: %u)",
 		type, mplaction[type], MAC2STR(sta->addr), sta->my_lid, sta->peer_lid,
-		wpa_s->google_debug_dialog_token);
+		wpa_s->google_debug_dialog_token,
+		wpa_s->google_mesh_group_privacy_mode_version);
 	wpa_s->google_debug_dialog_token++;
 
 	ret = wpa_drv_send_action(wpa_s, wpa_s->assoc_freq, 0,
@@ -1013,6 +1023,37 @@ void mesh_mpm_action_rx(struct wpa_supplicant *wpa_s,
 	if (ret) {
 		wpa_printf(MSG_INFO, "MPM: Mesh parsing rejected frame");
 		return;
+	}
+
+	if (elems.google_mesh_group_privacy_mode) {
+		if (elems.google_mesh_group_privacy_mode_len >
+		    sizeof(struct google_mesh_group_privacy_mode_ie)) {
+			wpa_printf(MSG_INFO, "MPM: Incorrect size of "
+				   "Mesh Group Privacy Mode IE %d, version: "
+				   "%d",
+				   elems.google_mesh_group_privacy_mode_len,
+				   elems.google_mesh_group_privacy_mode[4]);
+		} else if (elems.google_mesh_group_privacy_mode_len <
+		    sizeof(struct google_mesh_group_privacy_mode_ie)) {
+			wpa_printf(MSG_INFO, "MPM: Incorrect size of "
+				   "Mesh Group Privacy Mode IE %d too short",
+				   elems.google_mesh_group_privacy_mode_len);
+		} else if (elems.google_mesh_group_privacy_mode[4] !=
+			    wpa_s->google_mesh_group_privacy_mode_version) {
+			wpa_msg(wpa_s, MSG_INFO, MESH_PEER_VERSION
+				MACSTR " %d local %d", MAC2STR(mgmt->sa),
+				elems.google_mesh_group_privacy_mode[4],
+				wpa_s->google_mesh_group_privacy_mode_version);
+		} else {
+			wpa_printf(MSG_INFO, "MPM: Mesh Group Privacy Mode "
+				   "version match: peer: %u, local: %u",
+				   elems.google_mesh_group_privacy_mode[4],
+				   wpa_s->google_mesh_group_privacy_mode_version);
+		}
+	} else {
+		wpa_msg(wpa_s, MSG_INFO, MESH_PEER_VERSION MACSTR
+			" no IE, local %d", MAC2STR(mgmt->sa),
+			wpa_s->google_mesh_group_privacy_mode_version);
 	}
 
 	/* the sender's llid is our plid and vice-versa */
