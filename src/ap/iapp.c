@@ -39,6 +39,8 @@
 #else /* USE_KERNEL_HEADERS */
 #include <netpacket/packet.h>
 #endif /* USE_KERNEL_HEADERS */
+#include <linux/netlink.h>
+#include <linux/rtnetlink.h>
 
 #include "utils/common.h"
 #include "utils/eloop.h"
@@ -171,10 +173,15 @@ struct iapp_data {
 	struct hostapd_data *hapd;
 	u16 identifier; /* next IAPP identifier */
 	struct in_addr own, multicast;
+	int ifindex;  /* index of the iapp interface */
 	int udp_sock;
 	int packet_sock;
+	int nl_sock;
+	Boolean ready;  /* indicates iapp is fully initialized and ready */
 };
 
+static void iapp_initialize(struct iapp_data *iapp);
+static void iapp_cleanup(struct iapp_data *iapp);
 
 static void iapp_send_add(struct iapp_data *iapp, u8 *mac_addr, u16 seq_num)
 {
@@ -245,7 +252,7 @@ void iapp_new_station(struct iapp_data *iapp, struct sta_info *sta)
 {
 	u16 seq = 0; /* TODO */
 
-	if (iapp == NULL)
+	if (iapp == NULL || !iapp->ready)
 		return;
 
 	/* IAPP-ADD.request(MAC Address, Sequence Number, Timeout) */
@@ -382,22 +389,78 @@ static void iapp_receive_udp(int sock, void *eloop_ctx, void *sock_ctx)
 	}
 }
 
+static void iapp_receive_nl_msg(int sock, void *eloop_ctx, void *sock_ctx)
+{
+	struct iapp_data *iapp = eloop_ctx;
+	char buffer[1024];
+	int len;
+	struct nlmsghdr *nlh;
+	struct ifaddrmsg *ifa;
+
+	nlh = (struct nlmsghdr *)buffer;
+	len = recv(iapp->nl_sock,nlh,1024,0);
+	while(NLMSG_OK(nlh, len) && nlh->nlmsg_type != NLMSG_DONE) {
+		if (nlh->nlmsg_type != RTM_NEWADDR)
+			continue;
+		ifa = (struct ifaddrmsg *) NLMSG_DATA (nlh);
+		wpa_printf(MSG_INFO, "iapp_receive_nl_msg: RTM_NEWADDR ");
+		if (ifa->ifa_index == iapp->ifindex) {
+			iapp_initialize(iapp);
+		}
+		nlh = NLMSG_NEXT(nlh, len);
+	}
+}
+
+static Boolean iapp_defer_initialization(struct iapp_data *iapp)
+{
+	struct sockaddr_nl addr;
+	int nlsock,len;
+
+	if (iapp->nl_sock != -1) {
+		/*
+		 * we have already been deferred initialization once and
+		 * cant handle deferred initialization again.
+		 */
+		hostapd_logger(iapp->hapd, NULL, HOSTAPD_MODULE_IAPP,
+			       HOSTAPD_LEVEL_INFO,
+			       "iapp_initialize - first attempt failed. bail out");
+		return FALSE;
+	}
+	if ((iapp->nl_sock = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE)) == -1) {
+		wpa_printf(MSG_INFO, "iapp_initialize - routing socket failure %s",
+			   strerror(errno));
+		return FALSE;
+	}
+
+	memset (&addr,0,sizeof(addr));
+	addr.nl_family = AF_NETLINK;
+	addr.nl_groups = RTMGRP_IPV4_IFADDR;
+
+	if (bind(iapp->nl_sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
+		wpa_printf(MSG_INFO, "iapp_initialize - bind failure %s",
+			   strerror(errno));
+		return FALSE;
+	}
+
+	if (eloop_register_read_sock(iapp->nl_sock, iapp_receive_nl_msg,
+				     iapp, NULL)) {
+		wpa_printf(MSG_INFO, "Could not register read socket for nl message");
+		return FALSE;
+	}
+
+	return TRUE;
+}
 
 struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 {
 	struct ifreq ifr;
-	struct sockaddr_ll addr;
-	int ifindex;
-	struct sockaddr_in *paddr, uaddr;
 	struct iapp_data *iapp;
-	struct ip_mreqn mreq;
- 	int reuse_port=1;
 
 	iapp = os_zalloc(sizeof(*iapp));
 	if (iapp == NULL)
 		return NULL;
 	iapp->hapd = hapd;
-	iapp->udp_sock = iapp->packet_sock = -1;
+	iapp->udp_sock = iapp->packet_sock = iapp->nl_sock =  -1;
 
 	/* TODO:
 	 * open socket for sending and receiving IAPP frames over TCP
@@ -419,7 +482,7 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 		iapp_deinit(iapp);
 		return NULL;
 	}
-	ifindex = ifr.ifr_ifindex;
+	iapp->ifindex = ifr.ifr_ifindex;
 
 	if (setsockopt(iapp->udp_sock, SOL_SOCKET, SO_BINDTODEVICE, iface,
 		       strlen(iface)) < 0) {
@@ -429,40 +492,84 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 		return NULL;
 	}
 
+	iapp_initialize(iapp);
+
+	wpa_printf(MSG_INFO, "IEEE 802.11F (IAPP) using interface %s", iface);
+
+	/* TODO: For levels 2 and 3: send RADIUS Initiate-Request, receive
+	 * RADIUS Initiate-Accept or Initiate-Reject. IAPP port should actually
+	 * be openned only after receiving Initiate-Accept. If Initiate-Reject
+	 * is received, IAPP is not started. */
+	return iapp;
+}
+
+void iapp_deinit(struct iapp_data *iapp)
+{
+	iapp_cleanup(iapp);
+	os_free(iapp);
+}
+
+/*
+ * second part of initialization.
+ * initializes data socket and joins iapp multicast group.
+ * if no IP addreess is assigned to the interface then defers
+ * initialization until ip address is assigned.
+ *
+ */
+static void iapp_initialize(struct iapp_data *iapp)
+{
+	struct ifreq ifr;
+	struct sockaddr_ll addr;
+	int ifindex;
+	struct sockaddr_in *paddr, uaddr;
+	struct ip_mreqn mreq;
+ 	int reuse_port=1;
+	char iface[IFNAMSIZ];
+
+	ifindex = iapp->ifindex;
+	os_memset(&ifr, 0, sizeof(ifr));
+	if_indextoname(ifindex,iface);
+
+	os_strlcpy(ifr.ifr_name, iface, sizeof(ifr.ifr_name));
+
 	if (ioctl(iapp->udp_sock, SIOCGIFADDR, &ifr) != 0) {
 		wpa_printf(MSG_INFO, "iapp_init - ioctl(SIOCGIFADDR): %s",
 			   strerror(errno));
-		iapp_deinit(iapp);
-		return NULL;
+		hostapd_logger(iapp->hapd, NULL, HOSTAPD_MODULE_IAPP,
+			       HOSTAPD_LEVEL_INFO,
+			       "iapp_init - defer iapp initialization");
+		if (!iapp_defer_initialization(iapp))
+			iapp_cleanup(iapp);
+		return;
 	}
 	paddr = (struct sockaddr_in *) &ifr.ifr_addr;
 	if (paddr->sin_family != AF_INET) {
 		wpa_printf(MSG_INFO, "IAPP: Invalid address family %i (SIOCGIFADDR)",
 			   paddr->sin_family);
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 	iapp->own.s_addr = paddr->sin_addr.s_addr;
 
 	if (ioctl(iapp->udp_sock, SIOCGIFBRDADDR, &ifr) != 0) {
 		wpa_printf(MSG_INFO, "iapp_init - ioctl(SIOCGIFBRDADDR): %s",
 			   strerror(errno));
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 	paddr = (struct sockaddr_in *) &ifr.ifr_addr;
 	if (paddr->sin_family != AF_INET) {
 		wpa_printf(MSG_INFO, "Invalid address family %i (SIOCGIFBRDADDR)",
 			   paddr->sin_family);
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 	if (setsockopt(iapp->udp_sock, SOL_SOCKET, SO_REUSEPORT, &reuse_port,
 		sizeof(reuse_port)) < 0) {
 		wpa_printf(MSG_INFO, "iapp_init - setsockopt[UDP,SO_REUSEPORT]: %s",
 			strerror(errno));
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 	inet_aton(IAPP_MULTICAST, &iapp->multicast);
 
@@ -473,8 +580,8 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 		 sizeof(uaddr)) < 0) {
 		wpa_printf(MSG_INFO, "iapp_init - bind[UDP]: %s",
 			   strerror(errno));
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 
 	os_memset(&mreq, 0, sizeof(mreq));
@@ -485,16 +592,16 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 		       sizeof(mreq)) < 0) {
 		wpa_printf(MSG_INFO, "iapp_init - setsockopt[UDP,IP_ADD_MEMBERSHIP]: %s",
 			   strerror(errno));
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 
 	iapp->packet_sock = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if (iapp->packet_sock < 0) {
 		wpa_printf(MSG_INFO, "iapp_init - socket[PF_PACKET,SOCK_RAW]: %s",
 			   strerror(errno));
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 
 	os_memset(&addr, 0, sizeof(addr));
@@ -504,29 +611,30 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 		 sizeof(addr)) < 0) {
 		wpa_printf(MSG_INFO, "iapp_init - bind[PACKET]: %s",
 			   strerror(errno));
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 
 	if (eloop_register_read_sock(iapp->udp_sock, iapp_receive_udp,
 				     iapp, NULL)) {
 		wpa_printf(MSG_INFO, "Could not register read socket for IAPP");
-		iapp_deinit(iapp);
-		return NULL;
+		iapp_cleanup(iapp);
+		return;
 	}
 
-	wpa_printf(MSG_INFO, "IEEE 802.11F (IAPP) using interface %s", iface);
+	if (iapp->nl_sock >= 0) {
+		eloop_unregister_read_sock(iapp->nl_sock);
+		close(iapp->nl_sock);
+		iapp->nl_sock = -1;
+	}
 
-	/* TODO: For levels 2 and 3: send RADIUS Initiate-Request, receive
-	 * RADIUS Initiate-Accept or Initiate-Reject. IAPP port should actually
-	 * be openned only after receiving Initiate-Accept. If Initiate-Reject
-	 * is received, IAPP is not started. */
-
-	return iapp;
+	iapp->ready = TRUE;
+	hostapd_logger(iapp->hapd, NULL, HOSTAPD_MODULE_IAPP,
+		       HOSTAPD_LEVEL_INFO,
+		       "iapp_initialize - finished initialization");
 }
 
-
-void iapp_deinit(struct iapp_data *iapp)
+static void iapp_cleanup(struct iapp_data *iapp)
 {
 	struct ip_mreqn mreq;
 
@@ -540,16 +648,24 @@ void iapp_deinit(struct iapp_data *iapp)
 		mreq.imr_ifindex = 0;
 		if (setsockopt(iapp->udp_sock, SOL_IP, IP_DROP_MEMBERSHIP,
 			       &mreq, sizeof(mreq)) < 0) {
-			wpa_printf(MSG_INFO, "iapp_deinit - setsockopt[UDP,IP_DEL_MEMBERSHIP]: %s",
+			wpa_printf(MSG_INFO,
+				   "iapp_deinit - setsockopt[UDP,IP_DEL_MEMBERSHIP]: %s",
 				   strerror(errno));
 		}
 
 		eloop_unregister_read_sock(iapp->udp_sock);
 		close(iapp->udp_sock);
+		iapp->udp_sock = -1;
 	}
 	if (iapp->packet_sock >= 0) {
 		eloop_unregister_read_sock(iapp->packet_sock);
 		close(iapp->packet_sock);
+		iapp->packet_sock = -1;
 	}
-	os_free(iapp);
+	if (iapp->nl_sock >= 0) {
+		eloop_unregister_read_sock(iapp->nl_sock);
+		close(iapp->nl_sock);
+		iapp->nl_sock = -1;
+	}
 }
+
