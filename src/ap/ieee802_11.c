@@ -1274,7 +1274,7 @@ static void handle_auth(struct hostapd_data *hapd,
 	os_free(identity);
 	os_free(radius_cui);
 	hostapd_free_psk_list(psk);
-	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_AUTH,
+	connect_log_event(hapd, mgmt->sa, CONNECTION_EVENT_AUTH,
 			  (resp == WLAN_STATUS_SUCCESS), REASON_NONE, NULL, resp,
 			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL);
 	send_auth_reply(hapd, mgmt->sa, mgmt->bssid, auth_alg,
@@ -2553,8 +2553,8 @@ static void handle_auth_cb(struct hostapd_data *hapd,
 		hostapd_logger(hapd, mgmt->da, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_NOTICE,
 			       "did not acknowledge authentication response");
-		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_AUTH_RESP,
-				  0, REASON_NO_ACK, sta,
+		connect_log_event(hapd, mgmt->da, CONNECTION_EVENT_AUTH_RESP,
+				  0, REASON_NO_ACK, NULL,
 				  WLAN_REASON_UNSPECIFIED, INVALID_SIGNAL,
 				  INVALID_STEERING_REASON, NULL, NULL);
 		return;
