@@ -19,6 +19,7 @@
 #include "hostapd.h"
 #include "connect_log.h"
 #include "sta_info.h"
+#include "steering.h"
 #include "ap_drv_ops.h"
 
 static int print_bitmap(char *buf, size_t buflen, u8 *bitmap, size_t bitmap_len)
@@ -80,7 +81,8 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 		       struct sta_info *sta, int frame_status,
 		       int signal, int s_reason,
 		       struct os_reltime *probe_delta_time,
-		       struct os_reltime *steer_delta_time)
+		       struct os_reltime *steer_delta_time,
+		       struct os_reltime *defer_delta_time)
 {
 	const char *event_str;
 	char *buf;
@@ -104,23 +106,27 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 			       "failed to alloc connection event buffer");
 		return;
 	}
-	ret = os_snprintf(buf + len, buflen - len, "%s ", event_str);
+	ret = os_snprintf(buf + len, buflen - len, "%s", event_str);
 	len += ret;
-	ret = os_snprintf(buf + len, buflen - len, MACSTR " ",
+	/* Remove any trailing space from event_str */
+	if (len > 0 && buf[len-1] == ' ') {
+		buf[--len] = '\0';
+	}
+	ret = os_snprintf(buf + len, buflen - len, " " MACSTR,
 			  MAC2STR(sta_addr));
 	len += ret;
 	os_get_time(&tv);
-	ret = os_snprintf(buf + len, buflen - len, "timestamp:%ld.%06u ",
+	ret = os_snprintf(buf + len, buflen - len, " timestamp:%ld.%06u",
 			  (long) tv.sec,
 			  (unsigned int) tv.usec);
 	len += ret;
-	ret = os_snprintf(buf + len, buflen - len, "success:%d ", status);
+	ret = os_snprintf(buf + len, buflen - len, " success:%d", status);
 	len += ret;
-	ret = os_snprintf(buf + len, buflen - len, "event_reason:%d ",
+	ret = os_snprintf(buf + len, buflen - len, " event_reason:%d",
 			  event_reason);
 	len += ret;
 	if (frame_status != INVALID_FRAME_STATUS) {
-		ret = os_snprintf(buf + len, buflen - len, "frame_status:%d ",
+		ret = os_snprintf(buf + len, buflen - len, " frame_status:%d",
 				  frame_status);
 	}
 	len += ret;
@@ -129,47 +135,52 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 	 * avoid additional delay in fetching the rssi data from driver.
          */
 	if (sta && !hostapd_drv_read_sta_data(hapd, &sta_data, sta_addr)) {
-		ret = os_snprintf(buf + len, buflen - len, "rx_rssi:%d ",
+		ret = os_snprintf(buf + len, buflen - len, " rx_rssi:%d",
 				  sta_data.last_rssi);
 		len += ret;
-		ret = os_snprintf(buf + len, buflen - len, "tx_rate:%ld ",
+		ret = os_snprintf(buf + len, buflen - len, " tx_rate:%ld",
 				  sta_data.current_tx_rate);
 		len += ret;
 	}
 
 	if (signal != INVALID_SIGNAL) {
-		ret = os_snprintf(buf + len, buflen - len, "frame_rssi:%d ",
+		ret = os_snprintf(buf + len, buflen - len, " frame_rssi:%d",
 				  signal);
 		len += ret;
 	}
 	if (s_reason != INVALID_STEERING_REASON) {
-		ret = os_snprintf(buf + len, buflen - len, "steering_reason:%d ",
-				  s_reason);
+		ret = os_snprintf(buf + len, buflen - len, " steering_reason:%s",
+				  steering_reason_str(s_reason));
 		len += ret;
 	}
 	if (is_valid_delta_time(probe_delta_time)) {
-		ret = os_snprintf(buf + len, buflen - len, "probe_delta_ms:%ld ",
+		ret = os_snprintf(buf + len, buflen - len, " probe_delta_ms:%ld",
 				  (probe_delta_time->sec * 1000 +
 				   probe_delta_time->usec / 1000));
 		len += ret;
 	}
 	if (is_valid_delta_time(steer_delta_time)) {
-		ret = os_snprintf(buf + len, buflen - len, "steer_delta_ms:%ld ",
+		ret = os_snprintf(buf + len, buflen - len, " steer_delta_ms:%ld",
 				  (steer_delta_time->sec * 1000 +
 				   steer_delta_time->usec / 1000));
 		len += ret;
 	}
+	if (is_valid_delta_time(defer_delta_time)) {
+		ret = os_snprintf(buf + len, buflen - len, " defer_delta_ms:%ld",
+				  (defer_delta_time->sec * 1000 +
+				   defer_delta_time->usec / 1000));
+		len += ret;
+	}
 	if (sta && sta->ext_capab) {
-		ret = os_snprintf(buf + len, buflen - len, "ext_capability:");
+		ret = os_snprintf(buf + len, buflen - len, " ext_capability:");
 		len += ret;
 		ret = print_bitmap(buf + len, buflen-len, sta->ext_capab,
 				   sta->ext_capab_len);
 		len += ret;
-		ret = os_snprintf(buf + len, buflen - len, " ");
-		len += ret;
 	}
-	wpa_msg(hapd->msg_ctx, MSG_INFO, "%s",buf);
+	wpa_msg(hapd->msg_ctx, MSG_INFO, "%s", buf);
 	hostapd_logger(hapd->msg_ctx, NULL,
 	               HOSTAPD_MODULE_IEEE80211, HOSTAPD_LEVEL_INFO,
 		       "%s", buf);
+	os_free(buf);
 }

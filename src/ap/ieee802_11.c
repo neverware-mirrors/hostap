@@ -1276,7 +1276,7 @@ static void handle_auth(struct hostapd_data *hapd,
 	hostapd_free_psk_list(psk);
 	connect_log_event(hapd, mgmt->sa, CONNECTION_EVENT_AUTH,
 			  (resp == WLAN_STATUS_SUCCESS), REASON_NONE, NULL, resp,
-			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL);
+			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL, NULL);
 	send_auth_reply(hapd, mgmt->sa, mgmt->bssid, auth_alg,
 			auth_transaction + 1, resp, resp_ies, resp_ies_len);
 }
@@ -1903,10 +1903,11 @@ static void handle_assoc(struct hostapd_data *hapd,
 	int left, i;
 	struct sta_info *sta;
 #ifdef HOSTAPD
-	steering_reason s_reason = NOSTEER_REASON_UNKNOWN;
-	struct os_reltime probe_delta_time, steer_delta_time;
+	steering_reason s_reason = NOSTEER_REASON_UNSPECIFIED;
+	struct os_reltime probe_delta_time, steer_delta_time, defer_delta_time;
 	os_memset(&probe_delta_time, 0, sizeof(probe_delta_time));
 	os_memset(&steer_delta_time, 0, sizeof(steer_delta_time));
+	os_memset(&defer_delta_time, 0, sizeof(defer_delta_time));
 #endif
 
 	if (len < IEEE80211_HDRLEN + (reassoc ? sizeof(mgmt->u.reassoc_req) :
@@ -2023,7 +2024,8 @@ static void handle_assoc(struct hostapd_data *hapd,
 
 #ifdef HOSTAPD
 	if (should_steer_on_assoc(hapd, mgmt->sa, ssi_signal, reassoc, &s_reason,
-				  &probe_delta_time, &steer_delta_time)) {
+				  &probe_delta_time, &steer_delta_time,
+				  &defer_delta_time)) {
 		resp = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
 		goto fail;
 	}
@@ -2114,7 +2116,7 @@ static void handle_assoc(struct hostapd_data *hapd,
 	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_ASSOC,
 			  (resp == WLAN_STATUS_SUCCESS), REASON_NONE, NULL, resp,
 			  ssi_signal, (int)s_reason, &probe_delta_time,
-			  &steer_delta_time);
+			  &steer_delta_time, &defer_delta_time);
 	send_assoc_resp(hapd, sta, resp, reassoc, pos, left);
 }
 
@@ -2145,7 +2147,8 @@ static void handle_disassoc(struct hostapd_data *hapd,
 	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
 			  1, REASON_DISCONNECT_FROM_CLIENT, sta,
 			  le_to_host16(mgmt->u.disassoc.reason_code),
-			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL);
+			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL,
+			  NULL);
 	ap_sta_set_authorized(hapd, sta, 0);
 	sta->last_seq_ctrl = WLAN_INVALID_MGMT_SEQ;
 	sta->flags &= ~(WLAN_STA_ASSOC | WLAN_STA_ASSOC_REQ_OK);
@@ -2204,7 +2207,8 @@ static void handle_deauth(struct hostapd_data *hapd,
 	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
 			  1, REASON_DISCONNECT_FROM_CLIENT, sta,
 			  le_to_host16(mgmt->u.deauth.reason_code),
-			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL);
+			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL,
+			  NULL);
 	ap_sta_set_authorized(hapd, sta, 0);
 	sta->last_seq_ctrl = WLAN_INVALID_MGMT_SEQ;
 	sta->flags &= ~(WLAN_STA_AUTH | WLAN_STA_ASSOC |
@@ -2556,7 +2560,7 @@ static void handle_auth_cb(struct hostapd_data *hapd,
 		connect_log_event(hapd, mgmt->da, CONNECTION_EVENT_AUTH_RESP,
 				  0, REASON_NO_ACK, NULL,
 				  WLAN_REASON_UNSPECIFIED, INVALID_SIGNAL,
-				  INVALID_STEERING_REASON, NULL, NULL);
+				  INVALID_STEERING_REASON, NULL, NULL, NULL);
 		return;
 	}
 
@@ -2643,7 +2647,7 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_ASSOC_RESP,
 				  0, REASON_NO_ACK, sta,
 				  WLAN_REASON_UNSPECIFIED, INVALID_SIGNAL,
-				  INVALID_STEERING_REASON, NULL, NULL);
+				  INVALID_STEERING_REASON, NULL, NULL, NULL);
 		return;
 	}
 
@@ -2715,7 +2719,8 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_CONNECT,
 				  0, REASON_FAILED_TO_ADD_STA, sta,
 				  WLAN_REASON_DISASSOC_AP_BUSY,
-				  INVALID_SIGNAL, INVALID_STEERING_REASON, NULL, NULL);
+				  INVALID_SIGNAL, INVALID_STEERING_REASON,
+				  NULL, NULL, NULL);
 		ap_sta_disconnect(hapd, sta, sta->addr,
 				  WLAN_REASON_DISASSOC_AP_BUSY);
 

@@ -444,7 +444,7 @@ void hostapd_event_sta_low_ack(struct hostapd_data *hapd, const u8 *addr)
 		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
 				  1, REASON_DISCONNECT_LOW_ACK, NULL,
 				  WLAN_REASON_DISASSOC_LOW_ACK, INVALID_SIGNAL,
-				  INVALID_STEERING_REASON, NULL, NULL);
+				  INVALID_STEERING_REASON, NULL, NULL, NULL);
 	}
 
 }

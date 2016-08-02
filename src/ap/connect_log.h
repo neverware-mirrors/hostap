@@ -49,7 +49,8 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 		       struct sta_info *sta, int frame_status,
 		       int signal, int s_reason,
 		       struct os_reltime *probe_delta_time,
-		       struct os_reltime *steer_delta_time);
+		       struct os_reltime *steer_delta_time,
+		       struct os_reltime *defer_delta_time);
 #else  /* HOSTAPD */
 #define connect_log_event(args...) do { } while (0)
 #endif /* HOSTAPD */

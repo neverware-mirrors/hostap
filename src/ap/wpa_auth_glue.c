@@ -145,7 +145,7 @@ static void hostapd_wpa_auth_disconnect(void *ctx, const u8 *addr,
 	connect_log_event(hapd, addr, CONNECTION_EVENT_DISCONNECT,
 			  1, REASON_DISCONNECT_WPA_AUTH, NULL,
 			  reason, INVALID_SIGNAL,
-			  INVALID_STEERING_REASON, NULL, NULL);
+			  INVALID_STEERING_REASON, NULL, NULL, NULL);
 	ap_sta_disconnect(hapd, NULL, addr, reason);
 }
 

@@ -58,7 +58,7 @@ typedef enum {
 } steering_interface_type;
 
 typedef enum {
-    NOSTEER_REASON_UNKNOWN = 0, /* Not steered for unknown reason */
+    UNKNOWN_STEERING_REASON = 0,
     STEER = 1,  /* Station was steered. */
     NOSTEER_TARGET_INTERFACE = 2,  /* Assoc attempt was on target interface. */
     NOSTEER_REASSOC = 3,  /* Assoc was actually a reassoc attempt. */
@@ -66,7 +66,8 @@ typedef enum {
     NOSTEER_DEFERRED = 5,  /* Steering is currently deferred to the target. */
     NOSTEER_NON_CANDIDATE = 6,  /* Station is not a known candidate for steering */
     NOSTEER_WEAK_SIGNAL = 7,  /* Station not steered because signal is too weak.*/
-    NOSTEER_RECENTLY_STEERED = 8  /* Station was recently steered. */
+    NOSTEER_RECENTLY_STEERED = 8,  /* Station was recently steered. */
+    NOSTEER_REASON_UNSPECIFIED = 9  /* No reason given for not steering. */
 } steering_reason;
 
 /**
@@ -108,7 +109,12 @@ int write_connect_timestamp(const struct hostapd_data *hapd, const u8 *sta_mac);
  * for a period of time after the device is disconnected.
  */
 int write_disconnect_timestamp(const struct hostapd_data *hapd,
-                               const u8 *sta_mac);
+			       const u8 *sta_mac);
+
+/**
+ * Return a string giving the reason for steering or not steering.
+ */
+const char *steering_reason_str(steering_reason reason);
 
 /**
  * Determine if the given sta_mac should be steered to a different interface.
@@ -116,10 +122,11 @@ int write_disconnect_timestamp(const struct hostapd_data *hapd,
  * Return 1 if it shold be steered, 0 otherwise.
  */
 int should_steer_on_assoc(const struct hostapd_data *hapd,
-                          const u8 *sta_mac, int ssi_signal,
+			  const u8 *sta_mac, int ssi_signal,
 			  int reassoc, steering_reason *s_reason,
 			  struct os_reltime *probe_delta_time,
-			  struct os_reltime *steer_delta_time);
+			  struct os_reltime *steer_delta_time,
+			  struct os_reltime *defer_delta_time);
 
 extern int steering_mechanism;
 

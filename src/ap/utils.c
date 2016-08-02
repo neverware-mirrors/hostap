@@ -74,7 +74,7 @@ static int prune_associations(struct hostapd_iface *iface, void *ctx)
 		connect_log_event(ohapd, osta->addr, CONNECTION_EVENT_DISCONNECT,
 				  1, REASON_DISCONNECT_ASSOC_OTHER_BSS, NULL,
 				  WLAN_REASON_UNSPECIFIED, INVALID_SIGNAL,
-				  INVALID_STEERING_REASON, NULL, NULL);
+				  INVALID_STEERING_REASON, NULL, NULL, NULL);
 		ap_sta_disassociate(ohapd, osta, WLAN_REASON_UNSPECIFIED);
 	}
 
