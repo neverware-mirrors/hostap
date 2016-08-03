@@ -162,6 +162,9 @@ static void hostapd_wpa_auth_psk_failure_report(void *ctx, const u8 *addr)
 	struct hostapd_data *hapd = ctx;
 	wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_POSSIBLE_PSK_MISMATCH MACSTR,
 		MAC2STR(addr));
+	hostapd_logger(hapd->msg_ctx, addr,
+		       HOSTAPD_MODULE_IEEE80211, HOSTAPD_LEVEL_INFO,
+		       AP_STA_POSSIBLE_PSK_MISMATCH);
 }
 
 
