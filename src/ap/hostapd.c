@@ -1524,6 +1524,7 @@ int hostapd_setup_interface_complete_sync(struct hostapd_iface *iface, int err)
 	u8 *prev_addr;
 	int delay_apply_cfg = 0;
 	int res_dfs_offload = 0;
+	int bandwidth = 0;
 
 	if (err)
 		goto fail;
@@ -1592,6 +1593,27 @@ int hostapd_setup_interface_complete_sync(struct hostapd_iface *iface, int err)
 				   "kernel driver");
 			goto fail;
 		}
+
+		bandwidth = hapd->iconf->secondary_channel ? 40 : 20;
+
+		if (hapd->iconf->ieee80211ac)
+			bandwidth = ((hapd->iconf->vht_oper_chwidth == 1) ||
+				     (hapd->iconf->vht_oper_chwidth == 3)) ? 80 :
+				     (hapd->iconf->vht_oper_chwidth == 2) ? 160 :
+				     bandwidth;
+		hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211, HOSTAPD_LEVEL_INFO,
+			       "channel=%d mode=%s bw=%d "
+			       "htcaps=0x%x vhtcaps=0x%x cf_seg0=%d cf_seg1=%d",
+			       hapd->iconf->channel,
+			       hapd->iconf->ieee80211ac ? "vht" :
+			        hapd->iconf->ieee80211n ? "ht" : "legacy",
+			       bandwidth,
+			       hapd->iface->current_mode ?
+			       hapd->iface->current_mode->ht_capab : 0,
+			       hapd->iface->current_mode ?
+			       hapd->iface->current_mode->vht_capab : 0,
+			       hapd->iconf->vht_oper_centr_freq_seg0_idx,
+			       hapd->iconf->vht_oper_centr_freq_seg1_idx);
 	}
 
 	if (iface->current_mode) {
