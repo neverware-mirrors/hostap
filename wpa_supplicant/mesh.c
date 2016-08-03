@@ -380,6 +380,13 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 		goto out;
 	}
 
+	wpa_printf(MSG_INFO, "Mesh freq params: channel=%d "
+			"mode=%s bw=%d cf1=%d cf2=%d", params.freq.channel,
+			params.freq.vht_enabled ? "vht" :
+				params.freq.ht_enabled ? "ht" : "legacy",
+			params.freq.bandwidth, params.freq.center_freq1,
+			params.freq.center_freq2);
+
 	if (wpa_s->ifmsh) {
 		params.ies = wpa_s->ifmsh->mconf->rsn_ie;
 		params.ie_len = wpa_s->ifmsh->mconf->rsn_ie_len;
