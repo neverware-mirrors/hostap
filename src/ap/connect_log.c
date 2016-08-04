@@ -86,7 +86,7 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 {
 	const char *event_str;
 	char *buf;
-	const int buflen = 512;
+	const int buflen = 1024;
 	int len = 0, ret = 0;
 	struct os_time tv;
 	struct hostap_sta_driver_data sta_data;
@@ -135,11 +135,80 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 	 * avoid additional delay in fetching the rssi data from driver.
          */
 	if (sta && !hostapd_drv_read_sta_data(hapd, &sta_data, sta_addr)) {
-		ret = os_snprintf(buf + len, buflen - len, " rx_rssi:%d",
+		ret = os_snprintf(buf + len, buflen - len,
+				 " tx_last_rssi:%d",
 				  sta_data.last_rssi);
 		len += ret;
-		ret = os_snprintf(buf + len, buflen - len, " tx_rate:%ld",
-				  sta_data.current_tx_rate);
+		ret = os_snprintf(buf + len, buflen - len,
+				 " tx_rate_kbps:%ld",
+				  sta_data.current_tx_rate * 100);
+		len += ret;
+
+		if (sta_data.tx_rate_info.mcs >= 0) {
+			ret = os_snprintf(buf + len, buflen - len,
+					  " tx_rate_mcs:%d",
+					  sta_data.tx_rate_info.mcs);
+			len += ret;
+		}
+
+		ret = os_snprintf(buf + len, buflen - len, " tx_rate_bw:%d",
+				  sta_data.tx_rate_info.bw);
+		len += ret;
+
+		ret = os_snprintf(buf + len, buflen - len, " tx_rate_sgi:%d",
+				  sta_data.tx_rate_info.sgi ? 1 : 0);
+		len += ret;
+
+		if (sta_data.tx_rate_info.vht_mcs >= 0) {
+			ret = os_snprintf(buf + len, buflen - len,
+					  " tx_rate_vht_mcs:%d",
+					  sta_data.tx_rate_info.vht_mcs);
+			len += ret;
+		}
+
+		if (sta_data.tx_rate_info.vht_nss > 0) {
+			ret = os_snprintf(buf + len, buflen - len,
+					  " tx_rate_vht_nss:%d",
+					  sta_data.tx_rate_info.vht_nss);
+			len += ret;
+		}
+
+		ret = os_snprintf(buf + len, buflen - len,
+				  " sta_rx_info:rx_rate_kbps:%ld",
+				  sta_data.current_rx_rate * 100);
+		len += ret;
+
+		if (sta_data.rx_rate_info.mcs >= 0) {
+			ret = os_snprintf(buf + len, buflen - len,
+					  " rx_rate_mcs:%d ",
+					  sta_data.rx_rate_info.mcs);
+			len += ret;
+		}
+
+		ret = os_snprintf(buf + len, buflen - len, " rx_rate_bw:%d",
+				  sta_data.rx_rate_info.bw);
+		len += ret;
+
+		ret = os_snprintf(buf + len, buflen - len, " rx_rate_sgi:%d",
+				  sta_data.rx_rate_info.sgi ? 1 : 0);
+		len += ret;
+
+		if (sta_data.rx_rate_info.vht_mcs >= 0) {
+			ret = os_snprintf(buf + len, buflen - len,
+					  " rx_rate_vht_mcs:%d",
+					  sta_data.rx_rate_info.vht_mcs);
+			len += ret;
+		}
+
+		if (sta_data.rx_rate_info.vht_nss > 0) {
+			ret = os_snprintf(buf + len, buflen - len,
+					  " rx_rate_vht_nss:%d",
+					  sta_data.rx_rate_info.vht_nss);
+			len += ret;
+		}
+
+		ret = os_snprintf(buf + len, buflen - len, " avg_rssi:%d",
+				  sta_data.avg_rssi);
 		len += ret;
 	}
 
