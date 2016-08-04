@@ -34,6 +34,43 @@ static int print_bitmap(char *buf, size_t buflen, u8 *bitmap, size_t bitmap_len)
 	return len;
 }
 
+/**
+ * convert disconnect events to readable format
+ */
+static const char *disconnect_log_event_str(connection_event event)
+{
+	switch (event) {
+		case REASON_NONE:
+			return "none";
+		case REASON_ASSOC_REJECT_STEER:
+			return "reject_steer";
+		case REASON_FAILED_TO_ADD_STA:
+			return "failed_to_add";
+		case REASON_NO_ACK:
+			return "no_ack";
+		case REASON_DISCONNECT_FROM_CLIENT:
+			return "from_client";
+		case REASON_DISCONNECT_DISASSOC_CLI:
+			return "disassoc_cli";
+		case REASON_DISCONNECT_DEAUTH_CLI:
+			return "deauth_cli";
+		case REASON_DISCONNECT_BSS_TM_REQ_CLI:
+			return "bss_tm_cli";
+		case REASON_DISCONNECT_ASSOC_OTHER_BSS:
+			return "other_bss";
+		case REASON_DISCONNECT_IAPP_NOTIFY:
+			return "iapp_notify";
+		case REASON_DISCONNECT_LOW_ACK:
+			return "low_ack";
+		case REASON_DISCONNECT_INACTIVITY:
+			return "inactivity";
+		case REASON_DISCONNECT_WPA_AUTH:
+			return "wpa_auth";
+		default:
+			return "unknown";
+	}
+}
+
 static const char *connect_log_event_str(connection_event event)
 {
 	switch (event) {
@@ -122,8 +159,8 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 	len += ret;
 	ret = os_snprintf(buf + len, buflen - len, " success:%d", status);
 	len += ret;
-	ret = os_snprintf(buf + len, buflen - len, " event_reason:%d",
-			  event_reason);
+	ret = os_snprintf(buf + len, buflen - len, " event_reason:%s",
+			  disconnect_log_event_str(event_reason));
 	len += ret;
 	if (frame_status != INVALID_FRAME_STATUS) {
 		ret = os_snprintf(buf + len, buflen - len, " frame_status:%d",
