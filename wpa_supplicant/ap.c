@@ -136,6 +136,14 @@ void wpa_supplicant_conf_ap_ht(struct wpa_supplicant *wpa_s,
 				 HT_CAP_INFO_TX_STBC |
 				 HT_CAP_INFO_MAX_AMSDU_SIZE);
 
+			conf->vht_capab = mode->vht_capab;
+#ifdef CONFIG_VHT_OVERRIDES
+			if (ssid->vht_capa_mask) {
+				conf->vht_capab &= ~ssid->vht_capa_mask;
+				conf->vht_capab |= (ssid->vht_capa & ssid->vht_capa_mask);
+			}
+#endif /* CONFIG_VHT_OVERRIDES */
+
 			if (mode->vht_capab && ssid->vht) {
 				conf->ieee80211ac = 1;
 				wpas_conf_ap_vht(wpa_s, conf, mode);
