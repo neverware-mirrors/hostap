@@ -25,6 +25,7 @@
 #include "pmksa_cache_auth.h"
 #include "wpa_auth_i.h"
 #include "wpa_auth_ie.h"
+#include "connect_log.h"
 
 #define STATE_MACHINE_DATA struct wpa_state_machine
 #define STATE_MACHINE_DEBUG_PREFIX "WPA"
@@ -223,6 +224,14 @@ static void wpa_sta_disconnect(struct wpa_authenticator *wpa_auth,
 	if (wpa_auth->cb.disconnect == NULL)
 		return;
 	wpa_printf(MSG_DEBUG, "wpa_sta_disconnect STA " MACSTR, MAC2STR(addr));
+	connect_log_event(wpa_auth->cb.ctx, addr,
+			  CONNECTION_EVENT_DISCONNECT, 1,
+			  wpa_auth->reason, NULL,
+			  WLAN_REASON_PREV_AUTH_NOT_VALID,
+			  INVALID_SIGNAL, INVALID_STEERING_REASON,
+			  NULL, NULL, NULL);
+	/* Reset the reason back to default value */
+	wpa_auth->reason = REASON_DISCONNECT_WPA_AUTH;
 	wpa_auth->cb.disconnect(wpa_auth->cb.ctx, addr,
 				WLAN_REASON_PREV_AUTH_NOT_VALID);
 }
@@ -474,6 +483,8 @@ struct wpa_authenticator * wpa_init(const u8 *addr,
 			wpa_auth->ip_pool = bitfield_alloc(count);
 	}
 #endif /* CONFIG_P2P */
+
+	wpa_auth->reason = REASON_DISCONNECT_WPA_AUTH;
 
 	return wpa_auth;
 }
@@ -1114,6 +1125,8 @@ continue_processing:
 				   "collect more entropy for random number "
 				   "generation");
 			random_mark_pool_ready();
+			wpa_auth->reason =
+				REASON_DISCONNECT_INSUFFICIENT_ENTROPY;
 			wpa_sta_disconnect(wpa_auth, sm->addr);
 			return;
 		}
@@ -1149,6 +1162,7 @@ continue_processing:
 			wpa_hexdump(MSG_DEBUG, "WPA IE in msg 2/4",
 				    eapol_key_ie, eapol_key_ie_len);
 			/* MLME-DEAUTHENTICATE.request */
+			wpa_auth->reason = REASON_DISCONNECT_INCORRECT_RSN_IE;
 			wpa_sta_disconnect(wpa_auth, sm->addr);
 			return;
 		}
@@ -2060,6 +2074,7 @@ SM_STATE(WPA_PTK, PTKCALCNEGOTIATING)
 				"invalid MIC in msg 2/4 of 4-Way Handshake");
 		if (psk_found)
 			wpa_auth_psk_failure_report(sm->wpa_auth, sm->addr);
+		sm->wpa_auth->reason = REASON_DISCONNECT_PSK_MISMATCH;
 		return;
 	}
 
@@ -2351,6 +2366,7 @@ SM_STATE(WPA_PTK, PTKINITDONE)
 		int klen = wpa_cipher_key_len(sm->pairwise);
 		if (wpa_auth_set_key(sm->wpa_auth, 0, alg, sm->addr, 0,
 				     sm->PTK.tk, klen)) {
+			sm->wpa_auth->reason = REASON_DISCONNECT_SET_KEY_FAILURE;
 			wpa_sta_disconnect(sm->wpa_auth, sm->addr);
 			return;
 		}
@@ -2469,6 +2485,9 @@ SM_STEP(WPA_PTK)
 			wpa_auth_vlogger(sm->wpa_auth, sm->addr, LOGGER_INFO,
 					 "PTKSTART: Retry limit %d reached",
 					 dot11RSNAConfigPairwiseUpdateCount);
+			/* if we can not determine the reason, then most likely timeout */
+			if (wpa_auth->reason == REASON_DISCONNECT_WPA_AUTH)
+				wpa_auth->reason = REASON_DISCONNECT_EAPOL_M1_TIMEOUT;
 			SM_ENTER(WPA_PTK, DISCONNECT);
 		} else if (sm->TimeoutEvt)
 			SM_ENTER(WPA_PTK, PTKSTART);
@@ -2498,6 +2517,7 @@ SM_STEP(WPA_PTK)
 					 "PTKINITNEGOTIATING: Retry limit %d "
 					 "reached",
 					 dot11RSNAConfigPairwiseUpdateCount);
+			wpa_auth->reason = REASON_DISCONNECT_EAPOL_M3_TIMEOUT;
 			SM_ENTER(WPA_PTK, DISCONNECT);
 		} else if (sm->TimeoutEvt)
 			SM_ENTER(WPA_PTK, PTKINITNEGOTIATING);
@@ -2629,8 +2649,12 @@ SM_STEP(WPA_PTK_GROUP)
 		    !sm->EAPOLKeyPairwise && sm->MICVerified)
 			SM_ENTER(WPA_PTK_GROUP, REKEYESTABLISHED);
 		else if (sm->GTimeoutCtr >
-			 (int) dot11RSNAConfigGroupUpdateCount)
+			 (int) dot11RSNAConfigGroupUpdateCount) {
+			if (sm->wpa_auth)
+				sm->wpa_auth->reason =
+					REASON_DISCONNECT_GTK_M1_TIMEOUT;
 			SM_ENTER(WPA_PTK_GROUP, KEYERROR);
+		}
 		else if (sm->TimeoutEvt)
 			SM_ENTER(WPA_PTK_GROUP, REKEYNEGOTIATING);
 		break;
