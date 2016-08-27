@@ -37,7 +37,7 @@ static int print_bitmap(char *buf, size_t buflen, u8 *bitmap, size_t bitmap_len)
 /**
  * convert disconnect events to readable format
  */
-static const char *disconnect_log_event_str(connection_event event)
+static const char *disconnect_log_event_str(connection_event_reason event)
 {
 	switch (event) {
 		case REASON_NONE:
@@ -66,6 +66,20 @@ static const char *disconnect_log_event_str(connection_event event)
 			return "inactivity";
 		case REASON_DISCONNECT_WPA_AUTH:
 			return "wpa_auth";
+		case REASON_DISCONNECT_INSUFFICIENT_ENTROPY:
+			return "insufficient_entropy";
+		case REASON_DISCONNECT_INCORRECT_RSN_IE:
+			return "incorrect_rsn_ie";
+		case REASON_DISCONNECT_SET_KEY_FAILURE:
+			return "setkey_failure";
+		case REASON_DISCONNECT_EAPOL_M1_TIMEOUT:
+			return "eapol_m1_timeout";
+		case REASON_DISCONNECT_EAPOL_M3_TIMEOUT:
+			return "eapol_m3_timeout";
+		case REASON_DISCONNECT_GTK_M1_TIMEOUT:
+			return "gtk_m1_timeout";
+		case REASON_DISCONNECT_PSK_MISMATCH:
+			return "psk_mismatch";
 		default:
 			return "unknown";
 	}

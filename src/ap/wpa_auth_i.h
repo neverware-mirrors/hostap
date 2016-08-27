@@ -9,6 +9,8 @@
 #ifndef WPA_AUTH_I_H
 #define WPA_AUTH_I_H
 
+#include "connect_log.h"
+
 /* max(dot11RSNAConfigGroupUpdateCount,dot11RSNAConfigPairwiseUpdateCount) */
 #define RSNA_MAX_EAPOL_RETRIES 4
 
@@ -207,6 +209,7 @@ struct wpa_authenticator {
 #ifdef CONFIG_P2P
 	struct bitfield *ip_pool;
 #endif /* CONFIG_P2P */
+	connection_event_reason reason;
 };
 
 
