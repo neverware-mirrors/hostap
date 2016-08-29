@@ -389,6 +389,32 @@ static void iapp_receive_udp(int sock, void *eloop_ctx, void *sock_ctx)
 	}
 }
 
+static void iapp_reinitialize(struct iapp_data *iapp)
+{
+	struct ip_mreqn mreq;
+
+	if (iapp == NULL)
+		return;
+
+	if (iapp->udp_sock >= 0) {
+		os_memset(&mreq, 0, sizeof(mreq));
+		mreq.imr_multiaddr = iapp->multicast;
+		mreq.imr_address.s_addr = INADDR_ANY;
+		mreq.imr_ifindex = 0;
+		if (setsockopt(iapp->udp_sock, SOL_IP, IP_DROP_MEMBERSHIP,
+			       &mreq, sizeof(mreq)) < 0) {
+			wpa_printf(MSG_INFO,
+				"iapp_reinitialize - setsockopt[UDP,IP_DEL_MEMBERSHIP]: %s",
+				strerror(errno));
+		}
+	}
+	if (iapp->packet_sock >= 0) {
+		close(iapp->packet_sock);
+		iapp->packet_sock = -1;
+	}
+	iapp_initialize(iapp);
+}
+
 static void iapp_receive_nl_msg(int sock, void *eloop_ctx, void *sock_ctx)
 {
 	struct iapp_data *iapp = eloop_ctx;
@@ -405,30 +431,20 @@ static void iapp_receive_nl_msg(int sock, void *eloop_ctx, void *sock_ctx)
 		ifa = (struct ifaddrmsg *) NLMSG_DATA (nlh);
 		wpa_printf(MSG_INFO, "iapp_receive_nl_msg: RTM_NEWADDR ");
 		if (ifa->ifa_index == iapp->ifindex) {
-			iapp_initialize(iapp);
+			iapp_reinitialize(iapp);
 		}
 		nlh = NLMSG_NEXT(nlh, len);
 	}
 }
 
-static Boolean iapp_defer_initialization(struct iapp_data *iapp)
+static Boolean iapp_monitor_ip_address(struct iapp_data *iapp)
 {
 	struct sockaddr_nl addr;
 	int nlsock,len;
 
-	if (iapp->nl_sock != -1) {
-		/*
-		 * we have already been deferred initialization once and
-		 * cant handle deferred initialization again.
-		 */
-		hostapd_logger(iapp->hapd, NULL, HOSTAPD_MODULE_IAPP,
-			       HOSTAPD_LEVEL_INFO,
-			       "iapp_initialize - first attempt failed. bail out");
-		return FALSE;
-	}
 	if ((iapp->nl_sock = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE)) == -1) {
-		wpa_printf(MSG_INFO, "iapp_initialize - routing socket failure %s",
-			   strerror(errno));
+		wpa_printf(MSG_INFO, "iapp_monitor_ip_address - routing socket failure %s",
+		strerror(errno));
 		return FALSE;
 	}
 
@@ -437,17 +453,20 @@ static Boolean iapp_defer_initialization(struct iapp_data *iapp)
 	addr.nl_groups = RTMGRP_IPV4_IFADDR;
 
 	if (bind(iapp->nl_sock, (struct sockaddr *)&addr, sizeof(addr)) == -1) {
-		wpa_printf(MSG_INFO, "iapp_initialize - bind failure %s",
-			   strerror(errno));
+		wpa_printf(MSG_INFO, "iapp_monitor_ip_address - bind failure %s",
+		strerror(errno));
 		return FALSE;
 	}
 
 	if (eloop_register_read_sock(iapp->nl_sock, iapp_receive_nl_msg,
-				     iapp, NULL)) {
+		iapp, NULL)) {
 		wpa_printf(MSG_INFO, "Could not register read socket for nl message");
 		return FALSE;
 	}
 
+	hostapd_logger(iapp->hapd, NULL, HOSTAPD_MODULE_IAPP,
+		HOSTAPD_LEVEL_INFO,
+		"iapp_monitor_ip_address - monitor ip address");
 	return TRUE;
 }
 
@@ -488,6 +507,14 @@ struct iapp_data * iapp_init(struct hostapd_data *hapd, const char *iface)
 		       strlen(iface)) < 0) {
 		wpa_printf(MSG_INFO, "iapp_init - setsockopt[UDP,SO_BINDTODEVICE]: %s",
 			   strerror(errno));
+		iapp_deinit(iapp);
+		return NULL;
+	}
+
+	if (!iapp_monitor_ip_address(iapp)) {
+		hostapd_logger(iapp->hapd, NULL, HOSTAPD_MODULE_IAPP,
+			       HOSTAPD_LEVEL_INFO,
+			       "iapp_init - failed to monitor ip change");
 		iapp_deinit(iapp);
 		return NULL;
 	}
@@ -533,18 +560,13 @@ static void iapp_initialize(struct iapp_data *iapp)
 	os_strlcpy(ifr.ifr_name, iface, sizeof(ifr.ifr_name));
 
 	if (ioctl(iapp->udp_sock, SIOCGIFADDR, &ifr) != 0) {
-		wpa_printf(MSG_INFO, "iapp_init - ioctl(SIOCGIFADDR): %s",
+		wpa_printf(MSG_INFO, "iapp_initialize - ioctl(SIOCGIFADDR): %s",
 			   strerror(errno));
-		hostapd_logger(iapp->hapd, NULL, HOSTAPD_MODULE_IAPP,
-			       HOSTAPD_LEVEL_INFO,
-			       "iapp_init - defer iapp initialization");
-		if (!iapp_defer_initialization(iapp))
-			iapp_cleanup(iapp);
 		return;
 	}
 	paddr = (struct sockaddr_in *) &ifr.ifr_addr;
 	if (paddr->sin_family != AF_INET) {
-		wpa_printf(MSG_INFO, "IAPP: Invalid address family %i (SIOCGIFADDR)",
+		wpa_printf(MSG_INFO, "iapp_initialize - Invalid address family %i (SIOCGIFADDR)",
 			   paddr->sin_family);
 		iapp_cleanup(iapp);
 		return;
@@ -552,21 +574,21 @@ static void iapp_initialize(struct iapp_data *iapp)
 	iapp->own.s_addr = paddr->sin_addr.s_addr;
 
 	if (ioctl(iapp->udp_sock, SIOCGIFBRDADDR, &ifr) != 0) {
-		wpa_printf(MSG_INFO, "iapp_init - ioctl(SIOCGIFBRDADDR): %s",
+		wpa_printf(MSG_INFO, "iapp_initialize - ioctl(SIOCGIFBRDADDR): %s",
 			   strerror(errno));
 		iapp_cleanup(iapp);
 		return;
 	}
 	paddr = (struct sockaddr_in *) &ifr.ifr_addr;
 	if (paddr->sin_family != AF_INET) {
-		wpa_printf(MSG_INFO, "Invalid address family %i (SIOCGIFBRDADDR)",
+		wpa_printf(MSG_INFO, "iapp_initialize - Invalid address family %i (SIOCGIFBRDADDR)",
 			   paddr->sin_family);
 		iapp_cleanup(iapp);
 		return;
 	}
 	if (setsockopt(iapp->udp_sock, SOL_SOCKET, SO_REUSEPORT, &reuse_port,
 		sizeof(reuse_port)) < 0) {
-		wpa_printf(MSG_INFO, "iapp_init - setsockopt[UDP,SO_REUSEPORT]: %s",
+		wpa_printf(MSG_INFO, "iapp_initialize - setsockopt[UDP,SO_REUSEPORT]: %s",
 			strerror(errno));
 		iapp_cleanup(iapp);
 		return;
@@ -578,7 +600,7 @@ static void iapp_initialize(struct iapp_data *iapp)
 	uaddr.sin_port = htons(IAPP_UDP_PORT);
 	if (bind(iapp->udp_sock, (struct sockaddr *) &uaddr,
 		 sizeof(uaddr)) < 0) {
-		wpa_printf(MSG_INFO, "iapp_init - bind[UDP]: %s",
+		wpa_printf(MSG_INFO, "iapp_initialize - bind[UDP]: %s",
 			   strerror(errno));
 		iapp_cleanup(iapp);
 		return;
@@ -590,7 +612,7 @@ static void iapp_initialize(struct iapp_data *iapp)
 	mreq.imr_ifindex = ifindex;
 	if (setsockopt(iapp->udp_sock, SOL_IP, IP_ADD_MEMBERSHIP, &mreq,
 		       sizeof(mreq)) < 0) {
-		wpa_printf(MSG_INFO, "iapp_init - setsockopt[UDP,IP_ADD_MEMBERSHIP]: %s",
+		wpa_printf(MSG_INFO, "iapp_initialize - setsockopt[UDP,IP_ADD_MEMBERSHIP]: %s",
 			   strerror(errno));
 		iapp_cleanup(iapp);
 		return;
@@ -598,7 +620,7 @@ static void iapp_initialize(struct iapp_data *iapp)
 
 	iapp->packet_sock = socket(PF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
 	if (iapp->packet_sock < 0) {
-		wpa_printf(MSG_INFO, "iapp_init - socket[PF_PACKET,SOCK_RAW]: %s",
+		wpa_printf(MSG_INFO, "iapp_initialize - socket[PF_PACKET,SOCK_RAW]: %s",
 			   strerror(errno));
 		iapp_cleanup(iapp);
 		return;
@@ -609,7 +631,7 @@ static void iapp_initialize(struct iapp_data *iapp)
 	addr.sll_ifindex = ifindex;
 	if (bind(iapp->packet_sock, (struct sockaddr *) &addr,
 		 sizeof(addr)) < 0) {
-		wpa_printf(MSG_INFO, "iapp_init - bind[PACKET]: %s",
+		wpa_printf(MSG_INFO, "iapp_initialize - bind[PACKET]: %s",
 			   strerror(errno));
 		iapp_cleanup(iapp);
 		return;
@@ -617,18 +639,13 @@ static void iapp_initialize(struct iapp_data *iapp)
 
 	if (eloop_register_read_sock(iapp->udp_sock, iapp_receive_udp,
 				     iapp, NULL)) {
-		wpa_printf(MSG_INFO, "Could not register read socket for IAPP");
+		wpa_printf(MSG_INFO, "iapp_initialize - Could not register read socket for IAPP");
 		iapp_cleanup(iapp);
 		return;
 	}
 
-	if (iapp->nl_sock >= 0) {
-		eloop_unregister_read_sock(iapp->nl_sock);
-		close(iapp->nl_sock);
-		iapp->nl_sock = -1;
-	}
-
 	iapp->ready = TRUE;
+
 	hostapd_logger(iapp->hapd, NULL, HOSTAPD_MODULE_IAPP,
 		       HOSTAPD_LEVEL_INFO,
 		       "iapp_initialize - finished initialization");
@@ -649,7 +666,7 @@ static void iapp_cleanup(struct iapp_data *iapp)
 		if (setsockopt(iapp->udp_sock, SOL_IP, IP_DROP_MEMBERSHIP,
 			       &mreq, sizeof(mreq)) < 0) {
 			wpa_printf(MSG_INFO,
-				   "iapp_deinit - setsockopt[UDP,IP_DEL_MEMBERSHIP]: %s",
+				   "iapp_cleanup - setsockopt[UDP,IP_DEL_MEMBERSHIP]: %s",
 				   strerror(errno));
 		}
 
@@ -658,7 +675,6 @@ static void iapp_cleanup(struct iapp_data *iapp)
 		iapp->udp_sock = -1;
 	}
 	if (iapp->packet_sock >= 0) {
-		eloop_unregister_read_sock(iapp->packet_sock);
 		close(iapp->packet_sock);
 		iapp->packet_sock = -1;
 	}
