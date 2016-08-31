@@ -167,9 +167,12 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 			  MAC2STR(sta_addr));
 	len += ret;
 	os_get_time(&tv);
-	ret = os_snprintf(buf + len, buflen - len, " timestamp:%ld.%06u",
-			  (long) tv.sec,
-			  (unsigned int) tv.usec);
+        /*
+         * To print timestamp in msec without 64-bit arithametic, append
+         * 3 digit msec to the seconds field.
+         */
+	ret = os_snprintf(buf + len, buflen - len, " timestamp:%u%03u",
+			  (unsigned long)tv.sec , (unsigned long)tv.usec/1000);
 	len += ret;
 	ret = os_snprintf(buf + len, buflen - len, " success:%d", status);
 	len += ret;
@@ -187,7 +190,7 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
          */
 	if (sta && !hostapd_drv_read_sta_data(hapd, &sta_data, sta_addr)) {
 		ret = os_snprintf(buf + len, buflen - len,
-				 " tx_last_rssi:%d",
+				 " last_rx_rssi:%d",
 				  sta_data.last_rssi);
 		len += ret;
 		ret = os_snprintf(buf + len, buflen - len,
