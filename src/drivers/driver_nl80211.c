@@ -5339,6 +5339,10 @@ static int get_sta_handler(struct nl_msg *msg, void *arg)
 		data->avg_rssi =
 			(s8)nla_get_u8(stats[NL80211_STA_INFO_SIGNAL_AVG]);
 
+	if (stats[NL80211_STA_INFO_SIGNAL])
+		data->last_rssi =
+			(s8)nla_get_u8(stats[NL80211_STA_INFO_SIGNAL]);
+
 	if (stats[NL80211_STA_INFO_TX_BITRATE])
 		parse_bitrate(stats[NL80211_STA_INFO_TX_BITRATE],
 			      &data->current_tx_rate, &data->tx_rate_info);
