@@ -13,6 +13,7 @@
 #include "utils/state_machine.h"
 #include "utils/bitfield.h"
 #include "common/ieee802_11_defs.h"
+#include "common/wpa_ctrl.h"
 #include "crypto/aes_wrap.h"
 #include "crypto/crypto.h"
 #include "crypto/sha1.h"
@@ -2609,6 +2610,8 @@ SM_STATE(WPA_PTK_GROUP, REKEYNEGOTIATING)
 
 SM_STATE(WPA_PTK_GROUP, REKEYESTABLISHED)
 {
+	char event_buf[100];
+
 	SM_ENTRY_MA(WPA_PTK_GROUP, REKEYESTABLISHED, wpa_ptk_group);
 	sm->EAPOLKeyReceived = FALSE;
 	if (sm->GUpdateStationKeys)
@@ -2616,6 +2619,9 @@ SM_STATE(WPA_PTK_GROUP, REKEYESTABLISHED)
 	sm->GUpdateStationKeys = FALSE;
 	sm->GTimeoutCtr = 0;
 	/* FIX: MLME.SetProtection.Request(TA, Tx_Rx) */
+	os_snprintf(event_buf, sizeof(event_buf), MACSTR, MAC2STR(sm->addr));
+	wpa_msg(sm->wpa_auth->cb.ctx, MSG_INFO,
+		AP_STA_GTK_REKEY_COMPLETE "%s", event_buf);
 	wpa_auth_vlogger(sm->wpa_auth, sm->addr, LOGGER_INFO,
 			 "group key handshake completed (%s)",
 			 sm->wpa == WPA_VERSION_WPA ? "WPA" : "RSN");
@@ -2625,24 +2631,36 @@ SM_STATE(WPA_PTK_GROUP, REKEYESTABLISHED)
 
 SM_STATE(WPA_PTK_GROUP, KEYERROR)
 {
+	char event_buf[100];
+
 	SM_ENTRY_MA(WPA_PTK_GROUP, KEYERROR, wpa_ptk_group);
 	if (sm->GUpdateStationKeys)
 		sm->group->GKeyDoneStations--;
 	sm->GUpdateStationKeys = FALSE;
 	sm->Disconnect = TRUE;
+	os_snprintf(event_buf, sizeof(event_buf), MACSTR, MAC2STR(sm->addr));
+	wpa_msg(sm->wpa_auth->cb.ctx, MSG_INFO,
+		AP_STA_GTK_REKEY_ERROR "%s", event_buf);
 }
 
 
 SM_STEP(WPA_PTK_GROUP)
 {
+	char event_buf[100];
+
 	if (sm->Init || sm->PtkGroupInit) {
 		SM_ENTER(WPA_PTK_GROUP, IDLE);
 		sm->PtkGroupInit = FALSE;
 	} else switch (sm->wpa_ptk_group_state) {
 	case WPA_PTK_GROUP_IDLE:
 		if (sm->GUpdateStationKeys ||
-		    (sm->wpa == WPA_VERSION_WPA && sm->PInitAKeys))
+		    (sm->wpa == WPA_VERSION_WPA && sm->PInitAKeys)) {
+			os_snprintf(event_buf, sizeof(event_buf), MACSTR,
+				    MAC2STR(sm->addr));
+			wpa_msg(sm->wpa_auth->cb.ctx, MSG_INFO,
+				AP_STA_GTK_REKEY "%s", event_buf);
 			SM_ENTER(WPA_PTK_GROUP, REKEYNEGOTIATING);
+		}
 		break;
 	case WPA_PTK_GROUP_REKEYNEGOTIATING:
 		if (sm->EAPOLKeyReceived && !sm->EAPOLKeyRequest &&
