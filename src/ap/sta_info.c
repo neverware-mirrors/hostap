@@ -493,6 +493,10 @@ skip_poll:
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_INFO, "disassociated due to "
 			       "inactivity");
+#ifdef CONFIG_MESH
+		wpa_printf(MSG_INFO, MACSTR " disassociated due to inactivity",
+			   MAC2STR(sta->addr));
+#endif
 		reason = (sta->timeout_next == STA_DISASSOC) ?
 			WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY :
 			WLAN_REASON_PREV_AUTH_NOT_VALID;
@@ -514,6 +518,11 @@ skip_poll:
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_INFO, "deauthenticated due to "
 			       "inactivity (timer DEAUTH/REMOVE)");
+#ifdef CONFIG_MESH
+		wpa_printf(MSG_INFO, MACSTR " deauthenticated due to inactivity"
+			   " inactivity (timer DEAUTH/REMOVE)",
+			   MAC2STR(sta->addr));
+#endif
 		if (!sta->acct_terminate_cause)
 			sta->acct_terminate_cause =
 				RADIUS_ACCT_TERMINATE_CAUSE_IDLE_TIMEOUT;
