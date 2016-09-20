@@ -986,11 +986,11 @@ static void handle_auth(struct hostapd_data *hapd,
 
 	wpa_printf(MSG_INFO, "authentication: STA=" MACSTR " auth_alg=%d "
 		   "auth_transaction=%d status_code=%d wep=%d%s "
-		   "seq_ctrl=0x%x%s",
+		   "seq_ctrl=0x%x%s rssi=%d",
 		   MAC2STR(mgmt->sa), auth_alg, auth_transaction,
 		   status_code, !!(fc & WLAN_FC_ISWEP),
 		   challenge ? " challenge" : "",
-		   seq_ctrl, (fc & WLAN_FC_RETRY) ? " retry" : "");
+		   seq_ctrl, (fc & WLAN_FC_RETRY) ? " retry" : "", ssi_signal);
 
 #ifdef CONFIG_NO_RC4
 	if (auth_alg == WLAN_AUTH_SHARED_KEY) {

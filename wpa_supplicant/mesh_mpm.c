@@ -19,6 +19,7 @@
 #include "driver_i.h"
 #include "mesh_mpm.h"
 #include "mesh_rsn.h"
+#include "ap/ap_drv_ops.h"
 
 struct mesh_peer_mgmt_ie {
 	const u8 *proto_id; /* Mesh Peering Protocol Identifier (2 octets) */
@@ -592,6 +593,11 @@ static struct sta_info * mesh_mpm_add_peer(struct wpa_supplicant *wpa_s,
 		sta = ap_sta_add(data, addr);
 		if (!sta)
 			return NULL;
+	} else {
+		if (hostapd_drv_get_inact_sec(data, addr) != -ENOENT)
+			return NULL;
+		wpa_msg(wpa_s, MSG_INFO, "kerenl STA table out of sync: "
+			MACSTR, MAC2STR(addr));
 	}
 
 	/* Set WMM by default since Mesh STAs are QoS STAs */
@@ -964,11 +970,13 @@ void mesh_mpm_action_rx(struct wpa_supplicant *wpa_s,
 	/* at least expect mesh id and peering mgmt */
 	if (ie_len < 2 + 2) {
 		wpa_printf(MSG_DEBUG,
-			   "MPM: Ignore too short action frame %u ie_len %u",
-			   action_field, (unsigned int) ie_len);
+			   "MPM: Ignore too short action frame %u ie_len %u"
+			   " from " MACSTR, action_field,
+			   (unsigned int) ie_len, MAC2STR(mgmt->sa));
 		return;
 	}
-	wpa_printf(MSG_INFO, "MPM: Received PLINK action %u", action_field);
+	wpa_printf(MSG_INFO, "MPM: Received PLINK action %u from " MACSTR,
+		   action_field, MAC2STR(mgmt->sa));
 
 	if (action_field == PLINK_OPEN || action_field == PLINK_CONFIRM) {
 		wpa_printf(MSG_INFO, "MPM: Capability 0x%x",
@@ -1073,14 +1081,16 @@ void mesh_mpm_action_rx(struct wpa_supplicant *wpa_s,
 		sta = mesh_mpm_add_peer(wpa_s, mgmt->sa, &elems);
 
 	if (!sta) {
-		wpa_printf(MSG_DEBUG, "MPM: No STA entry for peer");
+		wpa_printf(MSG_DEBUG, "MPM: No STA entry for peer " MACSTR,
+			   MAC2STR(mgmt->sa));
 		return;
 	}
 
 #ifdef CONFIG_SAE
 	/* peer is in sae_accepted? */
 	if (sta->sae && sta->sae->state != SAE_ACCEPTED) {
-		wpa_printf(MSG_INFO, "MPM: SAE not yet accepted for peer");
+		wpa_printf(MSG_INFO, "MPM: SAE not yet accepted for peer "
+			   MACSTR, MAC2STR(mgmt->sa));
 		return;
 	}
 #endif /* CONFIG_SAE */
@@ -1093,12 +1103,14 @@ void mesh_mpm_action_rx(struct wpa_supplicant *wpa_s,
 				  &mgmt->u.action.category,
 				  peer_mgmt_ie.chosen_pmk,
 				  ies, ie_len)) {
-		wpa_printf(MSG_INFO, "MPM: RSN process rejected frame");
+		wpa_printf(MSG_INFO, "MPM: RSN process rejected frame from "
+			   MACSTR, MAC2STR(mgmt->sa));
 		return;
 	}
 
 	if (sta->plink_state == PLINK_BLOCKED) {
-		wpa_printf(MSG_INFO, "MPM: PLINK_BLOCKED");
+		wpa_printf(MSG_INFO, "MPM: PLINK_BLOCKED " MACSTR,
+			   MAC2STR(mgmt->sa));
 		return;
 	}
 
