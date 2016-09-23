@@ -1274,11 +1274,11 @@ static void handle_auth(struct hostapd_data *hapd,
 	os_free(identity);
 	os_free(radius_cui);
 	hostapd_free_psk_list(psk);
+	send_auth_reply(hapd, mgmt->sa, mgmt->bssid, auth_alg,
+			auth_transaction + 1, resp, resp_ies, resp_ies_len);
 	connect_log_event(hapd, mgmt->sa, CONNECTION_EVENT_AUTH,
 			  (resp == WLAN_STATUS_SUCCESS), REASON_NONE, NULL, resp,
 			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL, NULL);
-	send_auth_reply(hapd, mgmt->sa, mgmt->bssid, auth_alg,
-			auth_transaction + 1, resp, resp_ies, resp_ies_len);
 }
 
 
@@ -2113,11 +2113,11 @@ static void handle_assoc(struct hostapd_data *hapd,
 #endif /* CONFIG_CLIENT_TAXONOMY */
 
  fail:
+	send_assoc_resp(hapd, sta, resp, reassoc, pos, left);
 	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_ASSOC,
 			  (resp == WLAN_STATUS_SUCCESS), REASON_NONE, NULL, resp,
 			  ssi_signal, (int)s_reason, &probe_delta_time,
 			  &steer_delta_time, &defer_delta_time);
-	send_assoc_resp(hapd, sta, resp, reassoc, pos, left);
 }
 
 
