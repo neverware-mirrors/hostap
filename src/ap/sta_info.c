@@ -503,7 +503,7 @@ skip_poll:
 		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT, 1,
 				  (sta->timeout_next == STA_DISASSOC) ?
 				  REASON_NONE : REASON_DISCONNECT_BSS_TM_REQ_CLI,
-				  NULL, reason, INVALID_SIGNAL,
+				  sta, reason, INVALID_SIGNAL,
 				  INVALID_STEERING_REASON, NULL, NULL, NULL);
 		sta->timeout_next = STA_DEAUTH;
 		wpa_printf(MSG_DEBUG, "%s: register ap_handle_timer timeout "
@@ -704,7 +704,7 @@ static void ap_sta_remove_in_other_bss(struct hostapd_data *hapd,
 		if (!sta2)
 			continue;
 		connect_log_event(bss, sta2->addr, CONNECTION_EVENT_DISCONNECT,
-				  1, REASON_DISCONNECT_ASSOC_OTHER_BSS, NULL,
+				  1, REASON_DISCONNECT_ASSOC_OTHER_BSS, sta2,
 				  WLAN_REASON_PREV_AUTH_NOT_VALID, INVALID_SIGNAL,
 				  INVALID_STEERING_REASON, NULL, NULL, NULL);
 		ap_sta_disconnect(bss, sta2, sta2->addr,

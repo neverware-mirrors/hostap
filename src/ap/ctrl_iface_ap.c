@@ -398,7 +398,7 @@ int hostapd_ctrl_iface_deauthenticate(struct hostapd_data *hapd,
 	sta = ap_get_sta(hapd, addr);
 	if (sta) {
 	    connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
-			      1, REASON_DISCONNECT_DEAUTH_CLI, NULL, reason,
+			      1, REASON_DISCONNECT_DEAUTH_CLI, sta, reason,
 			      INVALID_SIGNAL, INVALID_STEERING_REASON, NULL,
 			      NULL, NULL);
 	    ap_sta_deauthenticate(hapd, sta, reason);
@@ -463,7 +463,7 @@ int hostapd_ctrl_iface_disassociate(struct hostapd_data *hapd,
 	sta = ap_get_sta(hapd, addr);
 	if (sta) {
 	    connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
-			      1, REASON_DISCONNECT_DISASSOC_CLI, NULL, reason,
+			      1, REASON_DISCONNECT_DISASSOC_CLI, sta, reason,
 			      INVALID_SIGNAL, INVALID_STEERING_REASON, NULL,
 			      NULL, NULL);
 	    ap_sta_disassociate(hapd, sta, reason);
