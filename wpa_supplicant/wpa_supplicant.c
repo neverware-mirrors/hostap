@@ -1870,7 +1870,8 @@ void ibss_mesh_setup_freq(struct wpa_supplicant *wpa_s,
 		break;
 	}
 
-	if (freq->sec_channel_offset && obss_scan) {
+	if (ssid->mode != WPAS_MODE_MESH &&
+	    freq->sec_channel_offset && obss_scan) {
 		struct wpa_scan_results *scan_res;
 
 		scan_res = wpa_supplicant_get_scan_results(wpa_s, NULL, 0);
