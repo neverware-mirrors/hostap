@@ -356,7 +356,8 @@ static int hostapd_wpa_auth_for_each_sta(
 	struct sta_info *sta;
 
 	for (sta = hapd->sta_list; sta; sta = sta->next) {
-		if (sta->wpa_sm && cb(sta->wpa_sm, cb_ctx))
+		if (sta->wpa_sm && (sta->flags & WLAN_STA_AUTHORIZED) &&
+				cb(sta->wpa_sm, cb_ctx))
 			return 1;
 	}
 	return 0;
