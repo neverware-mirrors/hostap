@@ -211,6 +211,74 @@ int random_get_bytes(void *buf, size_t len)
 }
 
 
+int urandom_pool_ready(void)
+{
+#ifdef __linux__
+	int fd;
+	ssize_t res;
+
+	/*
+	 * Make sure that there is reasonable entropy available before allowing
+	 * some key derivation operations to proceed.
+	 */
+
+	if (dummy_key_avail == sizeof(dummy_key))
+		return 1; /* Already initialized - good to continue */
+
+	/*
+	 * Try to fetch some more data from the kernel high quality
+	 * /dev/urandom. There may not be enough data available at this point,
+	 * so use non-blocking read to avoid blocking the application
+	 * completely.
+	 */
+	fd = open("/dev/urandom", O_RDONLY | O_NONBLOCK);
+	if (fd < 0) {
+		wpa_printf(MSG_ERROR, "urandom: Cannot open /dev/urandom: %s",
+			   strerror(errno));
+		return -1;
+	}
+
+	res = read(fd, dummy_key + dummy_key_avail,
+		   sizeof(dummy_key) - dummy_key_avail);
+	if (res < 0) {
+		wpa_printf(MSG_ERROR, "urandom: Cannot read from /dev/urandom: "
+			   "%s", strerror(errno));
+		res = 0;
+	}
+	wpa_printf(MSG_DEBUG, "urandom: Got %u/%u bytes from "
+		   "/dev/urandom", (unsigned) res,
+		   (unsigned) (sizeof(dummy_key) - dummy_key_avail));
+	dummy_key_avail += res;
+	close(fd);
+
+	if (dummy_key_avail == sizeof(dummy_key)) {
+		if (own_pool_ready < MIN_READY_MARK)
+			own_pool_ready = MIN_READY_MARK;
+		random_write_entropy();
+		return 1;
+	}
+
+	wpa_printf(MSG_INFO, "urandom: Only %u/%u bytes of strong "
+		   "random data available from /dev/urandom",
+		   (unsigned) dummy_key_avail, (unsigned) sizeof(dummy_key));
+
+	if (own_pool_ready >= MIN_READY_MARK ||
+	    total_collected + 10 * own_pool_ready > MIN_COLLECT_ENTROPY) {
+		wpa_printf(MSG_INFO, "urandom: Allow operation to proceed "
+			   "based on internal entropy");
+		return 1;
+	}
+
+	wpa_printf(MSG_INFO, "urandom: Not enough entropy pool available for "
+		   "secure operations");
+	return 0;
+#else /* __linux__ */
+	/* TODO: could do similar checks on non-Linux platforms */
+	return 1;
+#endif /* __linux__ */
+}
+
+
 int random_pool_ready(void)
 {
 #ifdef __linux__
