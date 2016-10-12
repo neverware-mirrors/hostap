@@ -1858,9 +1858,15 @@ static void wpa_group_ensure_init(struct wpa_authenticator *wpa_auth,
 	wpa_printf(MSG_DEBUG, "WPA: Re-initialize GMK/Counter on first "
 		   "station");
 	if (random_pool_ready() != 1) {
-		wpa_printf(MSG_INFO, "WPA: Not enough entropy in random pool "
-			   "to proceed - reject first 4-way handshake");
-		group->reject_4way_hs_for_entropy = TRUE;
+		wpa_auth_logger(wpa_auth, NULL, LOGGER_INFO, "Generating random number using /dev/urandom");
+		if (urandom_pool_ready() != 1) {
+			wpa_printf(MSG_INFO, "WPA: Not enough entropy in random pool "
+				   "to proceed - reject first 4-way handshake");
+			group->reject_4way_hs_for_entropy = TRUE;
+		} else {
+			group->first_sta_seen = TRUE;
+			group->reject_4way_hs_for_entropy = FALSE;
+		}
 	} else {
 		group->first_sta_seen = TRUE;
 		group->reject_4way_hs_for_entropy = FALSE;
