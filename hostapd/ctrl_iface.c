@@ -1847,7 +1847,7 @@ static int hostapd_ctrl_iface_chan_switch(struct hostapd_iface *iface,
 	int ret;
 	unsigned int i;
 
-	ret = hostapd_parse_csa_settings(pos, &settings);
+	ret = hostapd_parse_csa_settings(iface->bss[0], pos, &settings);
 	if (ret)
 		return ret;
 
@@ -1856,6 +1856,11 @@ static int hostapd_ctrl_iface_chan_switch(struct hostapd_iface *iface,
 		if (ret) {
 			/* FIX: What do we do if CSA fails in the middle of
 			 * submitting multi-BSS CSA requests? */
+			hostapd_logger(iface->bss[i], NULL,
+				       HOSTAPD_MODULE_IEEE80211,
+				       HOSTAPD_LEVEL_WARNING,
+				       "channel switch fail on bss %d ret %d",
+				       i, ret);
 			return ret;
 		}
 	}

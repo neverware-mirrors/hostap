@@ -1196,7 +1196,8 @@ int ap_switch_channel(struct wpa_supplicant *wpa_s,
 int ap_ctrl_iface_chanswitch(struct wpa_supplicant *wpa_s, const char *pos)
 {
 	struct csa_settings settings;
-	int ret = hostapd_parse_csa_settings(pos, &settings);
+	int ret = hostapd_parse_csa_settings(wpa_s->ap_iface->bss[0],
+					     pos, &settings);
 
 	if (ret)
 		return ret;

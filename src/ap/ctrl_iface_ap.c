@@ -576,7 +576,7 @@ int hostapd_ctrl_iface_status(struct hostapd_data *hapd, char *buf,
 }
 
 
-int hostapd_parse_csa_settings(const char *pos,
+int hostapd_parse_csa_settings(struct hostapd_data *hapd, const char *pos,
 			       struct csa_settings *settings)
 {
 	char *end;
@@ -584,13 +584,17 @@ int hostapd_parse_csa_settings(const char *pos,
 	os_memset(settings, 0, sizeof(*settings));
 	settings->cs_count = strtol(pos, &end, 10);
 	if (pos == end) {
-		wpa_printf(MSG_ERROR, "chanswitch: invalid cs_count provided");
+		hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211,
+			       HOSTAPD_LEVEL_WARNING,
+			       "chanswitch: invalid cs_count provided");
 		return -1;
 	}
 
 	settings->freq_params.freq = atoi(end);
 	if (settings->freq_params.freq == 0) {
-		wpa_printf(MSG_ERROR, "chanswitch: invalid freq provided");
+		hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211,
+			       HOSTAPD_LEVEL_WARNING,
+			       "chanswitch: invalid freq provided");
 		return -1;
 	}
 

@@ -2926,7 +2926,9 @@ int hostapd_switch_channel(struct hostapd_data *hapd,
 	int ret;
 
 	if (!(hapd->iface->drv_flags & WPA_DRIVER_FLAGS_AP_CSA)) {
-		wpa_printf(MSG_INFO, "CSA is not supported");
+		hostapd_logger(hapd, NULL, HOSTAPD_MODULE_IEEE80211,
+			       HOSTAPD_LEVEL_INFO,
+			       "CSA is not supported");
 		return -1;
 	}
 
