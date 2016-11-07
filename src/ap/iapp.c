@@ -389,30 +389,37 @@ static void iapp_receive_udp(int sock, void *eloop_ctx, void *sock_ctx)
 	}
 }
 
-static void iapp_reinitialize(struct iapp_data *iapp)
+static void iapp_reinitialize(struct iapp_data *iapp, Boolean if_up)
 {
 	struct ip_mreqn mreq;
 
 	if (iapp == NULL)
 		return;
 
-	if (iapp->udp_sock >= 0) {
-		os_memset(&mreq, 0, sizeof(mreq));
-		mreq.imr_multiaddr = iapp->multicast;
-		mreq.imr_address.s_addr = INADDR_ANY;
-		mreq.imr_ifindex = 0;
-		if (setsockopt(iapp->udp_sock, SOL_IP, IP_DROP_MEMBERSHIP,
-			       &mreq, sizeof(mreq)) < 0) {
-			wpa_printf(MSG_INFO,
-				"iapp_reinitialize - setsockopt[UDP,IP_DEL_MEMBERSHIP]: %s",
-				strerror(errno));
+	if (iapp->ready) {
+		if (iapp->udp_sock >= 0) {
+			os_memset(&mreq, 0, sizeof(mreq));
+			mreq.imr_multiaddr = iapp->multicast;
+			mreq.imr_address.s_addr = INADDR_ANY;
+			mreq.imr_ifindex = 0;
+			if (setsockopt(iapp->udp_sock, SOL_IP, IP_DROP_MEMBERSHIP,
+				       &mreq, sizeof(mreq)) < 0) {
+				wpa_printf(MSG_INFO,
+					"iapp_reinitialize - setsockopt[UDP,IP_DEL_MEMBERSHIP]: %s",
+					strerror(errno));
+			}
+			eloop_unregister_read_sock(iapp->udp_sock);
 		}
+		if (iapp->packet_sock >= 0) {
+			close(iapp->packet_sock);
+			iapp->packet_sock = -1;
+		}
+		iapp->ready = FALSE;
 	}
-	if (iapp->packet_sock >= 0) {
-		close(iapp->packet_sock);
-		iapp->packet_sock = -1;
+
+	if (if_up) {
+		iapp_initialize(iapp);
 	}
-	iapp_initialize(iapp);
 }
 
 static void iapp_receive_nl_msg(int sock, void *eloop_ctx, void *sock_ctx)
@@ -423,17 +430,31 @@ static void iapp_receive_nl_msg(int sock, void *eloop_ctx, void *sock_ctx)
 	struct nlmsghdr *nlh;
 	struct ifaddrmsg *ifa;
 
-	nlh = (struct nlmsghdr *)buffer;
-	len = recv(iapp->nl_sock,nlh,1024,0);
-	while(NLMSG_OK(nlh, len) && nlh->nlmsg_type != NLMSG_DONE) {
-		if (nlh->nlmsg_type != RTM_NEWADDR)
+	len = recv(iapp->nl_sock, buffer, sizeof(buffer), 0);
+	if (len < 0) {
+		wpa_printf(MSG_DEBUG, "iapp_receive_nl_msg - recv error: %s",
+			   strerror(errno));
+		return;
+	}
+	for (nlh = (struct nlmsghdr *)buffer;
+	     NLMSG_OK(nlh, len) && nlh->nlmsg_type != NLMSG_DONE;
+	     nlh = NLMSG_NEXT(nlh, len)) {
+		Boolean if_up;
+
+		if (nlh->nlmsg_type == RTM_NEWADDR) {
+			if_up = TRUE;
+			wpa_printf(MSG_INFO, "iapp_receive_nl_msg: RTM_NEWADDR ");
+		} else if (nlh->nlmsg_type == RTM_DELADDR) {
+			if_up = FALSE;
+			wpa_printf(MSG_INFO, "iapp_receive_nl_msg: RTM_DELADDR ");
+		} else {
 			continue;
-		ifa = (struct ifaddrmsg *) NLMSG_DATA (nlh);
-		wpa_printf(MSG_INFO, "iapp_receive_nl_msg: RTM_NEWADDR ");
-		if (ifa->ifa_index == iapp->ifindex) {
-			iapp_reinitialize(iapp);
 		}
-		nlh = NLMSG_NEXT(nlh, len);
+
+		ifa = (struct ifaddrmsg *) NLMSG_DATA (nlh);
+		if (ifa->ifa_index == iapp->ifindex) {
+			iapp_reinitialize(iapp, if_up);
+		}
 	}
 }
 
