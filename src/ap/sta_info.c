@@ -703,10 +703,16 @@ static void ap_sta_remove_in_other_bss(struct hostapd_data *hapd,
 		sta2 = ap_get_sta(bss, sta->addr);
 		if (!sta2)
 			continue;
-		connect_log_event(bss, sta2->addr, CONNECTION_EVENT_DISCONNECT,
-				  1, REASON_DISCONNECT_ASSOC_OTHER_BSS, sta2,
-				  WLAN_REASON_PREV_AUTH_NOT_VALID, INVALID_SIGNAL,
-				  INVALID_STEERING_REASON, NULL, NULL, NULL);
+		 if (sta2->flags & (WLAN_STA_AUTH | WLAN_STA_ASSOC)) {
+			connect_log_event(bss, sta2->addr,
+					  CONNECTION_EVENT_DISCONNECT, 1,
+					  REASON_DISCONNECT_ASSOC_OTHER_BSS,
+					  sta2, WLAN_REASON_PREV_AUTH_NOT_VALID,
+					  INVALID_SIGNAL,
+					  INVALID_STEERING_REASON,
+					  NULL, NULL, NULL);
+		}
+
 		ap_sta_disconnect(bss, sta2, sta2->addr,
 				  WLAN_REASON_PREV_AUTH_NOT_VALID);
 	}

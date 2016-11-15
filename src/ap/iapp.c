@@ -303,10 +303,14 @@ static void iapp_process_add_notify(struct iapp_data *iapp,
 		       HOSTAPD_LEVEL_DEBUG,
 		       "Removing STA due to IAPP ADD-notify");
 
-	connect_log_event(iapp->hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
-			  1, REASON_DISCONNECT_IAPP_NOTIFY, sta, 0,
-			  INVALID_SIGNAL, INVALID_STEERING_REASON, NULL,
-			  NULL, NULL);
+	 if (sta->flags & (WLAN_STA_AUTH | WLAN_STA_ASSOC)) {
+		connect_log_event(iapp->hapd, sta->addr,
+				  CONNECTION_EVENT_DISCONNECT,
+				  1, REASON_DISCONNECT_IAPP_NOTIFY, sta, 0,
+				  INVALID_SIGNAL, INVALID_STEERING_REASON, NULL,
+				  NULL, NULL);
+	}
+
 	ap_sta_disconnect(iapp->hapd, sta, NULL, 0);
 }
 
