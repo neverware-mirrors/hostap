@@ -2144,11 +2144,15 @@ static void handle_disassoc(struct hostapd_data *hapd,
 		return;
 	}
 
-	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
-			  1, REASON_DISCONNECT_FROM_CLIENT, sta,
-			  le_to_host16(mgmt->u.disassoc.reason_code),
-			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL,
-			  NULL);
+	if (sta->flags & (WLAN_STA_ASSOC | WLAN_STA_ASSOC_REQ_OK)) {
+		connect_log_event(hapd, sta->addr,
+				  CONNECTION_EVENT_DISCONNECT,
+				  1, REASON_DISCONNECT_FROM_CLIENT, sta,
+				  le_to_host16(mgmt->u.disassoc.reason_code),
+				  ssi_signal, INVALID_STEERING_REASON, NULL,
+				  NULL, NULL);
+	}
+
 	ap_sta_set_authorized(hapd, sta, 0);
 	sta->last_seq_ctrl = WLAN_INVALID_MGMT_SEQ;
 	sta->flags &= ~(WLAN_STA_ASSOC | WLAN_STA_ASSOC_REQ_OK);
@@ -2204,11 +2208,16 @@ static void handle_deauth(struct hostapd_data *hapd,
 		return;
 	}
 
-	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
-			  1, REASON_DISCONNECT_FROM_CLIENT, sta,
-			  le_to_host16(mgmt->u.deauth.reason_code),
-			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL,
-			  NULL);
+	if (sta->flags &
+		(WLAN_STA_AUTH | WLAN_STA_ASSOC | WLAN_STA_ASSOC_REQ_OK)) {
+		connect_log_event(hapd, sta->addr,
+				  CONNECTION_EVENT_DISCONNECT, 1,
+				  REASON_DISCONNECT_FROM_CLIENT, sta,
+				  le_to_host16(mgmt->u.deauth.reason_code),
+				  ssi_signal, INVALID_STEERING_REASON, NULL,
+				  NULL, NULL);
+	}
+
 	ap_sta_set_authorized(hapd, sta, 0);
 	sta->last_seq_ctrl = WLAN_INVALID_MGMT_SEQ;
 	sta->flags &= ~(WLAN_STA_AUTH | WLAN_STA_ASSOC |
