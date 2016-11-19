@@ -372,6 +372,10 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 	if (ssid->dot11MeshHwmpGateAnnouncements) {
 		params.conf.flags |= WPA_DRIVER_MESH_CONF_FLAG_GATE_ANNOUNCEMENTS;
 	}
+#ifdef CONFIG_VHT_OVERRIDES
+	params.conf.vht_capa = ssid->vht_capa;
+	params.conf.vht_capa_mask = ssid->vht_capa_mask;
+#endif /* CONFIG_VHT_OVERRIDES */
 
 	if (wpa_supplicant_mesh_init(wpa_s, ssid)) {
 		wpa_msg(wpa_s, MSG_ERROR, "Failed to init mesh");

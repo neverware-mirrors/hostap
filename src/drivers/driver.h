@@ -1079,6 +1079,8 @@ struct wpa_driver_mesh_bss_params {
 	int hwmp_path_to_root_timeout;
 	int hwmp_root_interval;
 	int hwmp_confirmation_interval;
+	int vht_capa;
+	int vht_capa_mask;
 };
 
 struct wpa_driver_mesh_join_params {

@@ -8178,6 +8178,15 @@ static int nl80211_join_mesh(struct i802_bss *bss,
 	struct nl_msg *msg;
 	struct nlattr *container;
 	int ret = -1;
+#ifdef CONFIG_VHT_OVERRIDES
+	struct ieee80211_vht_capabilities vhtcaps;
+	struct ieee80211_vht_capabilities vhtcaps_mask;
+
+	os_memset(&vhtcaps, 0, sizeof(vhtcaps));
+	os_memset(&vhtcaps_mask, 0, sizeof(vhtcaps_mask));
+	vhtcaps.vht_capabilities_info = params->conf.vht_capa;
+	vhtcaps_mask.vht_capabilities_info = params->conf.vht_capa_mask;
+#endif /* CONFIG_VHT_OVERRIDES */
 
 	wpa_printf(MSG_DEBUG, "nl80211: mesh join (ifindex=%d)", drv->ifindex);
 	msg = nl80211_drv_msg(drv, 0, NL80211_CMD_JOIN_MESH);
@@ -8187,6 +8196,14 @@ static int nl80211_join_mesh(struct i802_bss *bss,
 	    nl80211_put_mesh_id(msg, params->meshid, params->meshid_len) ||
 	    nl80211_put_beacon_int(msg, params->beacon_int))
 		goto fail;
+
+#ifdef CONFIG_VHT_OVERRIDES
+	if (nla_put(msg, NL80211_ATTR_VHT_CAPABILITY,
+		    sizeof(struct ieee80211_vht_capabilities), &vhtcaps) ||
+	    nla_put(msg, NL80211_ATTR_VHT_CAPABILITY_MASK,
+		    sizeof(struct ieee80211_vht_capabilities), &vhtcaps_mask))
+		goto fail;
+#endif /* CONFIG_VHT_OVERRIDES */
 
 	wpa_printf(MSG_DEBUG, "  * flags=%08X", params->flags);
 
