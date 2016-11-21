@@ -16,6 +16,7 @@ typedef enum {
 	CONNECTION_EVENT_ASSOC_RESP,
 	CONNECTION_EVENT_CONNECT,
 	CONNECTION_EVENT_DISCONNECT,
+	CONNECTION_EVENT_DISASSOC_RESP,
 } connection_event;
 
 /* reasons for the events */
