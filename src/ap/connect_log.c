@@ -106,6 +106,8 @@ static const char *connect_log_event_str(connection_event event)
 	case CONNECTION_EVENT_DISCONNECT:
 		return AP_STA_DISCONNECT;
 		break;
+	case CONNECTION_EVENT_DISASSOC_RESP:
+		return AP_STA_DISASSOC_RESP;
 	default:
 		return NULL;
 		break;

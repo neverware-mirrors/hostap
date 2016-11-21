@@ -2816,6 +2816,13 @@ static void handle_disassoc_cb(struct hostapd_data *hapd,
 		wpa_printf(MSG_DEBUG, "STA " MACSTR " did not acknowledge "
 			   "disassoc", MAC2STR(sta->addr));
 
+	if (!ok)
+		connect_log_event(hapd, sta->addr,
+				  CONNECTION_EVENT_DISASSOC_RESP, ok,
+				  REASON_NO_ACK, sta, ok, INVALID_SIGNAL,
+				  INVALID_STEERING_REASON, NULL,
+				  NULL, NULL);
+
 	ap_sta_disassoc_cb(hapd, sta);
 }
 
