@@ -66,6 +66,15 @@ static const int dot11RSNAConfigPMKReauthThreshold = 70;
 static const int dot11RSNAConfigSATimeout = 60;
 
 
+static inline int wpa_auth_is_sta_associated(struct wpa_authenticator *wpa_auth,
+					     const u8 *addr)
+{
+	if (wpa_auth->cb.is_sta_associated)
+		 return wpa_auth->cb.is_sta_associated(wpa_auth->cb.ctx, addr);
+	return 0;
+
+}
+
 static inline int wpa_auth_mic_failure_report(
 	struct wpa_authenticator *wpa_auth, const u8 *addr)
 {
@@ -1983,6 +1992,16 @@ SM_STATE(WPA_PTK, PTKSTART)
 	sm->TimeoutEvt = FALSE;
 	sm->alt_snonce_valid = FALSE;
 
+	if (!wpa_auth_is_sta_associated(sm->wpa_auth, sm->addr)) {
+		/* This is true if AP-STA eapol handshake
+		 * is in progress and disconnection is being
+		 * triggered which would lead in AP still
+		 * proceeding eapol handshake until inactivity
+		 * timer expires.
+		 */
+		return;
+        }
+
 	sm->TimeoutCtr++;
 	if (sm->TimeoutCtr > (int) dot11RSNAConfigPairwiseUpdateCount) {
 		/* No point in sending the EAPOL-Key - we will disconnect
@@ -2206,6 +2225,16 @@ SM_STATE(WPA_PTK, PTKINITNEGOTIATING)
 
 	SM_ENTRY_MA(WPA_PTK, PTKINITNEGOTIATING, wpa_ptk);
 	sm->TimeoutEvt = FALSE;
+
+	if (!wpa_auth_is_sta_associated(sm->wpa_auth, sm->addr)) {
+		/* This is true if AP-STA eapol handshake
+		 * is in progress and disconnection is being
+		 * triggered which would lead in AP still
+		 * proceeding eapol handshake until inactivity
+		 * timer expires.
+		 */
+		return;
+	}
 
 	sm->TimeoutCtr++;
 	if (sm->TimeoutCtr > (int) dot11RSNAConfigPairwiseUpdateCount) {
@@ -2558,6 +2587,14 @@ SM_STATE(WPA_PTK_GROUP, REKEYNEGOTIATING)
 	u8 *kde_buf = NULL, *pos, hdr[2];
 	size_t kde_len;
 	u8 *gtk, dummy_gtk[32];
+
+	if (!wpa_auth_is_sta_associated(sm->wpa_auth, sm->addr)) {
+		/* This is true if AP-STA disconnection
+		 * is in progress and at the same time AP
+		 * might proceed for GTK renewal.
+		 */
+		return;
+        }
 
 	SM_ENTRY_MA(WPA_PTK_GROUP, REKEYNEGOTIATING, wpa_ptk_group);
 

@@ -221,6 +221,7 @@ struct wpa_auth_callbacks {
 #ifdef CONFIG_MESH
 	int (*start_ampe)(void *ctx, const u8 *sta_addr);
 #endif /* CONFIG_MESH */
+	int (*is_sta_associated)(void *ctx, const u8 *sta_addr);
 };
 
 struct wpa_authenticator * wpa_init(const u8 *addr,
