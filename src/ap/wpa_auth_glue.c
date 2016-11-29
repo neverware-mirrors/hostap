@@ -28,6 +28,16 @@
 #include "connect_log.h"
 
 
+static int hostapd_wpa_auth_is_sta_associated(void *ctx, const u8 *addr)
+{
+	struct hostapd_data *hapd = ctx;
+	struct sta_info *sta = ap_get_sta(hapd, addr);
+
+	if (!sta || !(sta->flags & WLAN_STA_ASSOC))
+		return 0;
+	return 1;
+}
+
 static void hostapd_wpa_auth_conf(struct hostapd_bss_config *conf,
 				  struct hostapd_config *iconf,
 				  struct wpa_auth_config *wconf)
@@ -616,6 +626,7 @@ int hostapd_setup_wpa(struct hostapd_data *hapd)
 	cb.add_sta = hostapd_wpa_auth_add_sta;
 	cb.add_tspec = hostapd_wpa_auth_add_tspec;
 #endif /* CONFIG_IEEE80211R */
+	cb.is_sta_associated = hostapd_wpa_auth_is_sta_associated;
 	hapd->wpa_auth = wpa_init(hapd->own_addr, &_conf, &cb);
 	if (hapd->wpa_auth == NULL) {
 		wpa_printf(MSG_ERROR, "WPA initialization failed.");
