@@ -2566,7 +2566,7 @@ void hostapd_ctrl_iface_deinit(struct hostapd_data *hapd)
 					   "directory not empty - leaving it "
 					   "behind");
 			} else {
-				wpa_printf(MSG_ERROR,
+				wpa_printf(MSG_INFO,
 					   "rmdir[ctrl_interface=%s]: %s",
 					   hapd->conf->ctrl_interface,
 					   strerror(errno));

@@ -440,8 +440,11 @@ void update_ht_state(struct hostapd_data *hapd, struct sta_info *sta)
 		update_sta_ht(hapd, sta);
 	else
 		update_sta_no_ht(hapd, sta);
-
-	if (hostapd_ht_operation_update(hapd->iface) > 0)
+	if (
+#ifdef CONFIG_MESH
+	    hapd->iface->mconf == NULL &&
+#endif
+	    hostapd_ht_operation_update(hapd->iface) > 0)
 		ieee802_11_set_beacons(hapd->iface);
 }
 

@@ -250,7 +250,11 @@ void ap_free_sta(struct hostapd_data *hapd, struct sta_info *sta)
 #endif /* CONFIG_P2P */
 
 #if defined(NEED_AP_MLME) && defined(CONFIG_IEEE80211N)
-	if (hostapd_ht_operation_update(hapd->iface) > 0)
+	if (
+#ifdef CONFIG_MESH
+	    hapd->iface->mconf == NULL &&
+#endif
+	    hostapd_ht_operation_update(hapd->iface) > 0)
 		set_beacon++;
 #endif /* NEED_AP_MLME && CONFIG_IEEE80211N */
 
