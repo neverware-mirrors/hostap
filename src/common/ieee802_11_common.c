@@ -16,6 +16,44 @@
 #include "ieee802_11_defs.h"
 #include "ieee802_11_common.h"
 
+/*
+ * ieee802_11_find_ht_nss - find nss from ht capabilities
+ * ht: pointer to ht capabilities
+ * function find's nss from given ht capabilities
+ * return: nss
+ */
+u16 ieee802_11_find_ht_nss(struct ieee80211_ht_capabilities *ht)
+{
+	u16 nss = 0, index;
+
+	for (index = 0; index < 4; index++) {
+		if (ht->supported_mcs_set[index] & 0xff)
+			nss++;
+	}
+
+	return nss;
+}
+
+/*
+ * ieee802_11_find_vht_nss - find nss from vht capabilities
+ * ht: pointer to vht capabilities
+ * function find's nss from given vht capabilities
+ * return: nss
+ */
+u16 ieee802_11_find_vht_nss(struct ieee80211_vht_capabilities *vht)
+{
+	u16 sta_rx_mcs_set, nss = 0, index, tmp;
+
+	sta_rx_mcs_set = le_to_host16(vht->vht_supported_mcs_set.rx_map);
+	for (index = 0; index < 8; index++) {
+		tmp = (sta_rx_mcs_set & (0x3 << (index * 2))) >> (index * 2);
+
+		 if (tmp == 0x0 || tmp == 0x1 || tmp == 0x2)
+			nss++;
+	}
+
+	return nss;
+}
 
 static int ieee802_11_parse_vendor_specific(const u8 *pos, size_t elen,
 					    struct ieee802_11_elems *elems,

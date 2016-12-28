@@ -279,6 +279,9 @@ extern "C" {
 /* BSS Transition Management Response frame received */
 #define BSS_TM_RESP "BSS-TM-RESP "
 
+/* Indication to steer station */
+#define AP_MONITOR_STA_INFO "AP-MONITOR-STA-INFO "
+
 /* BSS command information masks */
 
 #define WPA_BSS_MASK_ALL		0xFFFDFFFF

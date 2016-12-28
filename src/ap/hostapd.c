@@ -280,6 +280,10 @@ static void hostapd_free_hapd_data(struct hostapd_data *hapd)
 	wpa_printf(MSG_DEBUG, "%s(%s)", __func__, hapd->conf->iface);
 	iapp_deinit(hapd->iapp);
 	hapd->iapp = NULL;
+#ifdef HOSTAPD
+	monitor_sta_deinit(hapd->mon_sta);
+	hapd->mon_sta = NULL;
+#endif
 	accounting_deinit(hapd);
 	hostapd_deinit_wpa(hapd);
 	vlan_deinit(hapd);
@@ -1115,6 +1119,10 @@ static int hostapd_setup_bss(struct hostapd_data *hapd, int first)
 
 	if (hapd->driver && hapd->driver->set_operstate)
 		hapd->driver->set_operstate(hapd->drv_priv, 1);
+
+#ifdef HOSTAPD
+	hapd->mon_sta = monitor_sta_init();
+#endif
 
 	return 0;
 }

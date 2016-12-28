@@ -292,6 +292,9 @@ static void iapp_process_add_notify(struct iapp_data *iapp,
 		       inet_ntoa(from->sin_addr), ntohs(from->sin_port),
 		       sta ? "" : " (STA not found)");
 
+	/* Add sta to monitor list */
+	monitor_sta_add(iapp->hapd->mon_sta, add->mac_addr);
+
 	if (!sta)
 		return;
 

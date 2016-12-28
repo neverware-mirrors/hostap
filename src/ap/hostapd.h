@@ -13,6 +13,7 @@
 #include "utils/list.h"
 #include "ap_config.h"
 #include "drivers/driver.h"
+#include "monitor_sta.h"
 
 struct wpa_ctrl_dst;
 struct radius_server_data;
@@ -278,6 +279,7 @@ struct hostapd_data {
 
 	struct l2_packet_data *l2_test;
 #endif /* CONFIG_TESTING_OPTIONS */
+	mon_sta_t mon_sta;
 };
 
 

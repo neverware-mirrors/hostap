@@ -47,6 +47,7 @@
 #include "fst/fst_ctrl_iface.h"
 #include "config_file.h"
 #include "ctrl_iface.h"
+#include "ap/monitor_sta.h"
 
 
 #define HOSTAPD_CLI_DUP_VALUE_MAX_LEN 256
@@ -2061,6 +2062,11 @@ static int hostapd_ctrl_iface_track_sta_list(struct hostapd_data *hapd,
 }
 #endif /* NEED_AP_MLME */
 
+static int hostapd_ctrl_iface_steer_hyst(struct hostapd_data *hapd,
+					 char *buf)
+{
+	return monitor_sta_set_hysteresis(hapd->mon_sta, atoi(buf));
+}
 
 static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 					      char *buf, char *reply,
@@ -2298,6 +2304,9 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 		reply_len = hostapd_ctrl_iface_track_sta_list(
 			hapd, reply, reply_size);
 #endif /* NEED_AP_MLME */
+	} else if (os_strcmp(buf, "STEER_HYST") == 0) {
+		if (hostapd_ctrl_iface_steer_hyst(hapd, buf + 10))
+			reply_len = -1;
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);
 		reply_len = 16;

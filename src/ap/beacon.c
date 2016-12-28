@@ -16,6 +16,7 @@
 #include "common/ieee802_11_defs.h"
 #include "common/ieee802_11_common.h"
 #include "common/hw_features_common.h"
+#include "common/wpa_ctrl.h"
 #include "wps/wps_defs.h"
 #include "p2p/p2p.h"
 #include "hostapd.h"
@@ -32,6 +33,7 @@
 
 #ifdef HOSTAPD
 #include "ap/steering.h"
+#include "ap/monitor_sta.h"
 #endif
 
 #ifdef CONFIG_CLIENT_TAXONOMY
@@ -666,6 +668,10 @@ void handle_probe_req(struct hostapd_data *hapd,
 	size_t i, resp_len;
 	int noack;
 	enum ssid_match_result res;
+#ifdef HOSTAPD
+	struct os_time now;
+	u16 nss = 1;
+#endif
 
 #ifdef HOSTAPD
 	write_probe_timestamp(hapd, mgmt->sa, ssi_signal);
@@ -874,6 +880,23 @@ void handle_probe_req(struct hostapd_data *hapd,
 	wpa_printf(MSG_EXCESSIVE, "STA " MACSTR " sent probe request for %s "
 		   "SSID", MAC2STR(mgmt->sa),
 		   elems.ssid_len == 0 ? "broadcast" : "our");
+
+#ifdef HOSTAPD
+	/* Update sta info to steer structure */
+	if (monitor_sta_info_update(hapd->mon_sta, PROBE_REQ, mgmt->sa,
+				    ssi_signal, elems, &nss)) {
+		os_get_time(&now);
+		wpa_msg(hapd->iface->bss[0]->msg_ctx, MSG_INFO,
+			AP_MONITOR_STA_INFO MACSTR
+			" timestamp:%lu%03lu frame_rssi:%d nss:%d mode:%s",
+			MAC2STR(mgmt->sa),
+			(unsigned long)now.sec , (unsigned long)now.usec/1000,
+			ssi_signal, nss,
+			elems.vht_capabilities ? "vht" :
+				elems.ht_capabilities ? "ht" : "legacy");
+	}
+#endif
+
 }
 
 
