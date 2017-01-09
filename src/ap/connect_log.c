@@ -22,6 +22,7 @@
 #include "steering.h"
 #include "ap_drv_ops.h"
 
+
 static int print_bitmap(char *buf, size_t buflen, u8 *bitmap, size_t bitmap_len)
 {
 	int i, ret, len = 0;
@@ -161,6 +162,8 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 	int len = 0, ret = 0;
 	struct os_time tv;
 	struct hostap_sta_driver_data sta_data;
+	struct ieee80211_ht_capabilities *ht;
+	struct ieee80211_vht_capabilities *vht;
 
 	event_str = connect_log_event_str(c_event);
 	if (!event_str) {
@@ -285,6 +288,19 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 
 		ret = os_snprintf(buf + len, buflen - len, " avg_rssi:%d",
 				  sta_data.avg_rssi);
+		len += ret;
+	}
+
+	if (c_event == CONNECTION_EVENT_CONNECT) {
+		if (sta->vht_capabilities)
+			vht = sta->vht_capabilities;
+		if (sta->ht_capabilities)
+			ht = sta->ht_capabilities;
+
+		ret = os_snprintf(buf + len, buflen - len, " nss:%d mode:%s",
+				  vht ? ieee802_11_find_vht_nss(vht) :
+				  ht ? ieee802_11_find_ht_nss(ht) : 1,
+				  vht ? "vht" : ht ? "ht" : " legacy");
 		len += ret;
 	}
 
