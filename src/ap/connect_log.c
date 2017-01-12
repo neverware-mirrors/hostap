@@ -181,11 +181,13 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 	ret = os_snprintf(buf + len, buflen - len, " event_reason:%s",
 			  disconnect_log_event_str(event_reason));
 	len += ret;
+
 	if (frame_status != INVALID_FRAME_STATUS) {
 		ret = os_snprintf(buf + len, buflen - len, " frame_status:%d",
 				  frame_status);
+		len += ret;
 	}
-	len += ret;
+
 	/*
 	 * read rssi and rate from driver only if sta structure is valid to
 	 * avoid additional delay in fetching the rssi data from driver.
