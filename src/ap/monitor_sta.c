@@ -225,8 +225,10 @@ Boolean monitor_sta_info_update(mon_sta_t mon_sta, mon_sta_event event,
 	os_get_time(&(sta->info.timestamp));
 
 	/* Need to do for the first time when sta added to list */
-	if (!sta->info.last_event_signal)
+	if (!sta->info.last_event_signal) {
 		sta->info.last_event_signal = signal;
+		return TRUE;
+	}
 
 	hyst_diff = abs(abs(signal) - abs(sta->info.last_event_signal));
 	if (hyst_diff >= mon_sta->hyst) {
