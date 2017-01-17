@@ -44,6 +44,24 @@ static const char *disconnect_log_event_str(connection_event_reason event)
 			return "none";
 		case REASON_ASSOC_REJECT_STEER:
 			return "reject_steer";
+		case REASON_ASSOC_REJECT_REACHED_MAX_AID:
+			return "reached_max_aid";
+		case REASON_ASSOC_REJECT_MIC_FAIL:
+			return "mic_fail";
+		case REASON_ASSOC_REJECT_LARGE_LISTEN_INTERVAL:
+			return "large_listen_interval";
+		case REASON_ASSOC_REJECT_INCORRECT_ELEMENTS:
+			return "incorrect_elements";
+		case REASON_ASSOC_REJECT_INCORRECT_SSID:
+			return "incorrect_ssid";
+		case REASON_ASSOC_REJECT_INCORRECT_WMM:
+			return "incorrect_wmm";
+		case REASON_ASSOC_REJECT_NO_SUPPORTED_RATES:
+			return "no_supported_rates";
+		case REASON_ASSOC_REJECT_INVALID_LENGTH:
+			return "invalid_length";
+		case REASON_ASSOC_REJECT_ALLOC_FAIL:
+			return "alloc_fail";
 		case REASON_FAILED_TO_ADD_STA:
 			return "failed_to_add";
 		case REASON_NO_ACK:

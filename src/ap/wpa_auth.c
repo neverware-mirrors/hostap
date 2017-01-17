@@ -595,12 +595,19 @@ wpa_auth_sta_init(struct wpa_authenticator *wpa_auth, const u8 *addr,
 {
 	struct wpa_state_machine *sm;
 
-	if (wpa_auth->group->wpa_group_state == WPA_GROUP_FATAL_FAILURE)
+	if (wpa_auth->group->wpa_group_state == WPA_GROUP_FATAL_FAILURE) {
+		wpa_auth_logger(wpa_auth, addr, LOGGER_INFO,
+				"wpa group fatal failure");
 		return NULL;
+	}
 
 	sm = os_zalloc(sizeof(struct wpa_state_machine));
-	if (sm == NULL)
+	if (sm == NULL) {
+		wpa_auth_logger(wpa_auth, addr, LOGGER_INFO,
+				"alloc failed for wpa state machine");
 		return NULL;
+	}
+
 	os_memcpy(sm->addr, addr, ETH_ALEN);
 	if (p2p_dev_addr)
 		os_memcpy(sm->p2p_dev_addr, p2p_dev_addr, ETH_ALEN);

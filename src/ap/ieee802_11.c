@@ -1327,6 +1327,7 @@ static u16 check_ssid(struct hostapd_data *hapd, struct sta_info *sta,
 			       HOSTAPD_LEVEL_INFO,
 			       "Station tried to associate with unknown SSID "
 			       "'%s'", wpa_ssid_txt(ssid_ie, ssid_ie_len));
+		sta->disassoc_reason = REASON_ASSOC_REJECT_INCORRECT_SSID;
 		return WLAN_STATUS_UNSPECIFIED_FAILURE;
 	}
 
@@ -1348,6 +1349,8 @@ static u16 check_wmm(struct hostapd_data *hapd, struct sta_info *sta,
 				       HOSTAPD_LEVEL_DEBUG,
 				       "invalid WMM element in association "
 				       "request");
+			sta->disassoc_reason =
+				REASON_ASSOC_REJECT_INCORRECT_WMM;
 			return WLAN_STATUS_UNSPECIFIED_FAILURE;
 		}
 
@@ -1366,6 +1369,7 @@ static u16 copy_supp_rates(struct hostapd_data *hapd, struct sta_info *sta,
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_DEBUG,
 			       "No supported rates element in AssocReq");
+		sta->disassoc_reason = REASON_ASSOC_REJECT_NO_SUPPORTED_RATES;
 		return WLAN_STATUS_UNSPECIFIED_FAILURE;
 	}
 
@@ -1376,6 +1380,7 @@ static u16 copy_supp_rates(struct hostapd_data *hapd, struct sta_info *sta,
 			       "Invalid supported rates element length %d+%d",
 			       elems->supp_rates_len,
 			       elems->ext_supp_rates_len);
+		sta->disassoc_reason = REASON_ASSOC_REJECT_INVALID_LENGTH;
 		return WLAN_STATUS_UNSPECIFIED_FAILURE;
 	}
 
@@ -1414,6 +1419,11 @@ static u16 copy_sta_ext_capab(struct hostapd_data *hapd, struct sta_info *sta,
 		if (sta->ext_capab == NULL) {
 			sta->ext_capab = os_zalloc(ext_capab_len);
 			if (sta->ext_capab == NULL) {
+				sta->disassoc_reason =
+					REASON_ASSOC_REJECT_ALLOC_FAIL;
+				hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
+					       HOSTAPD_LEVEL_INFO,
+					       "Alloc failed for ext capa copy");
 				return WLAN_STATUS_UNSPECIFIED_FAILURE;
 			}
 		}
@@ -1435,6 +1445,11 @@ static u16 copy_rrm_enabled_capab(struct hostapd_data *hapd, struct sta_info *st
 	if (sta->rrm_enabled_capab == NULL) {
 		sta->rrm_enabled_capab= os_zalloc(WLAN_RRM_ENABLED_CAPABILITIES_IE_LEN);
 		if (sta->rrm_enabled_capab == NULL) {
+			sta->disassoc_reason =
+				REASON_ASSOC_REJECT_ALLOC_FAIL;
+			hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
+				       HOSTAPD_LEVEL_INFO,
+				       "Alloc failed for rrm copy");
 			return WLAN_STATUS_UNSPECIFIED_FAILURE;
 		}
 	}
@@ -1455,6 +1470,7 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_INFO, "Station sent an invalid "
 			       "association request");
+		sta->disassoc_reason = REASON_ASSOC_REJECT_INCORRECT_ELEMENTS;
 		return WLAN_STATUS_UNSPECIFIED_FAILURE;
 	}
 
@@ -1475,8 +1491,14 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 		return resp;
 #ifdef CONFIG_IEEE80211N
 	resp = copy_sta_ht_capab(hapd, sta, elems.ht_capabilities);
-	if (resp != WLAN_STATUS_SUCCESS)
+	if (resp != WLAN_STATUS_SUCCESS) {
+		sta->disassoc_reason = REASON_ASSOC_REJECT_ALLOC_FAIL;
+		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
+			       HOSTAPD_LEVEL_INFO,
+			       "Alloc failed for ht capa copy");
 		return resp;
+	}
+
 	if (hapd->iconf->ieee80211n && hapd->iconf->require_ht &&
 	    !(sta->flags & WLAN_STA_HT)) {
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
@@ -1489,8 +1511,14 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 #ifdef CONFIG_IEEE80211AC
 	if (hapd->iconf->ieee80211ac) {
 		resp = copy_sta_vht_capab(hapd, sta, elems.vht_capabilities);
-		if (resp != WLAN_STATUS_SUCCESS)
+		if (resp != WLAN_STATUS_SUCCESS) {
+			sta->disassoc_reason = REASON_ASSOC_REJECT_ALLOC_FAIL;
+			hostapd_logger(hapd, sta->addr,
+				       HOSTAPD_MODULE_IEEE80211,
+				       HOSTAPD_LEVEL_INFO,
+				       "Alloc failed for vht capa copy");
 			return resp;
+		}
 
 		resp = set_sta_vht_opmode(hapd, sta, elems.vht_opmode_notif);
 		if (resp != WLAN_STATUS_SUCCESS)
@@ -1508,8 +1536,13 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 	if (hapd->conf->vendor_vht && !elems.vht_capabilities) {
 		resp = copy_sta_vendor_vht(hapd, sta, elems.vendor_vht,
 					   elems.vendor_vht_len);
-		if (resp != WLAN_STATUS_SUCCESS)
+		if (resp != WLAN_STATUS_SUCCESS) {
+			sta->disassoc_reason = REASON_ASSOC_REJECT_ALLOC_FAIL;
+			hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
+				       HOSTAPD_LEVEL_INFO,
+				       "Alloc failed for vendor vht copy");
 			return resp;
+		}
 	}
 
 	resp = copy_rrm_enabled_capab(hapd, sta, elems.rrm_enabled_capab,
@@ -1587,6 +1620,8 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 		if (sta->wpa_sm == NULL) {
 			wpa_printf(MSG_WARNING, "Failed to initialize WPA "
 				   "state machine");
+			sta->disassoc_reason =
+				REASON_ASSOC_REJECT_ALLOC_FAIL;
 			return WLAN_STATUS_UNSPECIFIED_FAILURE;
 		}
 		res = wpa_validate_wpa_ie(hapd->wpa_auth, sta->wpa_sm,
@@ -1598,8 +1633,14 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 			resp = WLAN_STATUS_PAIRWISE_CIPHER_NOT_VALID;
 		else if (res == WPA_INVALID_AKMP)
 			resp = WLAN_STATUS_AKMP_NOT_VALID;
-		else if (res == WPA_ALLOC_FAIL)
+		else if (res == WPA_ALLOC_FAIL) {
 			resp = WLAN_STATUS_UNSPECIFIED_FAILURE;
+			sta->disassoc_reason =
+				REASON_ASSOC_REJECT_ALLOC_FAIL;
+			hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
+				       HOSTAPD_LEVEL_INFO,
+				       "Alloc failed for validate wpa ie");
+		}
 #ifdef CONFIG_IEEE80211W
 		else if (res == WPA_MGMT_FRAME_PROTECTION_VIOLATION)
 			resp = WLAN_STATUS_ROBUST_MGMT_FRAME_POLICY_VIOLATION;
@@ -2001,9 +2042,11 @@ static void handle_assoc(struct hostapd_data *hapd,
 	sta->last_seq_ctrl = seq_ctrl;
 	sta->last_subtype = reassoc ? WLAN_FC_STYPE_REASSOC_REQ :
 		WLAN_FC_STYPE_ASSOC_REQ;
+	sta->disassoc_reason = REASON_NONE;
 
 	if (hapd->tkip_countermeasures) {
 		resp = WLAN_REASON_MICHAEL_MIC_FAILURE;
+		sta->disassoc_reason = REASON_ASSOC_REJECT_MIC_FAIL;
 		goto fail;
 	}
 
@@ -2013,6 +2056,8 @@ static void handle_assoc(struct hostapd_data *hapd,
 			       "Too large Listen Interval (%d)",
 			       listen_interval);
 		resp = WLAN_STATUS_ASSOC_DENIED_LISTEN_INT_TOO_LARGE;
+		sta->disassoc_reason =
+			REASON_ASSOC_REJECT_LARGE_LISTEN_INTERVAL;
 		goto fail;
 	}
 
@@ -2027,6 +2072,7 @@ static void handle_assoc(struct hostapd_data *hapd,
 				  &probe_delta_time, &steer_delta_time,
 				  &defer_delta_time)) {
 		resp = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
+		sta->disassoc_reason = REASON_ASSOC_REJECT_STEER;
 		goto fail;
 	}
 #endif
@@ -2034,6 +2080,7 @@ static void handle_assoc(struct hostapd_data *hapd,
 	if (hostapd_get_aid(hapd, sta) < 0) {
 		hostapd_logger(hapd, mgmt->sa, HOSTAPD_MODULE_IEEE80211,
 			       HOSTAPD_LEVEL_INFO, "No room for more AIDs");
+		sta->disassoc_reason = REASON_ASSOC_REJECT_REACHED_MAX_AID;
 		resp = WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
 		goto fail;
 	}
@@ -2115,9 +2162,10 @@ static void handle_assoc(struct hostapd_data *hapd,
  fail:
 	send_assoc_resp(hapd, sta, resp, reassoc, pos, left);
 	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_ASSOC,
-			  (resp == WLAN_STATUS_SUCCESS), REASON_NONE, NULL, resp,
-			  ssi_signal, (int)s_reason, &probe_delta_time,
-			  &steer_delta_time, &defer_delta_time);
+			  (resp == WLAN_STATUS_SUCCESS), sta->disassoc_reason,
+			  NULL, resp, ssi_signal, (int)s_reason,
+			  &probe_delta_time, &steer_delta_time,
+			  &defer_delta_time);
 }
 
 
