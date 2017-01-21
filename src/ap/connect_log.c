@@ -162,8 +162,8 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 	int len = 0, ret = 0;
 	struct os_time tv;
 	struct hostap_sta_driver_data sta_data;
-	struct ieee80211_ht_capabilities *ht;
-	struct ieee80211_vht_capabilities *vht;
+	struct ieee80211_ht_capabilities *ht = NULL;
+	struct ieee80211_vht_capabilities *vht = NULL;
 
 	event_str = connect_log_event_str(c_event);
 	if (!event_str) {
@@ -291,7 +291,7 @@ void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
 		len += ret;
 	}
 
-	if (c_event == CONNECTION_EVENT_CONNECT) {
+	if (sta && c_event == CONNECTION_EVENT_CONNECT) {
 		if (sta->vht_capabilities)
 			vht = sta->vht_capabilities;
 		if (sta->ht_capabilities)
