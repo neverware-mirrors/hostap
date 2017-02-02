@@ -339,11 +339,15 @@ static int garbage_collect_timestamp_files(
 	case STEER_EVENT_FAILED:
 		timestamp_filter = is_failed_timestamp;
 		break;
+	case STEER_EVENT_SUCCESSFUL:
+		break;
 	case STEER_EVENT_CONNECT:
 		timestamp_filter = is_connect_timestamp;
 		break;
 	case STEER_EVENT_DEFER:
 		timestamp_filter = is_defer_timestamp;
+		break;
+	case NUM_STEER_EVENTS:
 		break;
 	}
 
@@ -411,7 +415,7 @@ static int read_timestamp(const struct hostapd_data *hapd,
 	}
 
 	if (timestamp) {
-		if (fscanf(f, "%d %d", &timestamp->sec, &timestamp->usec) != 2) {
+		if (fscanf(f, "%ld %ld", &timestamp->sec, &timestamp->usec) != 2) {
 			wpa_printf(MSG_ERROR, "fscanf from %s: %s", filename, strerror(errno));
 			success = 0;
 		}
@@ -467,7 +471,7 @@ static int write_timestamp(const struct hostapd_data *hapd,
 	}
 
 	if (timestamp) {
-		if (fprintf(f, "%d %d", timestamp->sec, timestamp->usec) < 0) {
+		if (fprintf(f, "%ld %ld", timestamp->sec, timestamp->usec) < 0) {
 			wpa_printf(MSG_ERROR, "fprintf to %s: %s", tmp_filename, strerror(errno));
 		} else {
 			success = 1;
@@ -663,7 +667,7 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		hostapd_logger(hapd->msg_ctx, sta_mac,
 		               HOSTAPD_MODULE_IEEE80211, HOSTAPD_LEVEL_INFO,
 		               "Assoc no steer - deferred; rssi=%d"
-		               " defer_delta_t=%d.%02d",
+		               " defer_delta_t=%ld.%02ld",
 		               ssi_signal, defer_delta_time.sec,
 		               defer_delta_time.usec / 10000);
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
@@ -707,7 +711,7 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		hostapd_logger(hapd->msg_ctx, sta_mac,
 		               HOSTAPD_MODULE_IEEE80211, HOSTAPD_LEVEL_INFO,
 		               "Assoc no steer - weak signal; "
-		               "rssi=%d probe_delta_t=%d.%02d",
+		               "rssi=%d probe_delta_t=%ld.%02ld",
 		               ssi_signal, probe_delta_time.sec,
 		               probe_delta_time.usec / 10000);
 		wpa_msg(hapd->msg_ctx, MSG_INFO,
@@ -737,8 +741,8 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 		write_timestamp(hapd, sta_mac, STEER_EVENT_ATTEMPT, &now);
 		hostapd_logger(hapd->msg_ctx, sta_mac,
 		               HOSTAPD_MODULE_IEEE80211, HOSTAPD_LEVEL_INFO,
-		               "Assoc steer; rssi=%d steer_delta_t=%d.%02d "
-		               "probe_delta_t=%d.%02d",
+		               "Assoc steer; rssi=%d steer_delta_t=%ld.%02ld "
+		               "probe_delta_t=%ld.%02ld",
 		               ssi_signal, steer_delta_time.sec,
 		               steer_delta_time.usec / 10000,
 		               probe_delta_time.sec,
@@ -758,7 +762,7 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 	os_reltime_sub(&now, &bandsteer_time, &steer_delta_time);
 	hostapd_logger(hapd->msg_ctx, sta_mac,
 	               HOSTAPD_MODULE_IEEE80211, HOSTAPD_LEVEL_INFO,
-	               "Assoc steer fail; steer_delta_t=%d.%02d rssi=%d",
+	               "Assoc steer fail; steer_delta_t=%ld.%02ld rssi=%d",
 	               steer_delta_time.sec, steer_delta_time.usec / 10000,
 	               ssi_signal);
 	wpa_msg(hapd->msg_ctx, MSG_INFO,

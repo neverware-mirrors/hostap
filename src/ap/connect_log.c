@@ -16,9 +16,7 @@
 #include "common/defs.h"
 #include "common/ieee802_11_defs.h"
 #include "common/wpa_ctrl.h"
-#include "hostapd.h"
 #include "connect_log.h"
-#include "sta_info.h"
 #include "steering.h"
 #include "ap_drv_ops.h"
 
@@ -147,7 +145,7 @@ static Boolean is_valid_delta_time(struct os_reltime *delta_time)
 /**
  * log connection specific event on to control socket.
  */
-void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
+void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 		       connection_event c_event, int status,
 		       connection_event_reason event_reason,
 		       struct sta_info *sta, int frame_status,

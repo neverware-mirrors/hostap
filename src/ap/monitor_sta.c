@@ -196,6 +196,8 @@ Boolean monitor_sta_info_update(mon_sta_t mon_sta, mon_sta_event event,
 {
 	struct monitor_sta_info_element *sta;
 	struct os_time now;
+	struct ieee80211_ht_capabilities *ht= NULL;
+	struct ieee80211_vht_capabilities *vht = NULL;
 	u32 hyst_diff = 0;
 
 	if (!mon_sta)
@@ -210,10 +212,14 @@ Boolean monitor_sta_info_update(mon_sta_t mon_sta, mon_sta_event event,
 
 	os_get_time(&now);
 
-	if (elems.vht_capabilities)
-		*nss = ieee802_11_find_vht_nss(elems.vht_capabilities);
-	else if (elems.ht_capabilities)
-		*nss = ieee802_11_find_ht_nss(elems.ht_capabilities);
+	if (elems.vht_capabilities) {
+		vht =
+		    (struct ieee80211_vht_capabilities *)elems.vht_capabilities;
+		*nss = ieee802_11_find_vht_nss(vht);
+	} else if (elems.ht_capabilities) {
+		ht = (struct ieee80211_ht_capabilities *)elems.ht_capabilities;
+		*nss = ieee802_11_find_ht_nss(ht);
+	}
 
 	os_memcpy(sta->info.addr, mac, 6);
 

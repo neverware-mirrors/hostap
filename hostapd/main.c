@@ -28,6 +28,7 @@
 #include "config_file.h"
 #include "eap_register.h"
 #include "ctrl_iface.h"
+#include "ap/steering.h"
 
 
 struct hapd_global {

@@ -9,6 +9,9 @@
 #ifndef CONNECTION_LOG_H
 #define CONNECTION_LOG_H
 
+#include "hostapd.h"
+#include "sta_info.h"
+
 typedef enum {
 	CONNECTION_EVENT_AUTH,
 	CONNECTION_EVENT_AUTH_RESP,
@@ -60,7 +63,7 @@ typedef enum {
  */
 
 #ifdef HOSTAPD
-void connect_log_event(struct hostapd_data *hapd, u8 *sta_addr,
+void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 		       connection_event c_event, int status,
 		       connection_event_reason event_reason,
 		       struct sta_info *sta, int frame_status,
