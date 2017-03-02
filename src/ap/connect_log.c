@@ -41,6 +41,22 @@ static const char *disconnect_log_event_str(connection_event_reason event)
 	switch (event) {
 		case REASON_NONE:
 			return "none";
+		case REASON_UNSPECIFIED_FAIILURE:
+			return "unspecified";
+		case REASON_AUTH_REJECT_UNSUPPORTED_ALG:
+			return "unsupported_alg";
+		case REASON_AUTH_REJECT_BLACKLISTED:
+			return "sta_blacklisted";
+		case REASON_AUTH_REJECT_MIC_FAIL:
+			return "mic_fail";
+		case REASON_AUTH_REJECT_UNKNOWN_TRANSACTION:
+			return "unknown_transaction";
+		case REASON_AUTH_REJECT_SUGGESTED_BSS_TRANSITION:
+			return "suggested_bss_transition";
+		case REASON_AUTH_REJECT_UNABLE_TO_HANDLE_NEW_STA:
+			return "unable_to_handle_sta";
+		case REASON_AUTH_REJECT_ALLOC_FAIL:
+			return "alloc_fail";
 		case REASON_ASSOC_REJECT_STEER:
 			return "reject_steer";
 		case REASON_ASSOC_REJECT_REACHED_MAX_AID:
@@ -61,6 +77,8 @@ static const char *disconnect_log_event_str(connection_event_reason event)
 			return "invalid_length";
 		case REASON_ASSOC_REJECT_ALLOC_FAIL:
 			return "alloc_fail";
+		case REASON_ASSOC_REJECT_BLACKLISTED:
+			return "sta_blacklisted";
 		case REASON_FAILED_TO_ADD_STA:
 			return "failed_to_add";
 		case REASON_NO_ACK:

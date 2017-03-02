@@ -17,6 +17,7 @@ CFLAGS += -DCONFIG_IEEE80211W
 CFLAGS += -DCONFIG_WPS
 CFLAGS += -DCONFIG_PROXYARP
 CFLAGS += -DCONFIG_IAPP
+CFLAGS += -DCONFIG_BLACKLIST_STA
 
 LIB_OBJS= \
 	accounting.o \
@@ -26,6 +27,7 @@ LIB_OBJS= \
 	ap_mlme.o \
 	authsrv.o \
 	beacon.o \
+	blacklist.o \
 	bss_load.o \
 	ctrl_iface_ap.o \
 	dfs.o \

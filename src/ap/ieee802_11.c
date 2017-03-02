@@ -43,6 +43,7 @@
 #include "ieee802_11.h"
 #include "dfs.h"
 #include "ap/steering.h"
+#include "ap/blacklist.h"
 #ifdef CONFIG_CLIENT_TAXONOMY
 #include "taxonomy.h"
 #endif /* CONFIG_CLIENT_TAXONOMY */
@@ -955,6 +956,7 @@ static void handle_auth(struct hostapd_data *hapd,
 	char *identity = NULL;
 	char *radius_cui = NULL;
 	u16 seq_ctrl;
+	connection_event_reason reason = REASON_NONE;
 
 	if (len < IEEE80211_HDRLEN + sizeof(mgmt->u.auth)) {
 		wpa_printf(MSG_INFO, "handle_auth - too short payload (len=%lu)",
@@ -998,12 +1000,23 @@ static void handle_auth(struct hostapd_data *hapd,
 			   "Unsupported authentication algorithm (%d)",
 			   auth_alg);
 		resp = WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG;
+		reason = REASON_AUTH_REJECT_UNSUPPORTED_ALG;
 		goto fail;
 	}
 #endif /* CONFIG_NO_RC4 */
 
+
+#ifdef HOSTAPD
+	if (sta_blacklist_should_reject(hapd, mgmt->sa, TRUE)) {
+		resp = WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
+		reason = REASON_AUTH_REJECT_BLACKLISTED;
+		goto fail;
+	}
+#endif
+
 	if (hapd->tkip_countermeasures) {
 		resp = WLAN_REASON_MICHAEL_MIC_FAILURE;
+		reason = REASON_AUTH_REJECT_MIC_FAIL;
 		goto fail;
 	}
 
@@ -1022,6 +1035,7 @@ static void handle_auth(struct hostapd_data *hapd,
 		wpa_printf(MSG_INFO, "Unsupported authentication algorithm (%d)",
 			   auth_alg);
 		resp = WLAN_STATUS_NOT_SUPPORTED_AUTH_ALG;
+		reason = REASON_AUTH_REJECT_UNSUPPORTED_ALG;
 		goto fail;
 	}
 
@@ -1030,6 +1044,7 @@ static void handle_auth(struct hostapd_data *hapd,
 		wpa_printf(MSG_INFO, "Unknown authentication transaction number (%d)",
 			   auth_transaction);
 		resp = WLAN_STATUS_UNKNOWN_AUTH_TRANSACTION;
+		reason = REASON_AUTH_REJECT_UNKNOWN_TRANSACTION;
 		goto fail;
 	}
 
@@ -1037,6 +1052,7 @@ static void handle_auth(struct hostapd_data *hapd,
 		wpa_printf(MSG_INFO, "Station " MACSTR " not allowed to authenticate",
 			   MAC2STR(mgmt->sa));
 		resp = WLAN_STATUS_UNSPECIFIED_FAILURE;
+		reason = REASON_UNSPECIFIED_FAIILURE;
 		goto fail;
 	}
 
@@ -1056,6 +1072,7 @@ static void handle_auth(struct hostapd_data *hapd,
 				   hapd->conf->no_auth_if_seen_on);
 
 			resp = WLAN_STATUS_REJECTED_WITH_SUGGESTED_BSS_TRANSITION;
+			reason = REASON_AUTH_REJECT_SUGGESTED_BSS_TRANSITION;
 			pos = &resp_ies[0];
 			*pos++ = WLAN_EID_NEIGHBOR_REPORT;
 			*pos++ = 13;
@@ -1104,6 +1121,7 @@ static void handle_auth(struct hostapd_data *hapd,
 		wpa_printf(MSG_INFO, "Station " MACSTR " not allowed to authenticate",
 			   MAC2STR(mgmt->sa));
 		resp = WLAN_STATUS_UNSPECIFIED_FAILURE;
+		reason = REASON_UNSPECIFIED_FAIILURE;
 		goto fail;
 	}
 	if (res == HOSTAPD_ACL_PENDING) {
@@ -1159,6 +1177,7 @@ static void handle_auth(struct hostapd_data *hapd,
 		sta = ap_sta_add(hapd, mgmt->sa);
 		if (!sta) {
 			resp = WLAN_STATUS_AP_UNABLE_TO_HANDLE_NEW_STA;
+			reason = REASON_AUTH_REJECT_UNABLE_TO_HANDLE_NEW_STA;
 			goto fail;
 		}
 	}
@@ -1172,6 +1191,7 @@ static void handle_auth(struct hostapd_data *hapd,
 				       "%d received from RADIUS server",
 				       vlan_id);
 			resp = WLAN_STATUS_UNSPECIFIED_FAILURE;
+			reason = REASON_UNSPECIFIED_FAIILURE;
 			goto fail;
 		}
 		sta->vlan_id = vlan_id;
@@ -1237,6 +1257,7 @@ static void handle_auth(struct hostapd_data *hapd,
 			wpa_printf(MSG_DEBUG, "FT: Failed to initialize WPA "
 				   "state machine");
 			resp = WLAN_STATUS_UNSPECIFIED_FAILURE;
+			reason = REASON_AUTH_REJECT_ALLOC_FAIL;
 			goto fail;
 		}
 		wpa_ft_process_auth(sta->wpa_sm, mgmt->bssid,
@@ -1260,6 +1281,7 @@ static void handle_auth(struct hostapd_data *hapd,
 				wpa_printf(MSG_DEBUG,
 					   "SAE: Failed to initialize WPA state machine");
 				resp = WLAN_STATUS_UNSPECIFIED_FAILURE;
+				reason = REASON_AUTH_REJECT_ALLOC_FAIL;
 				goto fail;
 			}
 		}
@@ -1277,8 +1299,9 @@ static void handle_auth(struct hostapd_data *hapd,
 	send_auth_reply(hapd, mgmt->sa, mgmt->bssid, auth_alg,
 			auth_transaction + 1, resp, resp_ies, resp_ies_len);
 	connect_log_event(hapd, mgmt->sa, CONNECTION_EVENT_AUTH,
-			  (resp == WLAN_STATUS_SUCCESS), REASON_NONE, NULL, resp,
-			  ssi_signal, INVALID_STEERING_REASON, NULL, NULL, NULL);
+			  (resp == WLAN_STATUS_SUCCESS), reason, NULL,
+			  resp, ssi_signal, INVALID_STEERING_REASON, NULL,
+			  NULL, NULL);
 }
 
 
@@ -2068,9 +2091,14 @@ static void handle_assoc(struct hostapd_data *hapd,
 		goto fail;
 
 #ifdef HOSTAPD
-	if (should_steer_on_assoc(hapd, mgmt->sa, ssi_signal, reassoc, &s_reason,
-				  &probe_delta_time, &steer_delta_time,
-				  &defer_delta_time)) {
+	if (sta_blacklist_should_reject(hapd, mgmt->sa, TRUE)) {
+		resp = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
+		sta->disassoc_reason = REASON_ASSOC_REJECT_BLACKLISTED;
+		goto fail;
+
+	} else if (should_steer_on_assoc(hapd, mgmt->sa, ssi_signal,
+					 reassoc, &s_reason, &probe_delta_time,
+					 &steer_delta_time, &defer_delta_time)) {
 		resp = WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
 		sta->disassoc_reason = REASON_ASSOC_REJECT_STEER;
 		goto fail;

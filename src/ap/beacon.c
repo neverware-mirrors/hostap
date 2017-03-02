@@ -34,6 +34,7 @@
 #ifdef HOSTAPD
 #include "ap/steering.h"
 #include "ap/monitor_sta.h"
+#include "ap/blacklist.h"
 #endif
 
 #ifdef CONFIG_CLIENT_TAXONOMY
@@ -674,6 +675,9 @@ void handle_probe_req(struct hostapd_data *hapd,
 #endif
 
 #ifdef HOSTAPD
+	if (sta_blacklist_should_reject(hapd, mgmt->sa, FALSE))
+		return;
+
 	write_probe_timestamp(hapd, mgmt->sa, ssi_signal);
 #endif
 	ie = mgmt->u.probe_req.variable;
