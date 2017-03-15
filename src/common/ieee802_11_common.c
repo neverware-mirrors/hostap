@@ -1207,3 +1207,36 @@ struct wpabuf * mb_ies_by_info(struct mb_ies_info *info)
 
 	return mb_ies;
 }
+
+static enum phy_type ieee80211_phy_type_by_freq(int freq)
+{
+	enum hostapd_hw_mode hw_mode;
+	u8 channel;
+
+	hw_mode = ieee80211_freq_to_chan(freq, &channel);
+
+	switch (hw_mode) {
+		case HOSTAPD_MODE_IEEE80211A:
+			return PHY_TYPE_OFDM;
+		case HOSTAPD_MODE_IEEE80211B:
+			return PHY_TYPE_HRDSSS;
+		case HOSTAPD_MODE_IEEE80211G:
+			return PHY_TYPE_ERP;
+		case HOSTAPD_MODE_IEEE80211AD:
+			return PHY_TYPE_DMG;
+		default:
+			return PHY_TYPE_UNSPECIFIED;
+	};
+}
+
+
+/* ieee80211_get_phy_type - Derive the phy type by freq and bandwidth */
+enum phy_type ieee80211_get_phy_type(int freq, int ht, int vht)
+{
+	if (vht)
+		return PHY_TYPE_VHT;
+	if (ht)
+		return PHY_TYPE_HT;
+
+	return ieee80211_phy_type_by_freq(freq);
+}

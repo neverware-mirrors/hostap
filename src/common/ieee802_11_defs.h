@@ -1505,6 +1505,19 @@ enum fst_action {
 	FST_ACTION_ON_CHANNEL_TUNNEL = 5,
 };
 
+/* IEEE Std 802.11ac-2013, Annex C - dot11PHYType */
+enum phy_type {
+	PHY_TYPE_UNSPECIFIED = 0,
+	PHY_TYPE_FHSS = 1,
+	PHY_TYPE_DSSS = 2,
+	PHY_TYPE_IRBASEBAND = 3,
+	PHY_TYPE_OFDM = 4,
+	PHY_TYPE_HRDSSS = 5,
+	PHY_TYPE_ERP = 6,
+	PHY_TYPE_HT = 7,
+	PHY_TYPE_DMG = 8,
+	PHY_TYPE_VHT = 9,
+};
 
 /* IEEE P802.11-REVmc/D5.0, 9.4.2.37 - Neighbor Report element */
 /* BSSID Information Field */
