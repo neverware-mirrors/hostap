@@ -1806,6 +1806,12 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 		sta->mb_ies = NULL;
 #endif /* CONFIG_FST */
 
+	if ((sta->capability & WLAN_CAPABILITY_RADIO_MEASUREMENT) &&
+		elems.rrm_enabled &&
+		elems.rrm_enabled_len >= sizeof(sta->rrm_enabled_capa))
+		os_memcpy(sta->rrm_enabled_capa, elems.rrm_enabled,
+			sizeof(sta->rrm_enabled_capa));
+
 	return WLAN_STATUS_SUCCESS;
 }
 
@@ -2090,6 +2096,12 @@ static void handle_assoc(struct hostapd_data *hapd,
 		goto fail;
 	}
 
+	/*
+	 * sta->capability is used in check_assoc_ies() for RRM enabled
+	 * capability element.
+	 */
+	sta->capability = capab_info;
+
 	/* followed by SSID and Supported rates; and HT capabilities if 802.11n
 	 * is used */
 	resp = check_assoc_ies(hapd, sta, pos, left, reassoc);
@@ -2119,7 +2131,6 @@ static void handle_assoc(struct hostapd_data *hapd,
 		goto fail;
 	}
 
-	sta->capability = capab_info;
 	sta->listen_interval = listen_interval;
 
 	if (hapd->iface->current_mode->mode == HOSTAPD_MODE_IEEE80211G)

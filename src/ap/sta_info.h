@@ -181,6 +181,7 @@ struct sta_info {
 	char probe_ie_taxonomy[TAXONOMY_STRING_LEN];
 	char assoc_ie_taxonomy[TAXONOMY_STRING_LEN];
 #endif /* CONFIG_CLIENT_TAXONOMY */
+	u8 rrm_enabled_capa[5];
 };
 
 
