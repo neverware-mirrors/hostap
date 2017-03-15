@@ -1867,7 +1867,6 @@ static int hs20_parse_osu_service_desc(struct hostapd_bss_config *bss,
 #endif /* CONFIG_HS20 */
 
 
-#ifdef CONFIG_WPS_NFC
 static struct wpabuf * hostapd_parse_bin(const char *buf)
 {
 	size_t len;
@@ -1889,7 +1888,6 @@ static struct wpabuf * hostapd_parse_bin(const char *buf)
 
 	return ret;
 }
-#endif /* CONFIG_WPS_NFC */
 
 
 #ifdef CONFIG_ACS
@@ -3409,6 +3407,12 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 	} else if (os_strcmp(buf, "no_auth_if_seen_on") == 0) {
 		os_free(bss->no_auth_if_seen_on);
 		bss->no_auth_if_seen_on = os_strdup(pos);
+	} else if (os_strcmp(buf, "lci") == 0) {
+		wpabuf_free(conf->lci);
+		conf->lci = hostapd_parse_bin(pos);
+	} else if (os_strcmp(buf, "civic") == 0) {
+		wpabuf_free(conf->civic);
+		conf->civic = hostapd_parse_bin(pos);
 	} else if (os_strcmp(buf, "disable_40mhz_scan") == 0) {
 		conf->disable_40mhz_scan = atoi(pos);
 	} else {
