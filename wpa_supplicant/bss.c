@@ -1014,20 +1014,7 @@ struct wpa_bss * wpa_bss_get_id_range(struct wpa_supplicant *wpa_s,
  */
 const u8 * wpa_bss_get_ie(const struct wpa_bss *bss, u8 ie)
 {
-	const u8 *end, *pos;
-
-	pos = (const u8 *) (bss + 1);
-	end = pos + bss->ie_len;
-
-	while (pos + 1 < end) {
-		if (pos + 2 + pos[1] > end)
-			break;
-		if (pos[0] == ie)
-			return pos;
-		pos += 2 + pos[1];
-	}
-
-	return NULL;
+	return get_ie((const u8 *) (bss + 1), bss->ie_len, ie);
 }
 
 

@@ -1240,3 +1240,35 @@ enum phy_type ieee80211_get_phy_type(int freq, int ht, int vht)
 
 	return ieee80211_phy_type_by_freq(freq);
 }
+
+/**
+ * get_ie - Fetch a specified information element from IEs buffer
+ * @ies: Information elements buffer
+ * @len: Information elements buffer length
+ * @eid: Information element identifier (WLAN_EID_*)
+ * Returns: Pointer to the information element (id field) or %NULL if not found
+ *
+ * This function returns the first matching information element in the IEs
+ * buffer or %NULL in case the element is not found.
+ */
+const u8 * get_ie(const u8 *ies, size_t len, u8 eid)
+{
+	const u8 *end;
+
+	if (!ies)
+		return NULL;
+
+	end = ies + len;
+
+	while (end - ies > 1) {
+		if (2 + ies[1] > end - ies)
+			break;
+
+		if (ies[0] == eid)
+			return ies;
+
+		ies += 2 + ies[1];
+	}
+
+	return NULL;
+}

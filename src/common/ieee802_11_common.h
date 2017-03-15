@@ -132,6 +132,7 @@ int mb_ies_info_by_ies(struct mb_ies_info *info, const u8 *ies_buf,
 struct wpabuf * mb_ies_by_info(struct mb_ies_info *info);
 
 const char * fc2str(u16 fc);
+const u8 * get_ie(const u8 *ies, size_t len, u8 eid);
 
 u16 ieee802_11_find_ht_nss(struct ieee80211_ht_capabilities *ht);
 u16 ieee802_11_find_vht_nss(struct ieee80211_vht_capabilities *vht);
