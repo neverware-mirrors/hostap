@@ -230,6 +230,8 @@ extern "C" {
 
 /* parameters: <STA address> <dialog token> <ack=0/1> */
 #define BEACON_REQ_TX_STATUS "BEACON-REQ-TX-STATUS "
+/* parameters: <STA address> <dialog token> <report mode> <beacon report> */
+#define BEACON_RESP_RX "BEACON-RESP-RX "
 
 /* hostapd control interface - fixed message prefixes */
 #define WPS_EVENT_PIN_NEEDED "WPS-PIN-NEEDED "
