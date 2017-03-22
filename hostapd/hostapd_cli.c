@@ -1153,6 +1153,27 @@ static int hostapd_cli_cmd_req_range(struct wpa_ctrl *ctrl, int argc,
 	return wpa_ctrl_command(ctrl, cmd);
 }
 
+static int hostapd_cli_cmd_req_beacon(struct wpa_ctrl *ctrl, int argc,
+		char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 4) {
+		printf("Invalid req_beacon command: needs at least 3 "
+			"arguments <STA addr> req_mode=<mode> "
+			"<beacon_req_info>");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "REQ_BEACON %s %s %s",
+			argv[0], argv[1], argv[2]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long REQ_BEACON command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
 
 struct hostapd_cli_cmd {
 	const char *cmd;
@@ -1216,6 +1237,7 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "remove_neighbor", hostapd_cli_cmd_remove_neighbor },
 	{ "req_lci", hostapd_cli_cmd_req_lci },
 	{ "req_range", hostapd_cli_cmd_req_range },
+	{ "req_beacon", hostapd_cli_cmd_req_beacon },
 	{ NULL, NULL }
 };
 
