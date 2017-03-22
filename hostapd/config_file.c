@@ -3401,6 +3401,12 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		if (atoi(pos))
 			bss->radio_measurements[0] |=
 				WLAN_RRM_CAPS_NEIGHBOR_REPORT;
+	} else if (os_strcmp(buf, "rrm_beacon_report") == 0) {
+		if (atoi(pos))
+			bss->radio_measurements[0] |=
+				WLAN_RRM_CAPS_BEACON_REPORT_PASSIVE |
+				WLAN_RRM_CAPS_BEACON_REPORT_ACTIVE |
+				WLAN_RRM_CAPS_BEACON_REPORT_TABLE;
 	} else if (os_strcmp(buf, "disable_40mhz_scan") == 0) {
 		conf->disable_40mhz_scan = atoi(pos);
 	} else {
