@@ -1,6 +1,6 @@
 /*
  * wpa_supplicant/hostapd control interface library
- * Copyright (c) 2004-2006, Jouni Malinen <j@w1.fi>
+ * Copyright (c) 2004-2017, Jouni Malinen <j@w1.fi>
  *
  * This software may be distributed under the terms of the BSD license.
  * See README for more details.
@@ -227,6 +227,9 @@ extern "C" {
 
 #define RRM_EVENT_NEIGHBOR_REP_RXED "RRM-NEIGHBOR-REP-RECEIVED "
 #define RRM_EVENT_NEIGHBOR_REP_FAILED "RRM-NEIGHBOR-REP-REQUEST-FAILED "
+
+/* parameters: <STA address> <dialog token> <ack=0/1> */
+#define BEACON_REQ_TX_STATUS "BEACON-REQ-TX-STATUS "
 
 /* hostapd control interface - fixed message prefixes */
 #define WPS_EVENT_PIN_NEEDED "WPS-PIN-NEEDED "
