@@ -310,7 +310,6 @@ void ap_free_sta(struct hostapd_data *hapd, struct sta_info *sta)
 #endif /* CONFIG_FST */
 
 	os_free(sta->ext_capab);
-	os_free(sta->rrm_enabled_capab);
 	os_free(sta->ht_capabilities);
 	os_free(sta->vht_capabilities);
 	hostapd_free_psk_list(sta->psk);

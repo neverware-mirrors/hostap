@@ -168,13 +168,13 @@ static int hostapd_ctrl_iface_sta_mib(struct hostapd_data *hapd,
 			      sta->vht_capabilities->vht_supported_mcs_set.tx_highest);
 		len += ret;
 	}
-	if (sta->rrm_enabled_capab) {
-		ret = os_snprintf(buf + len, buflen - len, "\nrrm_enabled_capab=");
-		len += ret;
-		ret = print_bitmap(buf + len, buflen-len, sta->rrm_enabled_capab,
-				   WLAN_RRM_ENABLED_CAPABILITIES_IE_LEN);
-		len += ret;
-	}
+
+	ret = os_snprintf(buf + len, buflen - len, "\nrrm_enabled_capab=");
+	len += ret;
+	ret = print_bitmap(buf + len, buflen-len, sta->rrm_enabled_capa[0],
+			WLAN_RRM_ENABLED_CAPABILITIES_IE_LEN);
+	len += ret;
+
 	ret = os_snprintf(buf + len, buflen - len, "\ntimeout_next=%s\n",
 			  timeout_next_str(sta->timeout_next));
 	if (os_snprintf_error(buflen - len, ret))

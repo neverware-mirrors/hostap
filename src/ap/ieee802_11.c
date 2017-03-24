@@ -1462,30 +1462,6 @@ static u16 copy_sta_ext_capab(struct hostapd_data *hapd, struct sta_info *sta,
 	return WLAN_STATUS_SUCCESS;
 }
 
-static u16 copy_rrm_enabled_capab(struct hostapd_data *hapd, struct sta_info *sta,
-				  const u8 *rrm_enabled_capab, size_t rrm_enabled_capab_len)
-{
-	if (rrm_enabled_capab_len != WLAN_RRM_ENABLED_CAPABILITIES_IE_LEN ||
-		rrm_enabled_capab == NULL) {
-		os_free(sta->rrm_enabled_capab);
-		sta->rrm_enabled_capab = NULL;
-		return WLAN_STATUS_SUCCESS;
-	}
-	if (sta->rrm_enabled_capab == NULL) {
-		sta->rrm_enabled_capab= os_zalloc(WLAN_RRM_ENABLED_CAPABILITIES_IE_LEN);
-		if (sta->rrm_enabled_capab == NULL) {
-			sta->disassoc_reason =
-				REASON_ASSOC_REJECT_ALLOC_FAIL;
-			hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
-				       HOSTAPD_LEVEL_INFO,
-				       "Alloc failed for rrm copy");
-			return WLAN_STATUS_UNSPECIFIED_FAILURE;
-		}
-	}
-	os_memcpy(sta->rrm_enabled_capab, rrm_enabled_capab, rrm_enabled_capab_len);
-	return WLAN_STATUS_SUCCESS;
-}
-
 static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 			   const u8 *ies, size_t ies_len, int reassoc)
 {
@@ -1573,11 +1549,6 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 			return resp;
 		}
 	}
-
-	resp = copy_rrm_enabled_capab(hapd, sta, elems.rrm_enabled_capab,
-				      elems.rrm_enabled_capab_len);
-	if (resp != WLAN_STATUS_SUCCESS)
-		return resp;
 #endif /* CONFIG_IEEE80211AC */
 
 #ifdef CONFIG_P2P
