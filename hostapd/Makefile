@@ -67,6 +67,7 @@ OBJS += ../src/ap/beacon.o
 OBJS += ../src/ap/bss_load.o
 OBJS += ../src/ap/monitor_sta.o
 OBJS += ../src/ap/blacklist.o
+OBJS += ../src/ap/neighbor_db.o
 
 OBJS_c = hostapd_cli.o ../src/common/wpa_ctrl.o ../src/utils/os_$(CONFIG_OS).o
 
