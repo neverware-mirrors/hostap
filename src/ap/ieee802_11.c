@@ -44,6 +44,7 @@
 #include "dfs.h"
 #include "ap/steering.h"
 #include "ap/blacklist.h"
+#include "rrm.h"
 #ifdef CONFIG_CLIENT_TAXONOMY
 #include "taxonomy.h"
 #endif /* CONFIG_CLIENT_TAXONOMY */
@@ -2484,6 +2485,9 @@ static int handle_action(struct hostapd_data *hapd,
 				return 1;
 		}
 		break;
+	case WLAN_ACTION_RADIO_MEASUREMENT:
+		hostapd_handle_radio_measurement(hapd, (const u8 *) mgmt, len);
+		return 1;
 	}
 
 	hostapd_logger(hapd, mgmt->sa, HOSTAPD_MODULE_IEEE80211,
