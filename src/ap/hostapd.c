@@ -43,6 +43,7 @@
 #include "dhcp_snoop.h"
 #include "ndisc_snoop.h"
 #include "neighbor_db.h"
+#include "rrm.h"
 
 
 static int hostapd_flush_old_stations(struct hostapd_data *hapd, u16 reason);
@@ -340,7 +341,7 @@ static void hostapd_free_hapd_data(struct hostapd_data *hapd)
 	hapd->mesh_pending_auth = NULL;
 #endif /* CONFIG_MESH */
 
-	hostpad_free_neighbor_db(hapd);
+	hostapd_clean_rrm(hapd);
 }
 
 

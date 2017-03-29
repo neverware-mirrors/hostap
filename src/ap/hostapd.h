@@ -294,6 +294,9 @@ struct hostapd_data {
 	struct hapd_blacklist *blacklist;
 
 	struct dl_list nr_db;
+
+	u8 lci_req_token;
+	unsigned int lci_req_active:1;
 };
 
 
