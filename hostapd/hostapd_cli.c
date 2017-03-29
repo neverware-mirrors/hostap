@@ -1131,6 +1131,29 @@ static int hostapd_cli_cmd_req_lci(struct wpa_ctrl *ctrl, int argc,
 }
 
 
+static int hostapd_cli_cmd_req_range(struct wpa_ctrl *ctrl, int argc,
+				     char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 4) {
+		printf("Invalid req_range command: needs at least 4 arguments "
+			"- dest address, randomization interval, min AP count, "
+			"and 1 to 16 AP addresses\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "REQ_RANGE %s %s %s %s",
+			argv[0], argv[1], argv[2], argv[3]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long REQ_RANGE command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1192,6 +1215,7 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "set_neighbor", hostapd_cli_cmd_set_neighbor },
 	{ "remove_neighbor", hostapd_cli_cmd_remove_neighbor },
 	{ "req_lci", hostapd_cli_cmd_req_lci },
+	{ "req_range", hostapd_cli_cmd_req_range },
 	{ NULL, NULL }
 };
 
