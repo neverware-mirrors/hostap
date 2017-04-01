@@ -171,7 +171,7 @@ static int hostapd_ctrl_iface_sta_mib(struct hostapd_data *hapd,
 
 	ret = os_snprintf(buf + len, buflen - len, "\nrrm_enabled_capab=");
 	len += ret;
-	ret = print_bitmap(buf + len, buflen-len, sta->rrm_enabled_capa[0],
+	ret = print_bitmap(buf + len, buflen-len, sta->rrm_enabled_capa,
 			WLAN_RRM_ENABLED_CAPABILITIES_IE_LEN);
 	len += ret;
 
