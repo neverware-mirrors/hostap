@@ -38,6 +38,7 @@
 
 #ifdef HOSTAPD
 #include "ap/steering.h"	/* for write_connect_timestamp() proto */
+#include "ap/monitor_sta.h"
 #endif
 
 static void ap_sta_remove_in_other_bss(struct hostapd_data *hapd,
@@ -1089,6 +1090,7 @@ void ap_sta_set_authorized(struct hostapd_data *hapd, struct sta_info *sta,
 
 #ifdef HOSTAPD
 		write_connect_timestamp(hapd, sta->addr);
+		monitor_sta_add(hapd->mon_sta, sta->addr);
 #endif
 		hostapd_logger(hapd->msg_ctx, sta->addr,
 		               HOSTAPD_MODULE_IEEE80211,
