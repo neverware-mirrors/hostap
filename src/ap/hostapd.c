@@ -2808,6 +2808,10 @@ void hostapd_new_assoc_sta(struct hostapd_data *hapd, struct sta_info *sta,
 	} else
 		wpa_auth_sta_associated(hapd->wpa_auth, sta->wpa_sm);
 
+	/* Make sure that the previously registered inactivity timer will not
+	 * remove the STA immediately. */
+	sta->timeout_next = STA_NULLFUNC;
+
 	if (!(hapd->iface->drv_flags & WPA_DRIVER_FLAGS_INACTIVITY_TIMER)) {
 		wpa_printf(MSG_DEBUG, "%s: reschedule ap_handle_timer timeout "
 			   "for " MACSTR " (%d seconds - ap_max_inactivity)",
