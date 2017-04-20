@@ -12,7 +12,7 @@
 #define MAX_MONITOR_STA 100
 #define INVALID_STEER_SIGNAL 0
 #define INVALID_NSS 255
-#define MONITOR_STA_RSSI_HYSTERESIS 10
+#define MONITOR_STA_RSSI_HYSTERESIS 0
 
 /*
  * montor_sta_info :  monitor info per station
