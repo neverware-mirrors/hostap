@@ -3054,6 +3054,71 @@ void hostapd_cleanup_cs_params(struct hostapd_data *hapd)
 	hapd->csa_in_progress = 0;
 }
 
+#define IS_5GHZ_BAND(n) (n > 4000)
+
+Boolean hostapd_csa_req_on_same_channel(struct hostapd_data *hapd,
+				    struct csa_settings *settings)
+{
+	int vht_chwidth, ht_chwidth, req_ht_cw;
+	u8 channel;
+
+	channel = hostapd_hw_get_channel(hapd, settings->freq_params.freq);
+	if (hapd->iface->conf->channel != channel)
+		return FALSE;
+
+	if (IS_5GHZ_BAND(settings->freq_params.freq)) {
+		if (settings->freq_params.vht_enabled) {
+			switch (settings->freq_params.bandwidth) {
+			case 0:
+			case 20:
+			case 40:
+				vht_chwidth = VHT_CHANWIDTH_USE_HT;
+				break;
+			case 80:
+				if (settings->freq_params.center_freq2)
+					vht_chwidth = VHT_CHANWIDTH_80P80MHZ;
+				else
+					vht_chwidth = VHT_CHANWIDTH_80MHZ;
+				break;
+			case 160:
+				vht_chwidth = VHT_CHANWIDTH_160MHZ;
+				break;
+			default:
+				return FALSE;
+			}
+			if ((hapd->iface->conf->vht_oper_chwidth == vht_chwidth)
+			    && (hapd->iface->conf->vht_oper_centr_freq_seg0_idx ==
+			        (36 + (settings->freq_params.center_freq1
+				- 5180) / 5))) {
+				return TRUE;
+			}
+		} else if (settings->freq_params.ht_enabled) {
+			ht_chwidth = hapd->iface->conf->secondary_channel
+				? 40 : 20;
+			req_ht_cw = settings->freq_params.sec_channel_offset
+				? 40 : 20;
+			if ((ht_chwidth == req_ht_cw) &&
+			    (hapd->iface->conf->secondary_channel ==
+			     settings->freq_params.sec_channel_offset)) {
+				return TRUE;
+			}
+		} else {
+			/*  IEEE802.11a If channel same return 0*/
+			return TRUE;
+		}
+	} else {
+		/* 2.4GHZ */
+		if(settings->freq_params.ht_enabled) {
+			if (ht_chwidth == req_ht_cw)
+				return TRUE;
+		} else {
+			/* Non HT */
+			return TRUE;
+		}
+	}
+
+	return FALSE;
+}
 
 int hostapd_switch_channel(struct hostapd_data *hapd,
 			   struct csa_settings *settings)
@@ -3066,6 +3131,14 @@ int hostapd_switch_channel(struct hostapd_data *hapd,
 			       "CSA is not supported");
 		return -1;
 	}
+
+	/* If ACS enabled(channel=0) , CSA is not allowed */
+	if(!hapd->iface->freq)
+		return -1;
+
+	/* Do not fail channel switch command to the same channel. */
+	if (hostapd_csa_req_on_same_channel(hapd, settings))
+		return 0;
 
 	ret = hostapd_fill_csa_settings(hapd, settings);
 	if (ret)
