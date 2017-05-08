@@ -439,11 +439,11 @@ void hostapd_event_sta_low_ack(struct hostapd_data *hapd, const u8 *addr)
 		       HOSTAPD_LEVEL_INFO,
 		       "disconnected due to excessive missing ACKs");
 	if (sta) {
-		ap_sta_disassociate(hapd, sta, WLAN_REASON_DISASSOC_LOW_ACK);
 		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_DISCONNECT,
-				  1, REASON_DISCONNECT_LOW_ACK, NULL,
+				  1, REASON_DISCONNECT_LOW_ACK, sta,
 				  WLAN_REASON_DISASSOC_LOW_ACK, INVALID_SIGNAL,
 				  INVALID_STEERING_REASON, NULL, NULL, NULL);
+		ap_sta_disassociate(hapd, sta, WLAN_REASON_DISASSOC_LOW_ACK);
 	}
 	hostapd_drv_sta_disassoc(hapd, addr, WLAN_REASON_DISASSOC_LOW_ACK);
 
