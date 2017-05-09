@@ -235,13 +235,16 @@ static void wpa_sta_disconnect(struct wpa_authenticator *wpa_auth,
 		return;
 	wpa_printf(MSG_DEBUG, "wpa_sta_disconnect STA " MACSTR, MAC2STR(addr));
 	connect_log_event(wpa_auth->cb.ctx, addr,
-			  CONNECTION_EVENT_DISCONNECT, 1,
+			  CONNECTION_EVENT_DISCONNECT,
+			  wpa_auth->eapol_ack_bitmap > 0 ? 1 : 0,
 			  wpa_auth->reason, NULL,
 			  WLAN_REASON_PREV_AUTH_NOT_VALID,
 			  INVALID_SIGNAL, INVALID_STEERING_REASON,
-			  NULL, NULL, NULL);
+			  NULL, NULL, NULL, wpa_auth->eapol_ack_bitmap);
 	/* Reset the reason back to default value */
 	wpa_auth->reason = REASON_DISCONNECT_WPA_AUTH;
+	wpa_auth->eapol_count = 0;
+	wpa_auth->eapol_ack_bitmap = 0;
 	wpa_auth->cb.disconnect(wpa_auth->cb.ctx, addr,
 				WLAN_REASON_PREV_AUTH_NOT_VALID);
 }
@@ -998,6 +1001,9 @@ void wpa_receive(struct wpa_authenticator *wpa_auth,
 		msg = PAIRWISE_2;
 		msgtxt = "2/4 Pairwise";
 	}
+
+	if (msg == PAIRWISE_2 || msg == PAIRWISE_4 || msg == GROUP_2)
+		wpa_auth->eapol_count = wpa_auth->eapol_ack_bitmap = 0;
 
 	/* TODO: key_info type validation for PeerKey */
 	if (msg == REQUEST || msg == PAIRWISE_2 || msg == PAIRWISE_4 ||
@@ -2010,6 +2016,8 @@ SM_STATE(WPA_PTK, PTKSTART)
         }
 
 	sm->TimeoutCtr++;
+	sm->wpa_auth->eapol_count++;
+
 	if (sm->TimeoutCtr > (int) dot11RSNAConfigPairwiseUpdateCount) {
 		/* No point in sending the EAPOL-Key - we will disconnect
 		 * immediately following this. */
@@ -2244,6 +2252,7 @@ SM_STATE(WPA_PTK, PTKINITNEGOTIATING)
 	}
 
 	sm->TimeoutCtr++;
+	sm->wpa_auth->eapol_count++;
 	if (sm->TimeoutCtr > (int) dot11RSNAConfigPairwiseUpdateCount) {
 		/* No point in sending the EAPOL-Key - we will disconnect
 		 * immediately following this. */
@@ -2606,6 +2615,7 @@ SM_STATE(WPA_PTK_GROUP, REKEYNEGOTIATING)
 	SM_ENTRY_MA(WPA_PTK_GROUP, REKEYNEGOTIATING, wpa_ptk_group);
 
 	sm->GTimeoutCtr++;
+	sm->wpa_auth->eapol_count++;
 	if (sm->GTimeoutCtr > (int) dot11RSNAConfigGroupUpdateCount) {
 		/* No point in sending the EAPOL-Key - we will disconnect
 		 * immediately following this. */
@@ -3527,6 +3537,10 @@ void wpa_auth_eapol_key_tx_status(struct wpa_authenticator *wpa_auth,
 		return;
 	wpa_printf(MSG_DEBUG, "WPA: EAPOL-Key TX status for STA " MACSTR
 		   " ack=%d", MAC2STR(sm->addr), ack);
+
+	if (ack)
+		wpa_auth->eapol_ack_bitmap |= BIT((wpa_auth->eapol_count - 1));
+
 	if (sm->pending_1_of_4_timeout && ack) {
 		/*
 		 * Some deployed supplicant implementations update their SNonce

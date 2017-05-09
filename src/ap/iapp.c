@@ -311,7 +311,7 @@ static void iapp_process_add_notify(struct iapp_data *iapp,
 				  CONNECTION_EVENT_DISCONNECT,
 				  1, REASON_DISCONNECT_IAPP_NOTIFY, sta, 0,
 				  INVALID_SIGNAL, INVALID_STEERING_REASON, NULL,
-				  NULL, NULL);
+				  NULL, NULL, -1);
 	}
 
 	ap_sta_disconnect(iapp->hapd, sta, NULL, 0);

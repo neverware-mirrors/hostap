@@ -508,7 +508,7 @@ skip_poll:
 				  (sta->timeout_next == STA_DISASSOC) ?
 				  REASON_NONE : REASON_DISCONNECT_BSS_TM_REQ_CLI,
 				  sta, reason, INVALID_SIGNAL,
-				  INVALID_STEERING_REASON, NULL, NULL, NULL);
+				  INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 		sta->timeout_next = STA_DEAUTH;
 		wpa_printf(MSG_DEBUG, "%s: register ap_handle_timer timeout "
 			   "for " MACSTR " (%d seconds - AP_DEAUTH_DELAY)",
@@ -714,7 +714,7 @@ static void ap_sta_remove_in_other_bss(struct hostapd_data *hapd,
 					  sta2, WLAN_REASON_PREV_AUTH_NOT_VALID,
 					  INVALID_SIGNAL,
 					  INVALID_STEERING_REASON,
-					  NULL, NULL, NULL);
+					  NULL, NULL, NULL, -1);
 		}
 
 		ap_sta_disconnect(bss, sta2, sta2->addr,
@@ -1098,7 +1098,7 @@ void ap_sta_set_authorized(struct hostapd_data *hapd, struct sta_info *sta,
 		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_CONNECT,
 				  1, REASON_NONE, sta, INVALID_FRAME_STATUS,
 				  INVALID_SIGNAL, INVALID_STEERING_REASON,
-				  NULL, NULL, NULL);
+				  NULL, NULL, NULL, -1);
 		wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_CONNECTED "%s%s",
 			buf, ip_addr);
 

@@ -1307,7 +1307,7 @@ static void handle_auth(struct hostapd_data *hapd,
 	connect_log_event(hapd, mgmt->sa, CONNECTION_EVENT_AUTH,
 			  (resp == WLAN_STATUS_SUCCESS), reason, NULL,
 			  resp, ssi_signal, INVALID_STEERING_REASON, NULL,
-			  NULL, NULL);
+			  NULL, NULL, -1);
 }
 
 
@@ -2181,7 +2181,7 @@ static void handle_assoc(struct hostapd_data *hapd,
 			  (resp == WLAN_STATUS_SUCCESS), sta->disassoc_reason,
 			  NULL, resp, ssi_signal, (int)s_reason,
 			  &probe_delta_time, &steer_delta_time,
-			  &defer_delta_time);
+			  &defer_delta_time, -1);
 }
 
 
@@ -2214,7 +2214,7 @@ static void handle_disassoc(struct hostapd_data *hapd,
 				  1, REASON_DISCONNECT_FROM_CLIENT, sta,
 				  le_to_host16(mgmt->u.disassoc.reason_code),
 				  ssi_signal, INVALID_STEERING_REASON, NULL,
-				  NULL, NULL);
+				  NULL, NULL, -1);
 	}
 
 	ap_sta_set_authorized(hapd, sta, 0);
@@ -2279,7 +2279,7 @@ static void handle_deauth(struct hostapd_data *hapd,
 				  REASON_DISCONNECT_FROM_CLIENT, sta,
 				  le_to_host16(mgmt->u.deauth.reason_code),
 				  ssi_signal, INVALID_STEERING_REASON, NULL,
-				  NULL, NULL);
+				  NULL, NULL, -1);
 	}
 
 	ap_sta_set_authorized(hapd, sta, 0);
@@ -2636,7 +2636,7 @@ static void handle_auth_cb(struct hostapd_data *hapd,
 		connect_log_event(hapd, mgmt->da, CONNECTION_EVENT_AUTH_RESP,
 				  0, REASON_NO_ACK, NULL,
 				  WLAN_REASON_UNSPECIFIED, INVALID_SIGNAL,
-				  INVALID_STEERING_REASON, NULL, NULL, NULL);
+				  INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 		return;
 	}
 
@@ -2723,7 +2723,7 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_ASSOC_RESP,
 				  0, REASON_NO_ACK, sta,
 				  WLAN_REASON_UNSPECIFIED, INVALID_SIGNAL,
-				  INVALID_STEERING_REASON, NULL, NULL, NULL);
+				  INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 		return;
 	}
 
@@ -2797,7 +2797,7 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 				  0, REASON_FAILED_TO_ADD_STA, sta,
 				  WLAN_REASON_DISASSOC_AP_BUSY,
 				  INVALID_SIGNAL, INVALID_STEERING_REASON,
-				  NULL, NULL, NULL);
+				  NULL, NULL, NULL, -1);
 		ap_sta_disconnect(hapd, sta, sta->addr,
 				  WLAN_REASON_DISASSOC_AP_BUSY);
 
@@ -2889,7 +2889,7 @@ static void handle_disassoc_cb(struct hostapd_data *hapd,
 				  CONNECTION_EVENT_DISASSOC_RESP, ok,
 				  REASON_NO_ACK, sta, ok, INVALID_SIGNAL,
 				  INVALID_STEERING_REASON, NULL,
-				  NULL, NULL);
+				  NULL, NULL, -1);
 
 	ap_sta_disassoc_cb(hapd, sta);
 }

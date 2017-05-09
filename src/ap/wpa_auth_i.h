@@ -210,6 +210,8 @@ struct wpa_authenticator {
 	struct bitfield *ip_pool;
 #endif /* CONFIG_P2P */
 	connection_event_reason reason;
+	int eapol_ack_bitmap;
+	u32 eapol_count;
 };
 
 

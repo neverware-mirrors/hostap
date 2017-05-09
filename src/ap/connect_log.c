@@ -170,7 +170,8 @@ void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 		       int signal, int s_reason,
 		       struct os_reltime *probe_delta_time,
 		       struct os_reltime *steer_delta_time,
-		       struct os_reltime *defer_delta_time)
+		       struct os_reltime *defer_delta_time,
+		       int eapol_ack_bitmap)
 {
 	const char *event_str;
 	char *buf;
@@ -213,6 +214,13 @@ void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 	ret = os_snprintf(buf + len, buflen - len, " timestamp:%u%03u",
 			  (unsigned long)tv.sec , (unsigned long)tv.usec/1000);
 	len += ret;
+
+	if (eapol_ack_bitmap > -1) {
+		ret = os_snprintf(buf + len, buflen - len, " eapol_ack_bitmap:%d",
+				  eapol_ack_bitmap);
+		len += ret;
+	}
+
 	ret = os_snprintf(buf + len, buflen - len, " success:%d", status);
 	len += ret;
 	ret = os_snprintf(buf + len, buflen - len, " event_reason:%s",
