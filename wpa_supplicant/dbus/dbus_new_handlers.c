@@ -2119,7 +2119,7 @@ DBusMessage * wpas_dbus_handler_set_ht40_enable(DBusMessage *message,
 	DBusMessage *reply = NULL;
 	const char *op;
 	dbus_bool_t enable;
-	char *iface = NULL, *net_id = NULL;
+	char *iface, *net_id;
 	int id;
 	struct wpa_ssid *ssid;
 
@@ -2131,7 +2131,9 @@ DBusMessage * wpas_dbus_handler_set_ht40_enable(DBusMessage *message,
 
 	/* Extract the network ID and ensure the network */
 	/* is actually a child of this interface */
-	iface = wpas_dbus_new_decompose_object_path(op, 0, &net_id);
+	iface = wpas_dbus_new_decompose_object_path(op,
+						    WPAS_DBUS_NEW_NETWORKS_PART,
+						    &net_id);
 	if (iface == NULL || net_id == NULL ||
 	    os_strcmp(iface, wpa_s->dbus_new_path) != 0) {
 		reply = wpas_dbus_error_invalid_args(message, op);
@@ -2158,7 +2160,6 @@ DBusMessage * wpas_dbus_handler_set_ht40_enable(DBusMessage *message,
 
 out:
 	os_free(iface);
-	os_free(net_id);
 	return reply;
 #else /* CONFIG_HT_OVERRIDES */
 	return wpas_dbus_error_unknown_error(message,
