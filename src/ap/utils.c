@@ -80,8 +80,8 @@ static int prune_associations(struct hostapd_iface *iface, void *ctx)
 					  INVALID_STEERING_REASON, NULL,
 					  NULL, NULL, -1);
 		}
-
-		ap_sta_disassociate(ohapd, osta, WLAN_REASON_UNSPECIFIED);
+		/* set is_prune flag, so that STA entry is removed immediately */
+		ap_sta_disassociate(ohapd, osta, WLAN_REASON_UNSPECIFIED, 1);
 	}
 
 	return 0;

@@ -466,7 +466,7 @@ int hostapd_ctrl_iface_disassociate(struct hostapd_data *hapd,
 			      1, REASON_DISCONNECT_DISASSOC_CLI, sta, reason,
 			      INVALID_SIGNAL, INVALID_STEERING_REASON, NULL,
 			      NULL, NULL, -1);
-	    ap_sta_disassociate(hapd, sta, reason);
+	    ap_sta_disassociate(hapd, sta, reason, 0);
 	}
 	else if (addr[0] == 0xff)
 		hostapd_free_stas(hapd);

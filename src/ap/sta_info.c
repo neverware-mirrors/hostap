@@ -734,7 +734,7 @@ static void ap_sta_disassoc_cb_timeout(void *eloop_ctx, void *timeout_ctx)
 
 
 void ap_sta_disassociate(struct hostapd_data *hapd, struct sta_info *sta,
-			 u16 reason)
+			 u16 reason, u8 is_prune)
 {
 	wpa_printf(MSG_DEBUG, "%s: disassociate STA " MACSTR,
 		   hapd->conf->iface, MAC2STR(sta->addr));
@@ -759,8 +759,9 @@ void ap_sta_disassociate(struct hostapd_data *hapd, struct sta_info *sta,
 	sta->disassoc_reason = reason;
 	sta->flags |= WLAN_STA_PENDING_DISASSOC_CB;
 	eloop_cancel_timeout(ap_sta_disassoc_cb_timeout, hapd, sta);
-	eloop_register_timeout(hapd->iface->drv_flags &
-			       WPA_DRIVER_FLAGS_DEAUTH_TX_STATUS ? 2 : 0, 0,
+	/* During Prune association, immediately remove/destroy the STA entry */
+	eloop_register_timeout((hapd->iface->drv_flags &
+			       WPA_DRIVER_FLAGS_DEAUTH_TX_STATUS && (!is_prune)) ? 2 : 0, 0,
 			       ap_sta_disassoc_cb_timeout, hapd, sta);
 }
 

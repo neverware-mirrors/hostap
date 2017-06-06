@@ -223,7 +223,7 @@ void ap_sta_session_warning_timeout(struct hostapd_data *hapd,
 				    struct sta_info *sta, int warning_time);
 struct sta_info * ap_sta_add(struct hostapd_data *hapd, const u8 *addr);
 void ap_sta_disassociate(struct hostapd_data *hapd, struct sta_info *sta,
-			 u16 reason);
+			 u16 reason, u8 is_prune);
 void ap_sta_deauthenticate(struct hostapd_data *hapd, struct sta_info *sta,
 			   u16 reason);
 #ifdef CONFIG_WPS
