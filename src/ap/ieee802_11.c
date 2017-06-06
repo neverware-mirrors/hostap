@@ -1812,7 +1812,7 @@ static void send_deauth(struct hostapd_data *hapd, const u8 *addr,
 }
 
 
-static void send_assoc_resp(struct hostapd_data *hapd, struct sta_info *sta,
+static u16 send_assoc_resp(struct hostapd_data *hapd, struct sta_info *sta,
 			    u16 status_code, int reassoc, const u8 *ies,
 			    size_t ies_len)
 {
@@ -1820,6 +1820,7 @@ static void send_assoc_resp(struct hostapd_data *hapd, struct sta_info *sta,
 	u8 buf[sizeof(struct ieee80211_mgmt) + 1024];
 	struct ieee80211_mgmt *reply;
 	u8 *p;
+	u16 ret = WLAN_STATUS_SUCCESS;
 
 	os_memset(buf, 0, sizeof(buf));
 	reply = (struct ieee80211_mgmt *) buf;
@@ -1934,9 +1935,13 @@ static void send_assoc_resp(struct hostapd_data *hapd, struct sta_info *sta,
 
 	send_len += p - reply->u.assoc_resp.variable;
 
-	if (hostapd_drv_send_mlme(hapd, reply, send_len, 0) < 0)
+	ret = hostapd_drv_send_mlme(hapd, reply, send_len, 0);
+	if (ret < 0)
 		wpa_printf(MSG_INFO, "Failed to send assoc resp: %s",
 			   strerror(errno));
+
+	return ret;
+
 }
 
 
@@ -1946,6 +1951,7 @@ static void handle_assoc(struct hostapd_data *hapd,
 {
 	u16 capab_info, listen_interval, seq_ctrl, fc;
 	u16 resp = WLAN_STATUS_SUCCESS;
+	u16 ret = WLAN_STATUS_SUCCESS;
 	const u8 *pos;
 	int left, i;
 	struct sta_info *sta;
@@ -2172,12 +2178,22 @@ static void handle_assoc(struct hostapd_data *hapd,
 #endif /* CONFIG_CLIENT_TAXONOMY */
 
  fail:
-	send_assoc_resp(hapd, sta, resp, reassoc, pos, left);
-	connect_log_event(hapd, sta->addr, CONNECTION_EVENT_ASSOC,
-			  (resp == WLAN_STATUS_SUCCESS), sta->disassoc_reason,
-			  NULL, resp, ssi_signal, (int)s_reason,
-			  &probe_delta_time, &steer_delta_time,
-			  &defer_delta_time, -1);
+	ret = send_assoc_resp(hapd, sta, resp, reassoc, pos, left);
+	if (ret) {
+		connect_log_event(hapd, sta->addr,
+				  CONNECTION_EVENT_ASSOC_RESP,
+				  ret, REASON_ASSOC_RESP_SEND_FAIL,
+				  sta, resp, INVALID_SIGNAL,
+				  INVALID_STEERING_REASON, NULL,
+				  NULL, NULL, -1);
+	} else {
+		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_ASSOC,
+				  (resp == WLAN_STATUS_SUCCESS), sta->disassoc_reason,
+				  NULL, resp, ssi_signal, (int)s_reason,
+				  &probe_delta_time, &steer_delta_time,
+				  &defer_delta_time, -1);
+
+	}
 }
 
 
@@ -2699,21 +2715,24 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 
 	if (len < IEEE80211_HDRLEN + (reassoc ? sizeof(mgmt->u.reassoc_resp) :
 				      sizeof(mgmt->u.assoc_resp))) {
-		wpa_printf(MSG_INFO, "handle_assoc_cb(reassoc=%d) - too short payload (len=%lu)",
-			   reassoc, (unsigned long) len);
+		hostapd_logger(hapd, mgmt->da, HOSTAPD_MODULE_IEEE80211,
+			       HOSTAPD_LEVEL_INFO, "handle_assoc_cb(reassoc=%d)"
+			       " - too short payload (len=%lu)", reassoc,
+			       (unsigned long) len);
 		return;
 	}
 
 	sta = ap_get_sta(hapd, mgmt->da);
 	if (!sta) {
-		wpa_printf(MSG_INFO, "handle_assoc_cb: STA " MACSTR " not found",
-			   MAC2STR(mgmt->da));
+		hostapd_logger(hapd, mgmt->da, HOSTAPD_MODULE_IEEE80211,
+			       HOSTAPD_LEVEL_INFO, "handle_assoc_cb: STA "
+			       MACSTR " not found", MAC2STR(mgmt->da));
 		return;
 	}
 
 	if (!ok) {
 		hostapd_logger(hapd, mgmt->da, HOSTAPD_MODULE_IEEE80211,
-			       HOSTAPD_LEVEL_DEBUG,
+			       HOSTAPD_LEVEL_INFO,
 			       "did not acknowledge association response");
 		sta->flags &= ~WLAN_STA_ASSOC_REQ_OK;
 		connect_log_event(hapd, sta->addr, CONNECTION_EVENT_ASSOC_RESP,
@@ -2728,8 +2747,16 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 	else
 		status = le_to_host16(mgmt->u.assoc_resp.status_code);
 
-	if (status != WLAN_STATUS_SUCCESS)
+	if (status != WLAN_STATUS_SUCCESS) {
+		connect_log_event(hapd, mgmt->da,
+				  CONNECTION_EVENT_ASSOC_RESP,
+				  0, REASON_ASSOC_RESP_STATUS_NOT_SUCCESS,
+				  sta, mgmt->u.assoc_resp.status_code,
+				  INVALID_SIGNAL,
+				  INVALID_STEERING_REASON, NULL,
+				  NULL, NULL, -1);
 		return;
+	}
 
 	/* Stop previous accounting session, if one is started, and allocate
 	 * new session id for the new session. */

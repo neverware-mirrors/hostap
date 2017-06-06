@@ -83,6 +83,10 @@ static const char *disconnect_log_event_str(connection_event_reason event)
 			return "failed_to_add";
 		case REASON_NO_ACK:
 			return "no_ack";
+		case REASON_ASSOC_RESP_SEND_FAIL:
+			return "failed_send_assoc_resp";
+		case REASON_ASSOC_RESP_STATUS_NOT_SUCCESS:
+			return "assoc_resp_status_fail";
 		case REASON_DISCONNECT_FROM_CLIENT:
 			return "from_client";
 		case REASON_DISCONNECT_DISASSOC_CLI:
