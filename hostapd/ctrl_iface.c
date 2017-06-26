@@ -2076,8 +2076,8 @@ static int hostapd_ctrl_iface_blacklist_add(struct hostapd_data *hapd,
 
 	return sta_blacklist_add(hapd, addr) ? 0 : -1;
 }
-static int hostapd_ctrl_iface_steer_hyst(struct hostapd_data *hapd,
-					 char *buf)
+static int hostapd_ctrl_iface_monitor_sta_hyst(struct hostapd_data *hapd,
+					       char *buf)
 {
 	return monitor_sta_set_hysteresis(hapd->mon_sta, atoi(buf));
 }
@@ -2546,8 +2546,8 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 		reply_len = hostapd_ctrl_iface_track_sta_list(
 			hapd, reply, reply_size);
 #endif /* NEED_AP_MLME */
-	} else if (os_strcmp(buf, "STEER_HYST") == 0) {
-		if (hostapd_ctrl_iface_steer_hyst(hapd, buf + 10))
+	} else if (os_strncmp(buf, "MONITOR_STA_HYST ", 17) == 0) {
+		if (hostapd_ctrl_iface_monitor_sta_hyst(hapd, buf + 17))
 			reply_len = -1;
 	} else if (os_strncmp(buf, "BLACKLIST_ADD ", 14) == 0) {
 		if (hostapd_ctrl_iface_blacklist_add(hapd, buf + 14))

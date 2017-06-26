@@ -1175,6 +1175,26 @@ static int hostapd_cli_cmd_req_beacon(struct wpa_ctrl *ctrl, int argc,
 	return wpa_ctrl_command(ctrl, cmd);
 }
 
+static int hostapd_cli_cmd_set_monitor_sta_hyst(struct wpa_ctrl *ctrl, int argc,
+						char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid MONITOR_STA_HYST command: needs at least 1 "
+			"arguments <value>.\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "MONITOR_STA_HYST %s", argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long MONITOR_STA_HYST command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1238,6 +1258,7 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "req_lci", hostapd_cli_cmd_req_lci },
 	{ "req_range", hostapd_cli_cmd_req_range },
 	{ "req_beacon", hostapd_cli_cmd_req_beacon },
+        { "monitor_sta_hyst", hostapd_cli_cmd_set_monitor_sta_hyst},
 	{ NULL, NULL }
 };
 
