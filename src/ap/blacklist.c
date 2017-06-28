@@ -21,6 +21,41 @@ struct sta_blacklist {
 };
 
 /*
+ * sta_blacklist_set_blacklist_timeout - set blacklist timeout
+ * list: pointer to hapd_blacklist
+ * duration: blacklist timeout in seconds
+ * function set's the maximum duration of station blacklist
+ * return: 0 - Success, -1 - Failure
+ */
+int sta_blacklist_set_blacklist_timeout(struct hapd_blacklist *list,
+					u16 duration)
+{
+	if (!list || duration <= 0 || duration > MAX_BLACKLIST_TIMEOUT)
+		return -1;
+
+	list->blacklist_timeout = duration;
+	return 0;
+}
+
+/*
+ * sta_blacklist_set_connection_attempt - set station connection attempt
+ * list: pointer to hapd_blacklist
+ * attempts: station connection attempts
+ * function set's the maximum number of connection attempts by blacklisted sta
+ * return: 0 - Success, -1 - Failure
+ */
+int sta_blacklist_set_connection_attempts(struct hapd_blacklist *list,
+					  u16 attempts)
+{
+	if (!list || attempts <= 0 ||
+			attempts > MAX_BLACKLIST_CONNECTION_ATTEMPTS)
+		return -1;
+
+	list->blacklist_conn_attempts = attempts;
+	return 0;
+}
+
+/*
  * sta_blacklist_get - obtain pointer to blacklisted station
  * list: pointer to hapd_blacklist
  * addr: mac address of station
@@ -46,7 +81,7 @@ static struct sta_blacklist *sta_blacklist_get(struct hapd_blacklist *list,
  * eloop_ctx: void pointer to eloop context
  * timeout_ctx: void pointer to timeout context
  * function remove expired station entries from blacklist on
- * expiring BLACKLIST_TIME
+ * expiring blacklist timeout
  * return: none
  */
 void sta_blacklist_prune(void *eloop_ctx, void *timeout_ctx)
@@ -60,7 +95,8 @@ void sta_blacklist_prune(void *eloop_ctx, void *timeout_ctx)
 	cur = blacklist->head;
 
 	while (cur) {
-		if (os_reltime_expired(&now, &cur->time, BLACKLIST_TIME)) {
+		if (os_reltime_expired(&now, &cur->time,
+				       blacklist->blacklist_timeout)) {
 			hostapd_logger(hapd, cur->sta, HOSTAPD_MODULE_IEEE80211,
 				       HOSTAPD_LEVEL_INFO, "Remove station "
 				       MACSTR " from blacklist",
@@ -90,8 +126,8 @@ void sta_blacklist_prune(void *eloop_ctx, void *timeout_ctx)
 		eloop_cancel_timeout(sta_blacklist_prune, eloop_ctx, NULL);
 		return;
 	} else if (blacklist->bl_count > 0) {
-		eloop_register_timeout(BLACKLIST_TIME, 0, sta_blacklist_prune,
-				       eloop_ctx, NULL);
+		eloop_register_timeout(blacklist->blacklist_timeout, 0,
+				       sta_blacklist_prune, eloop_ctx, NULL);
 	}
 }
 
@@ -108,6 +144,7 @@ Boolean sta_blacklist_should_reject(struct hostapd_data *hapd, const  u8 *addr,
 				    Boolean connect)
 {
 	struct sta_blacklist *sta;
+	u16 conn_attempts;
 
 	if (!hapd || !hapd->blacklist)
 		return FALSE;
@@ -117,8 +154,9 @@ Boolean sta_blacklist_should_reject(struct hostapd_data *hapd, const  u8 *addr,
 		return FALSE;
 
 	if (connect) {
+		conn_attempts = hapd->blacklist->blacklist_conn_attempts;
 		sta->attempts++;
-		return (sta->attempts > 1) ? FALSE : TRUE;
+		return (sta->attempts > conn_attempts) ? FALSE : TRUE;
 	}
 
 	return TRUE;
@@ -145,6 +183,9 @@ Boolean sta_blacklist_add(struct hostapd_data *hapd, const u8 *addr)
 				       "alloc for blacklist failed");
 			goto done;
 		}
+		hapd->blacklist->blacklist_timeout = DEFAULT_BLACKLIST_TIMEOUT;
+		hapd->blacklist->blacklist_conn_attempts =
+					DEFAULT_BLACKLIST_CONNECTION_ATTEMPTS;
 	}
 
 	local = hapd->blacklist;
@@ -186,8 +227,8 @@ Boolean sta_blacklist_add(struct hostapd_data *hapd, const u8 *addr)
 	local->bl_count++;
 
 	if (local->bl_count == 1)
-		eloop_register_timeout(BLACKLIST_TIME, 0, sta_blacklist_prune,
-				       hapd, NULL);
+		eloop_register_timeout(local->blacklist_timeout, 0,
+				       sta_blacklist_prune, hapd, NULL);
 	ret = TRUE;
 done:
 	return ret;

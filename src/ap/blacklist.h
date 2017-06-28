@@ -16,12 +16,32 @@
 /* max blacklist count */
 #define MAX_BLACKLIST_COUNT 32
 
-/* station blacklist time in secs */
-#define BLACKLIST_TIME 2
+/* Default blacklist timeout(secs) to be configured on initialization */
+#define DEFAULT_BLACKLIST_TIMEOUT 2
+
+/*
+ * Max blacklist timeout(secs) i.e configurable over hostapd
+ * control interface
+ */
+#define MAX_BLACKLIST_TIMEOUT 10
+
+/*
+ * Default number of connection attempts by blacklisted station configured
+ * on initialization
+ */
+#define DEFAULT_BLACKLIST_CONNECTION_ATTEMPTS 2
+
+/*
+ * Max connection attempts by blacklisted sta i.e configurable over
+ * hostapd control interface
+ */
+#define MAX_BLACKLIST_CONNECTION_ATTEMPTS 10
 
 struct hapd_blacklist {
 	struct sta_blacklist *head; /* sta black list */
 	u32 bl_count; /* black list count */
+	u16 blacklist_timeout; /* blacklist time in seconds */
+	u16 blacklist_conn_attempts; /* blacklisted sta connection attempts */
 };
 
 Boolean sta_blacklist_add(struct hostapd_data *hapd, const u8 *sta);

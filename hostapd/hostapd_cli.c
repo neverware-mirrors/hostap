@@ -1195,6 +1195,67 @@ static int hostapd_cli_cmd_set_monitor_sta_hyst(struct wpa_ctrl *ctrl, int argc,
 	return wpa_ctrl_command(ctrl, cmd);
 }
 
+static int hostapd_cli_cmd_blacklist_add(struct wpa_ctrl *ctrl, int argc,
+					 char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid BLACKLIST_ADD command: needs at least 1 "
+			"arguments <mac address>.\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "BLACKLIST_ADD %s", argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long BLACKLIST_ADD command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+static int hostapd_cli_cmd_blacklist_timeout(struct wpa_ctrl *ctrl,
+					     int argc, char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid BLACKLIST_TIME command: needs at least 1 "
+			"arguments <duration>.\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "BLACKLIST_TIME %s", argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long BLACKLIST_TIME command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+static int hostapd_cli_cmd_blacklist_conn_attempt(struct wpa_ctrl *ctrl,
+						  int argc, char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid BLACKLIST_CONN_ATTEMPT command: needs at"
+			"least 1 arguments <attempts>.\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "BLACKLIST_CONN_ATTEMPT %s",
+			  argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long BLACKLIST_CONN_ATTEMPT command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1259,6 +1320,9 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "req_range", hostapd_cli_cmd_req_range },
 	{ "req_beacon", hostapd_cli_cmd_req_beacon },
         { "monitor_sta_hyst", hostapd_cli_cmd_set_monitor_sta_hyst},
+	{ "blacklist_add", hostapd_cli_cmd_blacklist_add},
+	{ "blacklist_time", hostapd_cli_cmd_blacklist_timeout},
+	{ "blacklist_conn_attempt", hostapd_cli_cmd_blacklist_conn_attempt},
 	{ NULL, NULL }
 };
 

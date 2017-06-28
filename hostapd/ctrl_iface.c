@@ -2065,6 +2065,19 @@ static int hostapd_ctrl_iface_track_sta_list(struct hostapd_data *hapd,
 }
 #endif /* NEED_AP_MLME */
 
+static int hostapd_ctrl_iface_blacklist_conn_attempts(struct hostapd_data *hapd,
+						      char *buf)
+{
+	return sta_blacklist_set_connection_attempts(hapd->blacklist,
+						     atoi(buf));
+}
+
+static int hostapd_ctrl_iface_blacklist_time(struct hostapd_data *hapd,
+					     char *buf)
+{
+	return sta_blacklist_set_blacklist_timeout(hapd->blacklist, atoi(buf));
+}
+
 static int hostapd_ctrl_iface_blacklist_add(struct hostapd_data *hapd,
 					    char *buf)
 {
@@ -2551,6 +2564,12 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 			reply_len = -1;
 	} else if (os_strncmp(buf, "BLACKLIST_ADD ", 14) == 0) {
 		if (hostapd_ctrl_iface_blacklist_add(hapd, buf + 14))
+			reply_len = -1;
+	} else if (os_strncmp(buf, "BLACKLIST_TIME ", 15) == 0) {
+		if (hostapd_ctrl_iface_blacklist_time(hapd, buf + 15))
+			reply_len = -1;
+	} else if (os_strncmp(buf, "BLACKLIST_CONN_ATTEMPT ", 23) == 0) {
+		if (hostapd_ctrl_iface_blacklist_conn_attempts(hapd, buf + 23))
 			reply_len = -1;
 	} else if (os_strncmp(buf, "SET_NEIGHBOR ", 13) == 0) {
 		if (hostapd_ctrl_iface_set_neighbor(hapd, buf + 13))
