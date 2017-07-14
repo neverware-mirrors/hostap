@@ -20,6 +20,8 @@
 
 #define BANDSTEER_DIR_MODE S_IRWXU
 
+static char ifnames[][IFNAMSIZ] = {"wlan-2400mhz", "wlan-5000mhz"};
+
 /* Creates the directory if it doesn't already exist.
  * Returns 0 if the directory already exists or it was created.
  * It does not attempt to create the parent directory.
@@ -427,6 +429,43 @@ static int read_timestamp(const struct hostapd_data *hapd,
 	}
 
 	return success;
+}
+
+Boolean is_sta_2g5g_capable(const u8 *mac)
+{
+	char probepath[BUFFER_SIZE];
+	size_t buf_size;
+	int pos;
+	struct stat st;
+	Boolean is_2g_capable = FALSE, is_5g_capable = FALSE;
+
+	if (steering_path == NULL)
+		return FALSE;
+
+	buf_size = sizeof(probepath);
+	pos = os_strlcpy(probepath, steering_path, buf_size);
+	pos += os_strlcpy(&probepath[pos], "/", buf_size - pos);
+	pos += os_strlcpy(&probepath[pos],  "i_", buf_size - pos);
+	pos += os_strlcpy(&probepath[pos], ifnames[0], buf_size - pos);
+	os_snprintf(&probepath[pos], buf_size - pos, "/" COMPACT_MACSTR ".%d",
+		    MAC2STR(mac), STEER_EVENT_PROBE);
+
+	if (stat(probepath, &st) != -1)
+		is_2g_capable = TRUE;
+
+	os_memset(probepath, 0, buf_size);
+
+	pos = os_strlcpy(probepath, steering_path, buf_size);
+	pos += os_strlcpy(&probepath[pos], "/", buf_size - pos);
+	pos += os_strlcpy(&probepath[pos],  "i_", buf_size - pos);
+	pos += os_strlcpy(&probepath[pos], ifnames[1], buf_size - pos);
+	os_snprintf(&probepath[pos], buf_size - pos, "/" COMPACT_MACSTR ".%d",
+		    MAC2STR(mac), STEER_EVENT_PROBE);
+
+	if (stat(probepath, &st) != -1)
+		is_5g_capable = TRUE;
+
+	return (is_2g_capable && is_5g_capable);
 }
 
 /**

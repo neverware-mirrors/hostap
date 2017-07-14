@@ -326,6 +326,27 @@ void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 				  ht ? ieee802_11_find_ht_nss(ht) : 1,
 				  vht ? "vht" : ht ? "ht" : " legacy");
 		len += ret;
+
+		ret = os_snprintf(buf + len, buflen - len,
+				  " dual_band_capable:%d",
+				  is_sta_2g5g_capable(sta_addr) ? 1 : 0);
+		len += ret;
+
+		ret = os_snprintf(buf + len, buflen - len,
+				  " passive_beacon_report:%d"
+				  " active_beacon_report:%d",
+				  (sta->rrm_enabled_capa[0] &
+					RM_CAP_BEACON_PASSIVE_REPORT) ? 1 : 0,
+				  (sta->rrm_enabled_capa[0] &
+					RM_CAP_BEACON_ACTIVE_REPORT) ? 1 : 0);
+		len += ret;
+
+		ret = os_snprintf(buf + len, buflen - len,
+				  " bss_transition:%d",
+				  (sta->ext_capab &&
+				      (le_to_host32(sta->ext_capab[2]) &
+				        EXT_CAP_BSS_TRANSITION)) ? 1 : 0);
+		len += ret;
 	}
 
 	if (signal != INVALID_SIGNAL) {

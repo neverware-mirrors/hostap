@@ -28,6 +28,9 @@
  * a given interface. */
 #define BANDSTEERING_DEFER_SECONDS 20
 
+/* Generic buffer size */
+#define BUFFER_SIZE 512
+
 extern char *steering_path;
 /* steering_rsi_threshold is the minimum RSSI for two things:
  * 1. a probe request if it is to be recorded on an interface
@@ -127,6 +130,8 @@ int should_steer_on_assoc(const struct hostapd_data *hapd,
 			  struct os_reltime *probe_delta_time,
 			  struct os_reltime *steer_delta_time,
 			  struct os_reltime *defer_delta_time);
+
+Boolean is_sta_2g5g_capable(const u8 *mac);
 
 extern int steering_mechanism;
 

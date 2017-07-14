@@ -984,6 +984,13 @@ struct ieee80211_ampe_ie {
 /* 2 - Reserved */
 #define WMM_TSPEC_DIRECTION_BI_DIRECTIONAL 3
 
+/* RM capabilities - 1st octet */
+#define RM_CAP_BEACON_PASSIVE_REPORT	((u8) BIT(4))
+#define RM_CAP_BEACON_ACTIVE_REPORT	((u8) BIT(5))
+
+/* Extended capabilities - 3rd octet */
+#define EXT_CAP_BSS_TRANSITION	((u8) BIT(3))
+
 /*
  * WMM Information Element (used in (Re)Association Request frames; may also be
  * used in Beacon frames)
