@@ -99,6 +99,7 @@ OBJS += src/ap/beacon.c
 OBJS += src/ap/bss_load.c
 OBJS += src/ap/neighbor_db.c
 OBJS += src/ap/rrm.c
+OBJS += src/ap/sta_policy.c
 OBJS_d =
 OBJS_p =
 LIBS =

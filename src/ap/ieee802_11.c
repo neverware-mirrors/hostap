@@ -45,6 +45,7 @@
 #include "ap/steering.h"
 #include "ap/blacklist.h"
 #include "rrm.h"
+#include "sta_policy.h"
 #ifdef CONFIG_CLIENT_TAXONOMY
 #include "taxonomy.h"
 #endif /* CONFIG_CLIENT_TAXONOMY */
@@ -1838,10 +1839,25 @@ static u16 send_assoc_resp(struct hostapd_data *hapd, struct sta_info *sta,
 		host_to_le16(hostapd_own_capab_info(hapd));
 	reply->u.assoc_resp.status_code = host_to_le16(status_code);
 	reply->u.assoc_resp.aid = host_to_le16(sta->aid | BIT(14) | BIT(15));
-	/* Supported rates */
-	p = hostapd_eid_supp_rates(hapd, reply->u.assoc_resp.variable);
-	/* Extended supported rates */
-	p = hostapd_eid_ext_supp_rates(hapd, p);
+
+#ifdef HOSTAPD
+	size_t res = 0;
+
+	sta_policy_begin_assoc_resp(hapd, sta->addr);
+	sta_policy_update_capab(hapd, &reply->u.assoc_resp.capab_info);
+	p = sta_policy_copy_supp_rate(hapd, sta->addr,
+				reply->u.assoc_resp.variable, &res);
+	if (!res)
+		wpa_printf (MSG_INFO, "Successfully applied Per STA"
+							"config Rates");
+	else
+#endif
+	{
+		/* Supported rates */
+		p = hostapd_eid_supp_rates(hapd, reply->u.assoc_resp.variable);
+		/* Extended supported rates */
+		p = hostapd_eid_ext_supp_rates(hapd, p);
+	}
 
 #ifdef CONFIG_IEEE80211R
 	if (status_code == WLAN_STATUS_SUCCESS) {
@@ -1940,8 +1956,11 @@ static u16 send_assoc_resp(struct hostapd_data *hapd, struct sta_info *sta,
 		wpa_printf(MSG_INFO, "Failed to send assoc resp: %s",
 			   strerror(errno));
 
-	return ret;
+#ifdef HOSTAPD
+	sta_policy_end_assoc_resp(hapd);
+#endif
 
+	return ret;
 }
 
 
@@ -2712,6 +2731,8 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 	int new_assoc = 1;
 	struct ieee80211_ht_capabilities ht_cap;
 	struct ieee80211_vht_capabilities vht_cap;
+	int p_supp_rate_len = 0;
+	u8 p_supp_rate[MAX_RATES_SUPPORTED] = {0};
 
 	if (len < IEEE80211_HDRLEN + (reassoc ? sizeof(mgmt->u.reassoc_resp) :
 				      sizeof(mgmt->u.assoc_resp))) {
@@ -2806,8 +2827,25 @@ static void handle_assoc_cb(struct hostapd_data *hapd,
 		hostapd_get_vht_capab(hapd, sta->vht_capabilities, &vht_cap);
 #endif /* CONFIG_IEEE80211AC */
 
+#ifdef HOSTAPD
+	p_supp_rate_len = sta_policy_get_supp_rate(hapd, sta->addr,
+							p_supp_rate);
+
+	/* Update capabilities based on STA Policy */
+	sta_policy_update_capab(hapd, &sta->capability);
+
+	/* Update HT CAP based on STA Policy */
+	sta_policy_update_ht_cap(hapd, &ht_cap);
+
+	/* Update VHT CAP based on STA Policy */
+	sta_policy_update_vht_cap(hapd, &vht_cap);
+#endif
+
 	if (hostapd_sta_add(hapd, sta->addr, sta->aid, sta->capability,
-			    sta->supported_rates, sta->supported_rates_len,
+			    (p_supp_rate_len <= 0) ? sta->supported_rates :
+						     p_supp_rate,
+			    (p_supp_rate_len <= 0) ? sta->supported_rates_len :
+						     p_supp_rate_len,
 			    sta->listen_interval,
 			    sta->flags & WLAN_STA_HT ? &ht_cap : NULL,
 			    sta->flags & WLAN_STA_VHT ? &vht_cap : NULL,

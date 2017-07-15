@@ -40,6 +40,11 @@ u8 * hostapd_eid_ht_capabilities(struct hostapd_data *hapd, u8 *eid)
 	os_memcpy(cap->supported_mcs_set, hapd->iface->current_mode->mcs_set,
 		  16);
 
+#ifdef HOSTAPD
+	/* Update HT CAP based on STA Policy */
+	sta_policy_update_ht_cap(hapd, cap);
+#endif
+
 	/* TODO: ht_extended_capabilities (now fully disabled) */
 	/* TODO: tx_bf_capability_info (now fully disabled) */
 	/* TODO: asel_capabilities (now fully disabled) */
@@ -102,6 +107,9 @@ u8 * hostapd_eid_ht_operation(struct hostapd_data *hapd, u8 *eid)
 		oper->ht_param |= HT_INFO_HT_PARAM_SECONDARY_CHNL_BELOW |
 			HT_INFO_HT_PARAM_STA_CHNL_WIDTH;
 
+#ifdef HOSTAPD
+	sta_policy_update_ht_op_info(hapd, oper);
+#endif
 	pos += sizeof(*oper);
 
 	return pos;

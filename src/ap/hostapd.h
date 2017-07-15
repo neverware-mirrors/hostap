@@ -449,6 +449,7 @@ struct hostapd_iface {
 
 	struct dl_list sta_seen; /* struct hostapd_sta_info */
 	unsigned int num_sta_seen;
+	struct per_interface_config *i_cfg;
 };
 
 /* hostapd.c */

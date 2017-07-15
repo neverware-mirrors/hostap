@@ -378,7 +378,7 @@ static u8 * hostapd_gen_probe_resp(struct hostapd_data *hapd,
 {
 	struct ieee80211_mgmt *resp;
 	u8 *pos, *epos;
-	size_t buflen;
+	size_t buflen, res = 0;
 
 #define MAX_PROBERESP_LEN 768
 	buflen = MAX_PROBERESP_LEN;
@@ -426,8 +426,15 @@ static u8 * hostapd_gen_probe_resp(struct hostapd_data *hapd,
 	os_memcpy(pos, hapd->conf->ssid.ssid, hapd->conf->ssid.ssid_len);
 	pos += hapd->conf->ssid.ssid_len;
 
-	/* Supported rates */
-	pos = hostapd_eid_supp_rates(hapd, pos);
+#ifdef HOSTAPD
+	pos = sta_policy_copy_supp_rate(hapd, resp->da, pos, &res);
+	if (!res)
+		wpa_printf (MSG_INFO, "Successfully applied Per STA"
+							"config Rates");
+	else
+#endif
+		/* Supported rates */
+		pos = hostapd_eid_supp_rates(hapd, pos);
 
 	/* DS Params */
 	pos = hostapd_eid_ds_params(hapd, pos);
@@ -440,8 +447,11 @@ static u8 * hostapd_gen_probe_resp(struct hostapd_data *hapd,
 	/* ERP Information element */
 	pos = hostapd_eid_erp_info(hapd, pos);
 
-	/* Extended supported rates */
-	pos = hostapd_eid_ext_supp_rates(hapd, pos);
+#ifdef HOSTAPD
+	if (res)
+#endif
+		/* Extended supported rates */
+		pos = hostapd_eid_ext_supp_rates(hapd, pos);
 
 	/* RSN, MDIE, WPA */
 	pos = hostapd_eid_wpa(hapd, pos, epos - pos);

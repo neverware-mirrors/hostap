@@ -1277,6 +1277,76 @@ static int hostapd_cli_cmd_uni_cast_probing(struct wpa_ctrl *ctrl,
 	return wpa_ctrl_command(ctrl, cmd);
 }
 
+static int hostapd_cli_cmd_sta_policy_get(struct wpa_ctrl *ctrl,
+					int argc, char *argv[])
+{
+	char cmd[128];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid 'sta_policy_get' command - exactly 1"
+				"argument, sta_id is required.\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd) - 1, "STA_POLICY_GET %s", argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long STA_POLICY_GET command.\n");
+		return -1;
+	}
+
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+static int hostapd_cli_cmd_sta_policy_del(struct wpa_ctrl *ctrl,
+					      int argc, char *argv[])
+{
+	char cmd[512];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid 'sta_policy_del' command - Need argument"
+				"<cmd> <sta_id=mac_addr>\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd) - 1, "STA_POLICY_DEL %s", argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long STA_POLICY_DEL command.\n");
+		return -1;
+	}
+
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+
+static int hostapd_cli_cmd_sta_policy_add(struct wpa_ctrl *ctrl, int argc,
+		char *argv[])
+{
+	char cmd[512];
+	int res, i = 0;
+
+	if (argc < 1) {
+		printf("Invalid 'sta_policy_add' command - Needs argument"
+				"as, <cmd> sta_id=<mac> <param>=<val>\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd) - 1, "STA_POLICY_ADD");
+	if (res) {
+		while (argc--) {
+			res = os_snprintf((cmd + strlen(cmd)), sizeof(cmd),
+							" %s", argv[i++]);
+			if (os_snprintf_error(sizeof(cmd), res)) {
+				printf("Too long STA_POLICY_ADD command.\n");
+				return -1;
+			}
+		}
+	}
+
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1345,6 +1415,9 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "blacklist_time", hostapd_cli_cmd_blacklist_timeout},
 	{ "blacklist_conn_attempt", hostapd_cli_cmd_blacklist_conn_attempt},
 	{ "uni_cast_probing", hostapd_cli_cmd_uni_cast_probing},
+	{ "sta_policy_add", hostapd_cli_cmd_sta_policy_add },
+	{ "sta_policy_del", hostapd_cli_cmd_sta_policy_del },
+	{ "sta_policy_get", hostapd_cli_cmd_sta_policy_get },
 	{ NULL, NULL }
 };
 

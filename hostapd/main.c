@@ -29,6 +29,7 @@
 #include "eap_register.h"
 #include "ctrl_iface.h"
 #include "ap/steering.h"
+#include "ap/sta_policy.h"
 
 
 struct hapd_global {
@@ -274,6 +275,9 @@ hostapd_interface_init(struct hapd_interfaces *interfaces,
 	if (bandsteer_interface_init(iface)) {
 		return NULL;
 	}
+
+	if (stapolicy_interface_init(iface))
+		return NULL;
 
 	return iface;
 }
@@ -805,6 +809,9 @@ int main(int argc, char *argv[])
 		if (hostapd_driver_init(interfaces.iface[i]) ||
 		    hostapd_setup_interface(interfaces.iface[i]))
 			goto out;
+
+		if (stapolicy_cfg_init(interfaces.iface[i]))
+			goto out;
 	}
 
 	hostapd_global_ctrl_iface_init(&interfaces);
@@ -826,6 +833,7 @@ int main(int argc, char *argv[])
 			!!(interfaces.iface[i]->drv_flags &
 			   WPA_DRIVER_FLAGS_AP_TEARDOWN_SUPPORT);
 		hostapd_interface_deinit_free(interfaces.iface[i]);
+		stapolicy_interface_deinit(interfaces.iface[i]);
 	}
 	os_free(interfaces.iface);
 
