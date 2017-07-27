@@ -199,7 +199,7 @@ static void wpas_trigger_scan_cb(struct wpa_radio_work *work, int deinit)
 		params->only_new_results = 1;
 	}
 
-	if (wpa_s->disconnected &&
+	if (!wpa_s->current_ssid &&
 	    wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCAN)
 		wpa_setup_mac_addr_rand_params(params, wpa_s->mac_addr_scan);
 
@@ -1039,7 +1039,7 @@ ssid_list_set:
 	}
 #endif /* CONFIG_P2P */
 
-	if (wpa_s->disconnected &&
+	if (!wpa_s->current_ssid &&
 	    wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCAN)
 		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_scan);
 
@@ -1410,7 +1410,7 @@ scan:
 
 	wpa_setband_scan_freqs(wpa_s, scan_params);
 
-	if (wpa_s->disconnected &&
+	if (!wpa_s->current_ssid &&
 	    wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCHED_SCAN)
 		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_sched_scan);
 
@@ -2387,7 +2387,7 @@ int wpas_start_pno(struct wpa_supplicant *wpa_s)
 		params.freqs = wpa_s->manual_sched_scan_freqs;
 	}
 
-	if (wpa_s->disconnected &&
+	if (!wpa_s->current_ssid &&
 	    wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_PNO)
 		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_pno);
 
