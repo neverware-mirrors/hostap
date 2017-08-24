@@ -604,6 +604,7 @@ int main(int argc, char *argv[])
 	interfaces.global_iface_name = NULL;
 	interfaces.global_ctrl_sock = -1;
 	interfaces.global_ctrl_dst = NULL;
+	interfaces.uni_cast_probing = 1;
 
 	for (;;) {
 		c = getopt(argc, argv, "b:Bde:f:hKP:Ttu:vg:G:s:l:r:S");

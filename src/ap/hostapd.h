@@ -55,6 +55,7 @@ struct hapd_interfaces {
 #ifndef CONFIG_NO_VLAN
 	struct dynamic_iface *vlan_priv;
 #endif /* CONFIG_NO_VLAN */
+	u8 uni_cast_probing:1;
 };
 
 enum hostapd_chan_status {

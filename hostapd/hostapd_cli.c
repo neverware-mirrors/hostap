@@ -1256,6 +1256,27 @@ static int hostapd_cli_cmd_blacklist_conn_attempt(struct wpa_ctrl *ctrl,
 	return wpa_ctrl_command(ctrl, cmd);
 }
 
+static int hostapd_cli_cmd_uni_cast_probing(struct wpa_ctrl *ctrl,
+					    int argc, char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid command. Usage uni_cast_probing "
+			"<0/1> 0-> Disable 1->Enable\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "UNI_CAST_PROBING %s", argv[0]);
+
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long UNI_CAST_PROBING command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1323,6 +1344,7 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "blacklist_add", hostapd_cli_cmd_blacklist_add},
 	{ "blacklist_time", hostapd_cli_cmd_blacklist_timeout},
 	{ "blacklist_conn_attempt", hostapd_cli_cmd_blacklist_conn_attempt},
+	{ "uni_cast_probing", hostapd_cli_cmd_uni_cast_probing},
 	{ NULL, NULL }
 };
 

@@ -672,6 +672,7 @@ void handle_probe_req(struct hostapd_data *hapd,
 	size_t i, resp_len;
 	int noack;
 	enum ssid_match_result res;
+	u8 ssid[SSID_MAX_LEN + 1];
 #ifdef HOSTAPD
 	struct os_time now;
 	u16 nss = 1;
@@ -711,7 +712,11 @@ void handle_probe_req(struct hostapd_data *hapd,
 			   MAC2STR(mgmt->sa));
 		return;
 	}
-
+	os_memset(ssid, 0, sizeof(ssid));
+	if (elems.ssid_len <= SSID_MAX_LEN) {
+		os_memcpy(ssid, elems.ssid, elems.ssid_len);
+		ssid[elems.ssid_len + 1] = '\0';
+	}
 	/*
 	 * No need to reply if the Probe Request frame was sent on an adjacent
 	 * channel. IEEE Std 802.11-2012 describes this as a requirement for an
@@ -871,7 +876,16 @@ void handle_probe_req(struct hostapd_data *hapd,
 				      &resp_len);
 	if (resp == NULL)
 		return;
-
+	if (hapd->iface->interfaces->uni_cast_probing &&
+	    res == EXACT_SSID_MATCH) {
+		hostapd_logger(hapd, mgmt->sa, HOSTAPD_MODULE_IEEE80211,
+				HOSTAPD_LEVEL_INFO, "received uni-cast probe"
+				"request for SSID:%s with frame_rssi:%d BSSID:"
+				MACSTR" mode:%s", ssid, ssi_signal,
+				MAC2STR(mgmt->bssid), elems.vht_capabilities ?
+				"vht": elems.ht_capabilities ?
+				"ht" : "legacy");
+	}
 	/*
 	 * If this is a broadcast probe request, apply no ack policy to avoid
 	 * excessive retries.

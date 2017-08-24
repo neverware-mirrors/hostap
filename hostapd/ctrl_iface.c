@@ -2072,6 +2072,13 @@ static int hostapd_ctrl_iface_blacklist_conn_attempts(struct hostapd_data *hapd,
 						     atoi(buf));
 }
 
+static int hostapd_ctrl_iface_uni_cast_probing(struct hostapd_data *hapd,
+					       char *buf)
+{
+	hapd->iface->interfaces->uni_cast_probing = atoi(buf);
+	return 0;
+}
+
 static int hostapd_ctrl_iface_blacklist_time(struct hostapd_data *hapd,
 					     char *buf)
 {
@@ -2586,6 +2593,9 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 	} else if (os_strncmp(buf, "REQ_BEACON ", 11) == 0) {
 		reply_len = hostapd_ctrl_iface_req_beacon(hapd, buf + 11,
 				reply, reply_size);
+	} else if (os_strncmp(buf, "UNI_CAST_PROBING ", 17) == 0) {
+		if (hostapd_ctrl_iface_uni_cast_probing(hapd, buf + 17))
+			reply_len = -1;
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);
 		reply_len = 16;
