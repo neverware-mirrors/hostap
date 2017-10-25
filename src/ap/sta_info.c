@@ -728,6 +728,15 @@ static void ap_sta_disassoc_cb_timeout(void *eloop_ctx, void *timeout_ctx)
 	struct hostapd_data *hapd = eloop_ctx;
 	struct sta_info *sta = timeout_ctx;
 
+	if (sta->flags & WLAN_STA_PENDING_DISASSOC_CB) {
+		/* Timed out waiting for ACK from disassoc frame */
+		connect_log_event(hapd, sta->addr,
+				  CONNECTION_EVENT_DISASSOC_RESP, 0,
+				  REASON_DISASSOC_NO_DRIVER_RESPONSE,
+				  sta, 0, INVALID_SIGNAL,
+				  INVALID_STEERING_REASON, NULL,
+				  NULL, NULL, -1);
+	}
 	ap_sta_remove(hapd, sta);
 	mlme_disassociate_indication(hapd, sta, sta->disassoc_reason);
 }
