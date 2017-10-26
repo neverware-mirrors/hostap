@@ -5783,6 +5783,7 @@ void wpas_connection_failed(struct wpa_supplicant *wpa_s, const u8 *bssid)
 			wpa_dbg(wpa_s, MSG_DEBUG, "Another BSS in this ESS "
 				"has been seen; try it next");
 			wpa_blacklist_add(wpa_s, bssid);
+#ifdef CONFIG_SCAN_KNOWN_CHANNELS_ONLY
 			/*
 			 * On the next scan, go through only the known channels
 			 * used in this ESS based on previous scans to speed up
@@ -5790,6 +5791,7 @@ void wpas_connection_failed(struct wpa_supplicant *wpa_s, const u8 *bssid)
 			 */
 			os_free(wpa_s->next_scan_freqs);
 			wpa_s->next_scan_freqs = freqs;
+#endif /* CONFIG_SCAN_KNOWN_CHANNELS_ONLY */
 		}
 	}
 
