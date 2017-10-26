@@ -879,7 +879,7 @@ void handle_probe_req(struct hostapd_data *hapd,
 	if (hapd->iface->interfaces->uni_cast_probing &&
 	    res == EXACT_SSID_MATCH) {
 		hostapd_logger(hapd, mgmt->sa, HOSTAPD_MODULE_IEEE80211,
-				HOSTAPD_LEVEL_INFO, "received uni-cast probe"
+				HOSTAPD_LEVEL_DEBUG, "received uni-cast probe"
 				"request for SSID:%s with frame_rssi:%d BSSID:"
 				MACSTR" mode:%s", ssid, ssi_signal,
 				MAC2STR(mgmt->bssid), elems.vht_capabilities ?
