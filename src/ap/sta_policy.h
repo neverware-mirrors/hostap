@@ -32,6 +32,10 @@
 					VHT_CAP_SHORT_GI_80
 #define RATE_MASK			0x7F
 
+/* STA Policy Flags */
+#define FLAG_AMPDU_SUBFRAME_COUNT 	0x01
+#define FLAG_PSPOLL_STA_KO_ENABLED 	0x02
+
 /* struct sta_policy
  */
 struct sta_policy {
@@ -52,12 +56,16 @@ struct sta_policy {
 	/* VHT Capability */
 	uint32_t 	vht_capab_info;
 
+	uint8_t		ampdu_subframe_count;
+	uint8_t		pspoll_sta_ko_enabled;
+
 	/* User Mask, to configure params */
 	uint16_t 	capability_mask;
 	uint16_t 	ht_capab_info_mask;
 	uint8_t 	ht_ampdu_param_mask;
 	uint8_t		ht_op_info_mask;
 	uint32_t 	vht_capab_info_mask;
+	uint16_t	flags;
 };
 
 /* struct per_interface_config
@@ -82,6 +90,7 @@ struct per_interface_config {
 	struct sta_policy *l_sta_policy;
 };
 
+/* Enum for STA policy Parameters Supported */
 typedef enum {
 	POLICY_PARAM_STA_ID = 0,
 	POLICY_PARAM_SUPP_RATES,
@@ -95,6 +104,8 @@ typedef enum {
 	POLICY_PARAM_MAX_AMPDU_LEN,
 	POLICY_PARAM_RX_LDPC,
 	POLICY_PARAM_SGI80,
+	POLICY_PARAM_AMPDU_SUBFRAME_COUNT,
+	POLICY_PARAM_PSPOLL_STA_KO_ENABLED,
 	POLICY_PARAM_MAX
 } POLICY_PARAM_LIST;
 
@@ -184,4 +195,10 @@ void sta_policy_update_ht_cap(struct hostapd_data *hapd,
  */
 void sta_policy_update_vht_cap(struct hostapd_data *hapd,
 			 struct ieee80211_vht_capabilities *cap);
+
+/**
+ * Send the STA_policy events
+ */
+void sta_policy_send_event(struct hostapd_data *, uint8_t *);
+
 #endif /* AP_CONFIG_KNOBS_H */

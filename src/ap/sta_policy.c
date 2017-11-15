@@ -9,8 +9,10 @@
 #include "utils/includes.h"
 #include "utils/common.h"
 #include "utils/wpa_debug.h"
+#include "common/wpa_ctrl.h"
 #include "common/ieee802_11_defs.h"
 #include "hostapd.h"
+#include "sta_info.h"
 #include "ap/sta_policy.h"
 
 #define STR_NCMP(str, cmpstr) os_strncmp(str, cmpstr, strlen(cmpstr))
@@ -27,7 +29,9 @@ static const char *config_params[] = {
 	"rifs=",
 	"max_ampdu_len=",
 	"rx_ldpc=",
-	"sgi80="
+	"sgi80=",
+	"ampdu_subframe_count=",
+	"pspoll_sta_ko_enabled="
 };
 
 /**
@@ -273,6 +277,22 @@ static int populate_sta_policy(struct hostapd_data *hapd,
 			cfg->vht_capab_info &= ~VHT_CAP_SHORT_GI_80;
 		}
 		break;
+	case POLICY_PARAM_AMPDU_SUBFRAME_COUNT:
+		val = atoi(value);
+		cfg->flags |= FLAG_AMPDU_SUBFRAME_COUNT;
+		if (val >= 0 || val <= 64) {
+			cfg->ampdu_subframe_count = val;
+		} else {
+			wpa_printf (MSG_ERROR, "Wrong AMPDU_SUBFRAME_COUNT,"
+				"Value ranges from [0-64]");
+			return -1;
+		}
+		break;
+	case POLICY_PARAM_PSPOLL_STA_KO_ENABLED:
+		val = atoi(value);
+		cfg->flags |= FLAG_PSPOLL_STA_KO_ENABLED;
+		cfg->pspoll_sta_ko_enabled = (val) ? !!val : 0;
+		break;
 	default:
 		wpa_printf(MSG_INFO, "Unknown param: %s\n", param);
 		return -1;
@@ -420,6 +440,9 @@ static int parse_and_add_sta_policy_entry(struct hostapd_data *hapd,
 			return -1;
 		}
 	}
+
+	if (ap_get_sta(hapd, cfg->sta_id))
+		sta_policy_send_event(hapd, cfg->sta_id);
 
 	sta_policy_dump(cfg);
 
@@ -607,6 +630,24 @@ static int construct_sta_policy(struct sta_policy *cfg,
 		pos += len;
 	}
 
+	if (cfg->flags & FLAG_AMPDU_SUBFRAME_COUNT) {
+		len = os_snprintf(line + pos, size - pos,
+			" ampdu_subframe_count=%d", cfg->ampdu_subframe_count);
+		if (os_snprintf_error(size - pos, len))
+			return -1;
+
+		pos += len;
+	}
+
+	if (cfg->flags & FLAG_PSPOLL_STA_KO_ENABLED) {
+		len = os_snprintf(line + pos, size - pos,
+			" pspoll_sta_ko_enabled=%d", cfg->pspoll_sta_ko_enabled);
+		if (os_snprintf_error(size - pos, len))
+			return -1;
+
+		pos += len;
+	}
+
 	strcat(line, "\n");
 	return pos + 1;
 }
@@ -656,7 +697,7 @@ static int sta_policy_save(struct per_interface_config *i_cfg)
 
 	fwrite(temp, os_strlen(temp), 1, fp);
 	fclose(fp);
-
+	return 0;
 exit:
 	os_free(temp);
 	return -1;
@@ -1004,6 +1045,29 @@ int sta_policy_add(struct hostapd_data *hapd, char *buf)
 	return 0;
 fail:
 	return -1;
+}
+
+void sta_policy_send_event(struct hostapd_data *hapd, uint8_t *sta_addr)
+{
+	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
+	struct sta_policy *cfg;
+
+	cfg = sta_policy_node_get(&i_cfg->l_sta_policy, sta_addr);
+	if (!cfg) {
+		return;
+	}
+
+	if (cfg->flags & FLAG_AMPDU_SUBFRAME_COUNT) {
+		wpa_msg(hapd->msg_ctx, MSG_INFO, STA_POLICY_AMPDU_SUBFRAME_COUNT
+				MACSTR " %d", MAC2STR(cfg->sta_id),
+				cfg->ampdu_subframe_count);
+	}
+
+	if (cfg->flags & FLAG_PSPOLL_STA_KO_ENABLED) {
+		wpa_msg(hapd->msg_ctx, MSG_INFO, STA_POLICY_PSPOLL_STA_KO_ENABLED
+				MACSTR " %d", MAC2STR(cfg->sta_id),
+				cfg->pspoll_sta_ko_enabled);
+	}
 }
 
 /**

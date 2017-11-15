@@ -39,6 +39,7 @@
 #ifdef HOSTAPD
 #include "ap/steering.h"	/* for write_connect_timestamp() proto */
 #include "ap/monitor_sta.h"
+#include "sta_policy.h"
 #endif
 
 static void ap_sta_remove_in_other_bss(struct hostapd_data *hapd,
@@ -1120,6 +1121,9 @@ void ap_sta_set_authorized(struct hostapd_data *hapd, struct sta_info *sta,
 			wpa_msg_no_global(hapd->msg_ctx_parent, MSG_INFO,
 					  AP_STA_CONNECTED "%s%s",
 					  buf, ip_addr);
+#ifdef HOSTAPD
+		sta_policy_send_event(hapd, sta->addr);
+#endif
 	} else {
 		hostapd_logger(hapd->msg_ctx, sta->addr,
 		               HOSTAPD_MODULE_IEEE80211,

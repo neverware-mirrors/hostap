@@ -287,6 +287,9 @@ extern "C" {
 /* Indication to steer station */
 #define AP_MONITOR_STA_INFO "AP-MONITOR-STA-INFO "
 
+#define STA_POLICY_AMPDU_SUBFRAME_COUNT "STA-POLICY-AMPDU-SUBFRAME-COUNT "
+#define STA_POLICY_PSPOLL_STA_KO_ENABLED "STA-POLICY-PSPOLL-STA-KO-ENABLED "
+
 /* BSS command information masks */
 
 #define WPA_BSS_MASK_ALL		0xFFFDFFFF
