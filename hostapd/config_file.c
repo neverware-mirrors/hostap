@@ -3409,6 +3409,10 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 				WLAN_RRM_CAPS_BEACON_REPORT_TABLE;
 	} else if (os_strcmp(buf, "disable_40mhz_scan") == 0) {
 		conf->disable_40mhz_scan = atoi(pos);
+	} else if (os_strcmp(buf, "ftm_responder") == 0) {
+		bss->ftm_responder = atoi(pos);
+	} else if (os_strcmp(buf, "ftm_initiator") == 0) {
+		bss->ftm_initiator = atoi(pos);
 	} else {
 		wpa_printf(MSG_ERROR,
 			   "Line %d: unknown configuration item '%s'",

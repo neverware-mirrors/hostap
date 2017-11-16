@@ -568,6 +568,9 @@ struct hostapd_bss_config {
 
 	char *no_probe_resp_if_seen_on;
 	char *no_auth_if_seen_on;
+
+	int ftm_responder;
+	int ftm_initiator;
 };
 
 
