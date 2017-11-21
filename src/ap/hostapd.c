@@ -1577,8 +1577,7 @@ static void hostapd_set_own_neighbor_report(struct hostapd_data *hapd)
 	}
 
 	if (ht) {
-		bssid_info |= NEI_REP_BSSID_INFO_HT |
-			NEI_REP_BSSID_INFO_DELAYED_BA;
+                bssid_info |= NEI_REP_BSSID_INFO_HT | NEI_REP_BSSID_INFO_IMM_BA;
 
 		/* VHT bit added in IEEE P802.11-REVmc/D4.3 */
 		if (vht)
