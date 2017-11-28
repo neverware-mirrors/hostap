@@ -43,6 +43,9 @@ void sta_policy_begin_assoc_resp(struct hostapd_data *hapd, uint8_t *sta_addr)
 {
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
 
+	if (!i_cfg)
+		return;
+
 	os_memcpy(i_cfg->associating_sta, sta_addr, ETH_ALEN);
 	i_cfg->assoc_resp = 1;
 }
@@ -50,6 +53,9 @@ void sta_policy_begin_assoc_resp(struct hostapd_data *hapd, uint8_t *sta_addr)
 void sta_policy_end_assoc_resp(struct hostapd_data *hapd)
 {
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
+
+	if (!i_cfg)
+		return;
 
 	os_memset(i_cfg->associating_sta, 0, ETH_ALEN);
 	i_cfg->assoc_resp = 0;
@@ -395,7 +401,6 @@ static int parse_and_add_sta_policy_entry(struct hostapd_data *hapd,
 			return -1;
 		}
 
-		os_memset(cfg, 0, sizeof(struct sta_policy));
 		os_memcpy(&cfg->sta_id, &sta_id, ETH_ALEN);
 		sta_policy_node_add_end(&i_cfg->l_sta_policy, cfg);
 	}
@@ -437,10 +442,8 @@ static int sta_policy_load(struct hostapd_iface *iface)
 
 	while (getline(&line, &len, fp) != -1) {
 		ret = parse_and_add_sta_policy_entry(iface->bss[0], line);
-		if (ret != 0) {
-			wpa_printf(MSG_ERROR, "Error parsing the file");
-			return -1;
-		}
+		if (ret != 0)
+			wpa_printf(MSG_ERROR, "Error parsing the line: %s", line);
 	}
 
 	if (line)
@@ -619,12 +622,11 @@ static int sta_policy_save(struct per_interface_config *i_cfg)
 	char *temp = NULL;
 	int len = 0, pos = 0;
 
-	temp = (char *) os_malloc (MAX_STA_POLICY_SIZE);
+	temp = (char *) os_zalloc (MAX_STA_POLICY_SIZE);
 	if (!temp) {
 		return -1;
 	}
 
-	os_memset(temp, 0, MAX_STA_POLICY_SIZE);
 	while (cfg != NULL) {
 		len = construct_sta_policy(cfg, line_buf, sizeof(line_buf));
 		if (len < 0)
@@ -646,15 +648,18 @@ static int sta_policy_save(struct per_interface_config *i_cfg)
 	}
 
 	fp = fopen(i_cfg->cfg_file, "w+");
-	if (!fp)
-		return -1;
+	if (!fp) {
+		wpa_printf(MSG_ERROR,"Failed to open file: %s",
+					i_cfg->cfg_file);
+		goto exit;
+	}
 
 	fwrite(temp, os_strlen(temp), 1, fp);
-
-	os_free(temp);
 	fclose(fp);
 
-	return 0;
+exit:
+	os_free(temp);
+	return -1;
 }
 
 /**
@@ -672,6 +677,11 @@ int sta_policy_get(struct hostapd_data *hapd, char *buf,
 	char *ptr;
 	struct sta_policy *cfg, *list;
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
+
+	if (!i_cfg) {
+		wpa_printf(MSG_ERROR, "sta_policy.conf does not exist");
+		return -1;
+	}
 
 	os_memset(reply, 0, reply_size);
 	ptr = os_strstr(buf, "sta_id=");
@@ -731,6 +741,11 @@ int sta_policy_del(struct hostapd_data *hapd, char *buf)
 	struct sta_policy *cfg;
 	char *ptr;
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
+
+	if (!i_cfg) {
+		wpa_printf(MSG_ERROR, "sta_policy.conf does not exist");
+		return -1;
+	}
 
 	ptr = os_strstr(buf, "sta_id=");
 	if (ptr == NULL) {
@@ -792,6 +807,9 @@ int sta_policy_get_supp_rate(struct hostapd_data *hapd, u8 *sta_addr, u8 *rate)
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
 	struct sta_policy *cfg;
 
+	if (!i_cfg)
+		return -1;
+
 	cfg = sta_policy_node_get(&i_cfg->l_sta_policy, sta_addr);
 	if (!cfg) {
 		return -1;
@@ -818,19 +836,23 @@ u8 *sta_policy_copy_supp_rate(struct hostapd_data *hapd, u8 *sta_addr,
 	struct sta_policy *cfg;
 	u8 *pos;
 
+	if (!i_cfg)
+		goto fail;
+
 	cfg = sta_policy_node_get(&i_cfg->l_sta_policy, sta_addr);
 	if (!cfg) {
-		*res = -1;
-		return eid;
+		goto fail;
 	}
 
 	pos = sta_policy_eid_rate(hapd, cfg, eid);
 	if (pos == NULL) {
-		*res = -1;
-		return eid;
+		goto fail;
 	}
 
 	return pos;
+fail:
+	*res = -1;
+	return eid;
 }
 
 /**
@@ -842,6 +864,9 @@ void sta_policy_update_capab(struct hostapd_data *hapd,
 {
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
 	struct sta_policy *cfg;
+
+	if (!i_cfg)
+		return;
 
 	if (!i_cfg->assoc_resp)
 		return;
@@ -866,6 +891,9 @@ void sta_policy_update_ht_cap(struct hostapd_data *hapd,
 {
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
 	struct sta_policy *cfg;
+
+	if (!i_cfg)
+		return;
 
 	if (!i_cfg->assoc_resp)
 		return;
@@ -893,6 +921,9 @@ void sta_policy_update_ht_op_info(struct hostapd_data *hapd,
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
 	struct sta_policy *cfg;
 
+	if (!i_cfg)
+		return;
+
 	if (!i_cfg->assoc_resp)
 		return;
 
@@ -919,6 +950,9 @@ void sta_policy_update_vht_cap(struct hostapd_data *hapd,
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
 	struct sta_policy *cfg;
 
+	if (!i_cfg)
+		return;
+
 	if (!i_cfg->assoc_resp)
 		return;
 
@@ -944,6 +978,12 @@ int sta_policy_add(struct hostapd_data *hapd, char *buf)
 {
 	int len;
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
+
+	if (!i_cfg) {
+		wpa_printf(MSG_ERROR, "sta_policy.conf does not exist, "
+				" cannot add policy");
+		goto fail;
+	}
 
 	len = strlen(buf);
 	if (len > STA_POLICY_ENTRYSIZE) {
@@ -978,7 +1018,8 @@ int stapolicy_cfg_init(struct hostapd_iface *iface)
 	if (sta_policy_load(iface)) {
 		os_free(i_cfg->cfg_file);
 		os_free(i_cfg);
-		return -1;
+		iface->i_cfg = NULL;
+		return 0;
 	}
 
 	sta_policy_list_dump(&i_cfg->l_sta_policy);
@@ -1019,8 +1060,6 @@ int stapolicy_interface_init(struct hostapd_iface *iface)
 	if (!i_cfg)
 		return -1;
 
-	os_memset(i_cfg, 0, (sizeof(struct per_interface_config)));
-
 	iface->i_cfg = i_cfg;
 
 	/* Generate persta config file name */
@@ -1030,13 +1069,13 @@ int stapolicy_interface_init(struct hostapd_iface *iface)
 	file_len = os_strlen(STA_POLICY_DIR) +
 		   os_strlen(i_cfg->iface_name) +
 		   os_strlen(STA_POLICY_FILENAME) + 1;
-	i_cfg->cfg_file = (char *) os_malloc(file_len);
+	i_cfg->cfg_file = (char *) os_zalloc(file_len);
 	if (!i_cfg->cfg_file) {
 		os_free(i_cfg);
+		iface->i_cfg = NULL;
 		return -1;
 	}
 
-	os_memset(i_cfg->cfg_file, 0, file_len);
 	/* Create config file name */
 	os_snprintf(i_cfg->cfg_file, STA_POLICY_ENTRYSIZE, "%s%s%s",
 		STA_POLICY_DIR, i_cfg->iface_name, STA_POLICY_FILENAME);
@@ -1051,6 +1090,9 @@ int stapolicy_interface_init(struct hostapd_iface *iface)
 void stapolicy_interface_deinit(struct hostapd_iface *iface)
 {
 	struct per_interface_config *i_cfg = iface->i_cfg;
+
+	if (!i_cfg)
+		return;
 
 	/* Delete STA policy, list */
 	sta_policy_node_list_free(&i_cfg->l_sta_policy);
