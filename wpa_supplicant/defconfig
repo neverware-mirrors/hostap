@@ -562,3 +562,6 @@ CONFIG_SCAN_KNOWN_CHANNELS_ONLY=y
 
 # Support Multi Band Operation
 #CONFIG_MBO=y
+
+# Compile libwpa_client.so.
+#CONFIG_BUILD_WPA_CLIENT_SO=y
