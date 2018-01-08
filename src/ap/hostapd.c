@@ -3112,6 +3112,9 @@ Boolean hostapd_csa_req_on_same_channel(struct hostapd_data *hapd,
 	} else {
 		/* 2.4GHZ */
 		if(settings->freq_params.ht_enabled) {
+			ht_chwidth = hapd->iface->conf->secondary_channel ? 40 : 20;
+			req_ht_cw = settings->freq_params.sec_channel_offset ? 40 : 20;
+
 			if (ht_chwidth == req_ht_cw)
 				return TRUE;
 		} else {
