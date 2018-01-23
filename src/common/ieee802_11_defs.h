@@ -863,6 +863,11 @@ struct ieee80211_ampe_ie {
 #define HT_INFO_HT_PARAM_RIFS_MODE			((u8) BIT(3))
 /* B4..B7 - Reserved */
 
+/* HT AMPDU params */
+#define HT_PARAM_MAX_AMPDU_LEN_EXPO_MASK               ((u8) BIT(0) | BIT(1))
+#define HT_PARAM_MIN_MPDU_START_SPACING_MASK           ((u8) BIT(2) | BIT(3) |\
+                                                             BIT(4))
+
 /* HT Protection (B8..B9 of HT Operation Information) */
 #define HT_PROT_NO_PROTECTION           0
 #define HT_PROT_NONMEMBER_PROTECTION    1

@@ -31,7 +31,9 @@ static const char *config_params[] = {
 	"rx_ldpc=",
 	"sgi80=",
 	"ampdu_subframe_count=",
-	"pspoll_sta_ko_enabled="
+	"pspoll_sta_ko_enabled=",
+	"min_mpdu_spacing=",
+	"tx_stbc="
 };
 
 /**
@@ -164,7 +166,6 @@ static int populate_sta_policy(struct hostapd_data *hapd,
 		if (parse_rate_string(hapd, cfg, value) != 0) {
 			return -1;
 		}
-
 		break;
 	case POLICY_PARAM_SHORT_PREAMBLE:
 		val = atoi(value);
@@ -292,6 +293,26 @@ static int populate_sta_policy(struct hostapd_data *hapd,
 		val = atoi(value);
 		cfg->flags |= FLAG_PSPOLL_STA_KO_ENABLED;
 		cfg->pspoll_sta_ko_enabled = (val) ? !!val : 0;
+		break;
+	case POLICY_PARAM_MIN_MPDU_SPACING:
+		val = atoi(value);
+		cfg->ht_ampdu_param_mask |= HT_PARAM_MIN_MPDU_START_SPACING_MASK;
+		if (val < MAX_MPDU_SPACING || val > 0) {
+			cfg->ht_ampdu_param = (val << 2) &
+				HT_PARAM_MIN_MPDU_START_SPACING_MASK;
+		} else {
+			cfg->ht_ampdu_param &=
+				~HT_PARAM_MIN_MPDU_START_SPACING_MASK;
+		}
+		break;
+	case POLICY_PARAM_TXSTBC:
+		val = atoi(value);
+		cfg->vht_capab_info_mask |= VHT_CAP_TXSTBC;
+		if (val == 1) {
+			cfg->vht_capab_info |= VHT_CAP_TXSTBC;
+		} else {
+			cfg->vht_capab_info &= ~VHT_CAP_TXSTBC;
+		}
 		break;
 	default:
 		wpa_printf(MSG_INFO, "Unknown param: %s\n", param);
@@ -648,6 +669,26 @@ static int construct_sta_policy(struct sta_policy *cfg,
 		pos += len;
 	}
 
+	if (cfg->ht_ampdu_param_mask & HT_PARAM_MIN_MPDU_START_SPACING_MASK) {
+		len = os_snprintf(line + pos, size - pos,
+				" min_mpdu_spacing=%d", (cfg->ht_ampdu_param &
+				HT_PARAM_MIN_MPDU_START_SPACING_MASK) >> 2);
+		if (os_snprintf_error(size - pos, len))
+			return -1;
+
+		pos += len;
+	}
+
+	if (cfg->vht_capab_info_mask & VHT_CAP_TXSTBC) {
+		len = os_snprintf(line + pos, size - pos,
+				" tx_stbc=%d", !!(cfg->vht_capab_info &
+					VHT_CAP_TXSTBC));
+		if (os_snprintf_error(size - pos, len))
+			return -1;
+
+		pos += len;
+	}
+
 	strcat(line, "\n");
 	return pos + 1;
 }
@@ -950,6 +991,12 @@ void sta_policy_update_ht_cap(struct hostapd_data *hapd,
 					i_cfg->_ht_capab_info_mask);
 	cap->ht_capabilities_info |= (cfg->ht_capab_info &
 		(cfg->ht_capab_info_mask & i_cfg->_ht_capab_info_mask));
+
+	/* Update AMPDU param */
+	cap->a_mpdu_params &= ~(cfg->ht_ampdu_param_mask &
+			i_cfg->_ht_ampdu_param_mask);
+	cap->a_mpdu_params |= (cfg->ht_ampdu_param &
+			(cfg->ht_ampdu_param_mask ));
 }
 
 /**
