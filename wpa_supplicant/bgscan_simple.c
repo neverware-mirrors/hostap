@@ -193,11 +193,12 @@ static void bgscan_simple_setup_freqs(struct wpa_supplicant *wpa_s,
 	u16 num_modes, flags;
 	int i, j, *freqs;
 	size_t count;
+	u8 dfs_domain;
 
 	data->supp_freqs = NULL;
 	data->freq_idx = 0;
 
-	modes = wpa_drv_get_hw_feature_data(wpa_s, &num_modes, &flags);
+	modes = wpa_drv_get_hw_feature_data(wpa_s, &num_modes, &flags, &dfs_domain);
 	if (!modes)
 		return;
 
