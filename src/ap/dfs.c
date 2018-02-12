@@ -854,7 +854,9 @@ static int hostapd_dfs_start_channel_switch(struct hostapd_iface *iface)
 	 * Allow selection of DFS channel in ETSI to comply with
 	 * uniform spreading.
 	 */
-	if (iface->dfs_domain == HOSTAPD_DFS_REGION_ETSI)
+	if (iface->dfs_domain == HOSTAPD_DFS_REGION_ETSI ||
+	    iface->dfs_domain == HOSTAPD_DFS_REGION_FCC ||
+	    iface->dfs_domain == HOSTAPD_DFS_REGION_JP)
 		skip_radar = 0;
 
 	/* Perform channel switch/CSA */
