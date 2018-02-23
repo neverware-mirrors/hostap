@@ -3934,7 +3934,7 @@ void nl80211_remove_iface(struct wpa_driver_nl80211_data *drv, int ifidx)
 	struct nl_msg *msg;
 	struct wpa_driver_nl80211_data *drv2;
 
-	wpa_printf(MSG_DEBUG, "nl80211: Remove interface ifindex=%d", ifidx);
+	wpa_printf(MSG_ERROR, "nl80211: Remove interface ifindex=%d", ifidx);
 
 	/* stop listening for EAPOL on this interface */
 	dl_list_for_each(drv2, &drv->global->interfaces,
@@ -6111,9 +6111,10 @@ static int wpa_driver_nl80211_if_remove(struct i802_bss *bss,
 
 	wpa_printf(MSG_DEBUG, "nl80211: %s(type=%d ifname=%s) ifindex=%d added_if=%d",
 		   __func__, type, ifname, ifindex, bss->added_if);
-	if (ifindex > 0 && (bss->added_if || bss->ifindex != ifindex))
+	if (ifindex > 0 && (bss->added_if || bss->ifindex != ifindex)) {
+		wpa_printf(MSG_ERROR, "%s %d ifname %s\n", __func__,__LINE__,ifname);
 		nl80211_remove_iface(drv, ifindex);
-	else if (ifindex > 0 && !bss->added_if) {
+	} else if (ifindex > 0 && !bss->added_if) {
 		struct wpa_driver_nl80211_data *drv2;
 		dl_list_for_each(drv2, &drv->global->interfaces,
 				 struct wpa_driver_nl80211_data, list)
@@ -6124,6 +6125,8 @@ static int wpa_driver_nl80211_if_remove(struct i802_bss *bss,
 		return 0;
 
 	if (bss->added_if_into_bridge) {
+		wpa_printf(MSG_ERROR, "%s %d ifname %s\n",
+			__func__,__LINE__,ifname);
 		if (linux_br_del_if(drv->global->ioctl_sock, bss->brname,
 				    bss->ifname) < 0)
 			wpa_printf(MSG_INFO, "nl80211: Failed to remove "
@@ -6131,6 +6134,8 @@ static int wpa_driver_nl80211_if_remove(struct i802_bss *bss,
 				   bss->ifname, bss->brname, strerror(errno));
 	}
 	if (bss->added_bridge) {
+		wpa_printf(MSG_ERROR, "%s %d ifname %s\n",
+			__func__,__LINE__,ifname);
 		if (linux_br_del(drv->global->ioctl_sock, bss->brname) < 0)
 			wpa_printf(MSG_INFO, "nl80211: Failed to remove "
 				   "bridge %s: %s",
@@ -6141,6 +6146,8 @@ static int wpa_driver_nl80211_if_remove(struct i802_bss *bss,
 		struct i802_bss *tbss;
 
 		wpa_printf(MSG_DEBUG, "nl80211: Not the first BSS - remove it");
+		wpa_printf(MSG_ERROR, "%s %d ifname %s\n",
+			__func__,__LINE__,ifname);
 		for (tbss = drv->first_bss; tbss; tbss = tbss->next) {
 			if (tbss->next == bss) {
 				tbss->next = bss->next;
@@ -6159,6 +6166,8 @@ static int wpa_driver_nl80211_if_remove(struct i802_bss *bss,
 				   "BSS %p in the list", __func__, bss);
 	} else {
 		wpa_printf(MSG_DEBUG, "nl80211: First BSS - reassign context");
+		wpa_printf(MSG_ERROR, "%s %d ifname %s\n",
+			__func__,__LINE__,ifname);
 		nl80211_teardown_ap(bss);
 		if (!bss->added_if && !drv->first_bss->next)
 			wpa_driver_nl80211_del_beacon(drv);
@@ -6222,7 +6231,7 @@ static int nl80211_send_frame_cmd(struct i802_bss *bss,
 	ret = send_and_recv_msgs(drv, msg, cookie_handler, &cookie);
 	msg = NULL;
 	if (ret) {
-		wpa_printf(MSG_DEBUG, "nl80211: Frame command failed: ret=%d "
+		wpa_printf(MSG_ERROR, "Debug-M65 nl80211: Frame command failed: ret=%d "
 			   "(%s) (freq=%u wait=%u)", ret, strerror(-ret),
 			   freq, wait);
 	} else {

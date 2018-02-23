@@ -2912,6 +2912,7 @@ static int hostapd_ctrl_iface_add(struct hapd_interfaces *interfaces,
 static int hostapd_ctrl_iface_remove(struct hapd_interfaces *interfaces,
 				     char *buf)
 {
+	wpa_printf(MSG_ERROR, "Debug-M65:%s %d buf:%s\n", __func__,__LINE__, buf);
 	if (hostapd_remove_iface(interfaces, buf) < 0) {
 		wpa_printf(MSG_ERROR, "Removing interface %s failed", buf);
 		return -1;

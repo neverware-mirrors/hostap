@@ -1996,6 +1996,7 @@ static void do_process_drv_event(struct i802_bss *bss, int cmd,
 		nl80211_radar_event(drv, tb);
 		break;
 	case NL80211_CMD_STOP_AP:
+		wpa_printf(MSG_ERROR, "Debug-M65:%s %d event %d\n", __func__,__LINE__, cmd);
 		nl80211_stop_ap(drv, tb);
 		break;
 	case NL80211_CMD_VENDOR:

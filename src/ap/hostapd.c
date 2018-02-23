@@ -2684,6 +2684,8 @@ static int hostapd_remove_bss(struct hostapd_iface *iface, unsigned int idx)
 {
 	size_t i;
 
+	wpa_printf(MSG_ERROR, "Debug-M65:%s %d iface %s\n", __func__,__LINE__,
+			iface->conf->bss[idx]->iface);
 	wpa_printf(MSG_INFO, "Remove BSS '%s'", iface->conf->bss[idx]->iface);
 
 	/* Remove hostapd_data only if it has already been initialized */
@@ -2724,6 +2726,7 @@ int hostapd_remove_iface(struct hapd_interfaces *interfaces, char *buf)
 		if (hapd_iface == NULL)
 			return -1;
 		if (!os_strcmp(hapd_iface->conf->bss[0]->iface, buf)) {
+			wpa_printf(MSG_ERROR, "Debug-M65:%s %d buf %s\n", __func__,__LINE__, buf);
 			wpa_printf(MSG_INFO, "Remove interface '%s'", buf);
 			hapd_iface->driver_ap_teardown =
 				!!(hapd_iface->drv_flags &
