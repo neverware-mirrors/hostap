@@ -2945,12 +2945,12 @@ static void handle_disassoc_cb(struct hostapd_data *hapd,
 		wpa_printf(MSG_DEBUG, "STA " MACSTR " did not acknowledge "
 			   "disassoc", MAC2STR(sta->addr));
 
-	connect_log_event(hapd, sta->addr,
-			  CONNECTION_EVENT_DISASSOC_RESP, ok,
-			  ok ? REASON_DISASSOC_ACK : REASON_DISASSOC_NO_ACK,
-			  sta, ok, INVALID_SIGNAL,
-			  INVALID_STEERING_REASON, NULL,
-			  NULL, NULL, -1);
+	if (!ok)
+		connect_log_event(hapd, sta->addr,
+				  CONNECTION_EVENT_DISASSOC_RESP, ok,
+				  REASON_NO_ACK, sta, ok, INVALID_SIGNAL,
+				  INVALID_STEERING_REASON, NULL,
+				  NULL, NULL, -1);
 
 	ap_sta_disassoc_cb(hapd, sta);
 }
