@@ -49,11 +49,6 @@ u8 * hostapd_eid_vht_capabilities(struct hostapd_data *hapd, u8 *eid)
 	cap->vht_capabilities_info = host_to_le32(
 		hapd->iface->conf->vht_capab);
 
-#ifdef HOSTAPD
-	/* Update sta_policy on VHT IE */
-	sta_policy_update_vht_cap(hapd, cap);
-#endif
-
 	/* Supported MCS set comes from hw */
 	os_memcpy(&cap->vht_supported_mcs_set, mode->vht_mcs_set, 8);
 

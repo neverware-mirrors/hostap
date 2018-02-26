@@ -44,7 +44,6 @@
 #include "ap/beacon.h"
 #include "ap/neighbor_db.h"
 #include "ap/rrm.h"
-#include "ap/sta_policy.h"
 #include "wps/wps_defs.h"
 #include "wps/wps.h"
 #include "fst/fst_ctrl_iface.h"
@@ -2597,16 +2596,6 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 	} else if (os_strncmp(buf, "UNI_CAST_PROBING ", 17) == 0) {
 		if (hostapd_ctrl_iface_uni_cast_probing(hapd, buf + 17))
 			reply_len = -1;
-	} else if (os_strncmp(buf, "STA_POLICY_ADD ", 15) == 0) {
-		if (sta_policy_add(hapd, (buf + 15)))
-			reply_len = -1;
-	} else if (os_strncmp(buf, "STA_POLICY_DEL ", 15) == 0) {
-		if (sta_policy_del(hapd, (buf + 15)))
-			reply_len = -1;
-	} else if (os_strncmp(buf, "STA_POLICY_GET ", 15) == 0) {
-		reply_len = sta_policy_get(hapd, (buf + 15), reply, reply_size);
-		if (reply_len < 0)
-			reply_size = -1;
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);
 		reply_len = 16;
