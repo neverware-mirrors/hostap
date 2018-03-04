@@ -6231,9 +6231,11 @@ static int nl80211_send_frame_cmd(struct i802_bss *bss,
 	ret = send_and_recv_msgs(drv, msg, cookie_handler, &cookie);
 	msg = NULL;
 	if (ret) {
-		wpa_printf(MSG_ERROR, "Debug-M65 nl80211: Frame command failed: ret=%d "
-			   "(%s) (freq=%u wait=%u)", ret, strerror(-ret),
-			   freq, wait);
+		hostapd_logger(drv->ctx, NULL, HOSTAPD_MODULE_IEEE80211,
+				HOSTAPD_LEVEL_INFO,
+				"Debug-M65 nl80211: Frame command failed: "
+				"ret=%d (%s) (freq=%u wait=%u)", ret,
+				strerror(-ret), freq, wait);
 	} else {
 		wpa_printf(MSG_MSGDUMP, "nl80211: Frame TX command accepted%s; "
 			   "cookie 0x%llx", no_ack ? " (no ACK)" : "",
