@@ -753,6 +753,40 @@ void wpa_supplicant_set_state(struct wpa_supplicant *wpa_s,
 		wpa_supplicant_state_txt(wpa_s->wpa_state),
 		wpa_supplicant_state_txt(state));
 
+	if (state == WPA_AUTHENTICATING && wpa_s->wpa_state == WPA_COMPLETED) {
+		if (wpa_s->sme.prev_bssid_set &&
+		    os_memcmp(wpa_s->sme.prev_bssid, wpa_s->pending_bssid, ETH_ALEN) != 0) {
+			os_get_reltime(&wpa_s->roam_start);
+		}
+	} else if (state == WPA_COMPLETED &&
+		   os_reltime_initialized(&wpa_s->roam_start)) {
+		os_reltime_age(&wpa_s->roam_start, &wpa_s->roam_time);
+		wpa_s->roam_start.sec = 0;
+		wpa_s->roam_start.usec = 0;
+		wpas_notify_auth_changed(wpa_s);
+		wpas_notify_roam_time(wpa_s);
+		wpas_notify_roam_complete(wpa_s);
+	} else if (state == WPA_DISCONNECTED &&
+		   os_reltime_initialized(&wpa_s->roam_start)) {
+		wpa_s->roam_start.sec = 0;
+		wpa_s->roam_start.usec = 0;
+		wpa_s->roam_time.sec = 0;
+		wpa_s->roam_time.usec = 0;
+		wpas_notify_roam_complete(wpa_s);
+	}
+
+	if (state == WPA_COMPLETED && wpa_s->wpa_state != WPA_COMPLETED) {
+		wpas_notify_auth_changed(wpa_s);
+		os_get_reltime(&wpa_s->session_start);
+	} else if (state != WPA_COMPLETED &&
+		   wpa_s->wpa_state == WPA_COMPLETED &&
+		   os_reltime_initialized(&wpa_s->session_start)) {
+		os_reltime_age(&wpa_s->session_start, &wpa_s->session_length);
+		wpa_s->session_start.sec = 0;
+		wpa_s->session_start.usec = 0;
+		wpas_notify_session_length(wpa_s);
+	}
+
 	if (state == WPA_INTERFACE_DISABLED) {
 		/* Assure normal scan when interface is restored */
 		wpa_s->normal_scans = 0;
