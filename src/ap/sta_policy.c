@@ -1099,6 +1099,9 @@ void sta_policy_send_event(struct hostapd_data *hapd, uint8_t *sta_addr)
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
 	struct sta_policy *cfg;
 
+	if (!i_cfg)
+		return;
+
 	cfg = sta_policy_node_get(&i_cfg->l_sta_policy, sta_addr);
 	if (!cfg) {
 		return;
