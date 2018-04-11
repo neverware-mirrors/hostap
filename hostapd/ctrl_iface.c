@@ -2337,6 +2337,63 @@ static int hostapd_ctrl_iface_enable_ftm(struct hostapd_data *hapd,
 	if (ieee802_11_set_beacon(hapd)) {
 		return -1;
 	}
+
+	return 0;
+}
+
+static int hostapd_ctrl_iface_set_speed_test(struct hostapd_data *hapd,
+					     char *buf)
+{
+	u16 val = atoi(buf);
+	struct wpabuf *vendor_ie = hapd->conf->vendor_elements;
+
+	if (!buf || !vendor_ie)
+		return -1;
+
+	/* TODO(ratheeshs@): Handle multiple VendorIE handling in the buffer
+	 * Octat 2, 3 and 4 represents the OUI
+	 * Octat 5 represents the Feature ID
+	 */
+	if (vendor_ie->buf[2] == 0xf4 && vendor_ie->buf[3] == 0xf5 &&
+					 vendor_ie->buf[4] == 0xe8 &&
+					 vendor_ie->buf[5] == 0x5) {
+		/* 2 Bytes(octat 8 and 9) are used to store the speed results */
+		vendor_ie->buf[8] = (val & 0xFF00) >> 8;
+		vendor_ie->buf[9] = (val & 0x00FF);
+	} else {
+		return -1;
+	}
+
+	if (ieee802_11_set_beacon(hapd))
+		return -1;
+
+	return 0;
+}
+
+static int hostapd_ctrl_iface_set_hop_count(struct hostapd_data *hapd,
+					    char *buf)
+{
+	u8 val = atoi(buf);
+	struct wpabuf *vendor_ie = hapd->conf->vendor_elements;
+
+	if (!buf || !vendor_ie)
+		return -1;
+
+	/* TODO(ratheeshs@): Handle multiple VendorIE handling in the buffer
+	 * Octat 2, 3 and 4 represents the OUI
+	 * Octat 5 represents the Feature ID
+	 */
+	if (vendor_ie->buf[2] == 0xf4 && vendor_ie->buf[3] == 0xf5 &&
+					 vendor_ie->buf[4] == 0xe8 &&
+					 vendor_ie->buf[5] == 0x5) {
+		vendor_ie->buf[7] = val;
+	} else {
+		return -1;
+	}
+
+	if (ieee802_11_set_beacon(hapd))
+		return -1;
+
 	return 0;
 }
 
@@ -2621,6 +2678,12 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 		if (reply_len < 0)
 			reply_size = -1;
 #endif /* CONFIG_STA_POLICY */
+	} else if (os_strncmp(buf, "SET_SPEED_TEST ", 15) == 0) {
+		if (hostapd_ctrl_iface_set_speed_test(hapd, buf + 15))
+			reply_len = -1;
+	} else if (os_strncmp(buf, "SET_HOP_COUNT ", 14) == 0) {
+		if (hostapd_ctrl_iface_set_hop_count(hapd, buf + 14))
+			reply_len = -1;
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);
 		reply_len = 16;
