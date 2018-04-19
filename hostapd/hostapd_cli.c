@@ -1349,6 +1349,28 @@ static int hostapd_cli_cmd_sta_policy_add(struct wpa_ctrl *ctrl, int argc,
 }
 #endif /* CONFIG_STA_POLICY */
 
+static int hostapd_cli_cmd_enable_ftm(struct wpa_ctrl *ctrl, int argc,
+				      char *argv[])
+{
+	char cmd[32];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid command - Needs argument as,"
+					"enable_ftm <0/1>\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "ENABLE_FTM %s", argv[0]);
+
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long ENABLE_FTM command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1422,6 +1444,7 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "sta_policy_del", hostapd_cli_cmd_sta_policy_del },
 	{ "sta_policy_get", hostapd_cli_cmd_sta_policy_get },
 #endif /* CONFIG_STA_POLICY */
+	{ "enable_ftm", hostapd_cli_cmd_enable_ftm },
 	{ NULL, NULL }
 };
 

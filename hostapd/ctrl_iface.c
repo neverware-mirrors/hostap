@@ -2330,6 +2330,15 @@ static int hostapd_ctrl_iface_remove_neighbor(struct hostapd_data *hapd,
 	return hostapd_neighbor_remove(hapd, bssid, &ssid);
 }
 
+static int hostapd_ctrl_iface_enable_ftm(struct hostapd_data *hapd,
+					      char *buf)
+{
+	hapd->conf->ftm_responder = (atoi(buf) ? TRUE : FALSE);
+	if (ieee802_11_set_beacon(hapd)) {
+		return -1;
+	}
+	return 0;
+}
 
 static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 					      char *buf, char *reply,
@@ -2490,6 +2499,9 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 		if (hostapd_ctrl_iface_bss_tm_req(hapd, buf + 11))
 			reply_len = -1;
 #endif /* CONFIG_WNM */
+	} else if (os_strncmp(buf, "ENABLE_FTM ", 11) == 0) {
+		if (hostapd_ctrl_iface_enable_ftm(hapd, buf + 11))
+			reply_len = -1;
 	} else if (os_strcmp(buf, "GET_CONFIG") == 0) {
 		reply_len = hostapd_ctrl_iface_get_config(hapd, reply,
 							  reply_size);
