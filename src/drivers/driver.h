@@ -1343,6 +1343,8 @@ struct rate_info {
 	s8 vht_nss;
 };
 
+#define STA_DRV_DATA_LAST_ACK_RSSI BIT(8)
+
 struct hostap_sta_driver_data {
 	unsigned long rx_packets, tx_packets, rx_bytes, tx_bytes;
 	unsigned long current_tx_rate, current_rx_rate;
@@ -1352,7 +1354,7 @@ struct hostap_sta_driver_data {
 	unsigned long tx_retry_failed;
 	unsigned long tx_retry_count;
 	int last_rssi;
-	int last_ack_rssi;
+	s8 last_ack_rssi;
 	s8 avg_rssi;
 	struct rate_info tx_rate_info;
 	struct rate_info rx_rate_info;

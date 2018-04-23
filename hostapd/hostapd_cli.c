@@ -1434,6 +1434,22 @@ static int hostapd_cli_cmd_enable_ftm(struct wpa_ctrl *ctrl, int argc,
 }
 
 
+static int hostapd_cli_cmd_poll_sta(struct wpa_ctrl *ctrl, int argc,
+				   char *argv[])
+{
+	char buf[64];
+	if (argc < 1) {
+		printf("Invalid 'poll_sta' command - at least one argument, STA "
+		       "address, is required.\n");
+		return -1;
+	}
+	if (argc > 1)
+		snprintf(buf, sizeof(buf), "POLL_STA %s %s", argv[0], argv[1]);
+	else
+		snprintf(buf, sizeof(buf), "POLL_STA %s", argv[0]);
+	return wpa_ctrl_command(ctrl, buf);
+}
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1511,6 +1527,7 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "set_hop_count", hostapd_cli_cmd_set_hop_count },
 	{ "set_speed_test", hostapd_cli_cmd_set_speed_test },
 	{ "set_path_metric", hostapd_cli_cmd_set_path_metric },
+	{ "poll_sta", hostapd_cli_cmd_poll_sta},
 	{ NULL, NULL }
 };
 

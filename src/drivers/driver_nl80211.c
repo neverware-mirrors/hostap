@@ -5296,6 +5296,7 @@ static int get_sta_handler(struct nl_msg *msg, void *arg)
 		[NL80211_STA_INFO_RX_PACKETS] = { .type = NLA_U32 },
 		[NL80211_STA_INFO_TX_PACKETS] = { .type = NLA_U32 },
 		[NL80211_STA_INFO_TX_FAILED] = { .type = NLA_U32 },
+		[NL80211_STA_INFO_ACK_SIGNAL] = { .type = NLA_U8 },
 	};
 
 	nla_parse(tb, NL80211_ATTR_MAX, genlmsg_attrdata(gnlh, 0),
@@ -5351,6 +5352,11 @@ static int get_sta_handler(struct nl_msg *msg, void *arg)
 		parse_bitrate(stats[NL80211_STA_INFO_RX_BITRATE],
 			      &data->current_rx_rate, &data->rx_rate_info);
 
+	if (stats[NL80211_STA_INFO_ACK_SIGNAL]) {
+		data->last_ack_rssi =
+			nla_get_u8(stats[NL80211_STA_INFO_ACK_SIGNAL]);
+		data->flags |= STA_DRV_DATA_LAST_ACK_RSSI;
+	}
 	return NL_SKIP;
 }
 

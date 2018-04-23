@@ -43,6 +43,7 @@ static int hostapd_get_sta_tx_rx(struct hostapd_data *hapd,
 {
 	struct hostap_sta_driver_data data;
 	int ret;
+	int len = 0;
 
 	if (hostapd_drv_read_sta_data(hapd, &data, sta->addr) < 0)
 		return 0;
@@ -53,7 +54,13 @@ static int hostapd_get_sta_tx_rx(struct hostapd_data *hapd,
 			  data.rx_bytes, data.tx_bytes);
 	if (os_snprintf_error(buflen, ret))
 		return 0;
-	return ret;
+	if (data.flags & STA_DRV_DATA_LAST_ACK_RSSI) {
+		ret = os_snprintf(buf + len, buflen - len,
+				"last_ack_signal=%d\n", data.last_ack_rssi);
+		if (!os_snprintf_error(buflen - len, ret))
+			len += ret;
+	}
+	return len;
 }
 
 
@@ -474,6 +481,25 @@ int hostapd_ctrl_iface_disassociate(struct hostapd_data *hapd,
 	return 0;
 }
 
+int hostapd_ctrl_iface_poll_sta(struct hostapd_data *hapd,
+                               const char *txtaddr)
+{
+	u8 addr[ETH_ALEN];
+	struct sta_info *sta;
+
+	wpa_dbg(hapd->msg_ctx, MSG_DEBUG, "CTRL_IFACE POLL_STA %s", txtaddr);
+
+	if (hwaddr_aton(txtaddr, addr))
+		return -1;
+
+	sta = ap_get_sta(hapd, addr);
+	if (!sta)
+		return -1;
+
+	hostapd_drv_poll_client(hapd, hapd->own_addr, addr,
+				sta->flags & WLAN_STA_WMM);
+	return 0;
+}
 
 int hostapd_ctrl_iface_status(struct hostapd_data *hapd, char *buf,
 			      size_t buflen)
