@@ -1268,10 +1268,12 @@ int wpa_supplicant_set_suites(struct wpa_supplicant *wpa_s,
 			"WPA: using KEY_MGMT 802.1X with Suite B");
 #endif /* CONFIG_SUITEB */
 #ifdef CONFIG_IEEE80211R
-	} else if (sel & WPA_KEY_MGMT_FT_IEEE8021X) {
+	} else if ((sel & WPA_KEY_MGMT_FT_IEEE8021X) &&
+		   (wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME)) {
 		wpa_s->key_mgmt = WPA_KEY_MGMT_FT_IEEE8021X;
 		wpa_dbg(wpa_s, MSG_DEBUG, "WPA: using KEY_MGMT FT/802.1X");
-	} else if (sel & WPA_KEY_MGMT_FT_PSK) {
+	} else if ((sel & WPA_KEY_MGMT_FT_PSK) &&
+		   (wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME)) {
 		wpa_s->key_mgmt = WPA_KEY_MGMT_FT_PSK;
 		wpa_dbg(wpa_s, MSG_DEBUG, "WPA: using KEY_MGMT FT/PSK");
 #endif /* CONFIG_IEEE80211R */
