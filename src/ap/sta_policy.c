@@ -45,6 +45,7 @@ static inline char *get_iface_name(const struct hostapd_data *hapd)
 	return hapd->iface->bss[0]->conf->iface;
 }
 
+#ifdef CONFIG_STA_POLICY
 void sta_policy_begin_assoc_resp(struct hostapd_data *hapd, uint8_t *sta_addr)
 {
 	struct per_interface_config *i_cfg = hapd->iface->i_cfg;
@@ -66,6 +67,7 @@ void sta_policy_end_assoc_resp(struct hostapd_data *hapd)
 	os_memset(i_cfg->associating_sta, 0, ETH_ALEN);
 	i_cfg->assoc_resp = 0;
 }
+#endif /* CONFIG_STA_POLICY */
 
 static void sta_policy_dump(const struct sta_policy *cfg)
 {
@@ -744,6 +746,7 @@ exit:
 	return -1;
 }
 
+#ifdef CONFIG_STA_POLICY
 /**
  * Reply with the existing sta policy setting for the given sta
  * sta_id=00:00:00:00:00:00 indicates for all STA setting request
@@ -848,6 +851,7 @@ int sta_policy_del(struct hostapd_data *hapd, char *buf)
 
 	return ret;
 }
+#endif /* CONFIG_STA_POLICY */
 
 /**
  * Add supported rate and extended rate IE if sta policy rate settings exists
@@ -878,6 +882,7 @@ static u8 *sta_policy_eid_rate(struct hostapd_data *hapd,
 	return pos;
 }
 
+#ifdef CONFIG_STA_POLICY
 /**
  * Copy the Existing STA policy supported rate to the buffer passed,
  * if the sta_id matched the list
@@ -1222,3 +1227,4 @@ void stapolicy_interface_deinit(struct hostapd_iface *iface)
 	os_free(i_cfg);
 	iface->i_cfg = NULL;
 }
+#endif /* CONFIG_STA_POLICY */

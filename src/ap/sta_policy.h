@@ -125,6 +125,7 @@ typedef enum {
  * Returns 0 - Success
  * 	  -1 - Failure
  */
+ #ifdef CONFIG_STA_POLICY
 int stapolicy_interface_init(struct hostapd_iface *iface);
 
 /**
@@ -206,5 +207,60 @@ void sta_policy_update_vht_cap(struct hostapd_data *hapd,
  * Send the STA_policy events
  */
 void sta_policy_send_event(struct hostapd_data *, uint8_t *);
+
+/**
+ *  Update the HT Operation Info, only if the associating STA mac addr
+ *  is part of the sta policy list
+ */
+void sta_policy_update_ht_op_info(struct hostapd_data *hapd,
+                                  struct ieee80211_ht_operation *op);
+
+#else
+static inline int stapolicy_interface_init(struct hostapd_iface *iface)
+{
+	return 0;
+}
+
+static inline int stapolicy_cfg_init(struct hostapd_iface *iface) { return 0; }
+
+static inline void stapolicy_interface_deinit(struct hostapd_iface *iface) { }
+
+static inline u8 *sta_policy_copy_supp_rate(struct hostapd_data *hapd,
+                                            u8 *sta_addr, u8 *eid, size_t *res)
+{
+	*res = -1;
+	return eid;
+}
+
+static inline int sta_policy_get_supp_rate(struct hostapd_data *hapd,
+                                           u8 *sta_addr, u8 *rate)
+{
+	return 0;
+}
+
+static inline void sta_policy_begin_assoc_resp(struct hostapd_data *hapd,
+                                               uint8_t *sta_addr) { }
+
+static inline void sta_policy_end_assoc_resp(struct hostapd_data *hapd) { }
+
+static inline void sta_policy_update_capab(struct hostapd_data *hapd,
+                                           uint16_t *capability) { }
+
+static inline
+void sta_policy_update_ht_cap(struct hostapd_data *hapd,
+                              struct ieee80211_ht_capabilities *cap) { }
+
+static inline
+void sta_policy_update_vht_cap(struct hostapd_data *hapd,
+                               struct ieee80211_vht_capabilities *cap) { }
+
+static inline void sta_policy_send_event(struct hostapd_data *hapd,
+                                         uint8_t *sta_addr) { }
+
+static inline
+void sta_policy_update_ht_op_info(struct hostapd_data *hapd,
+                                  struct ieee80211_ht_operation *op) { }
+
+#endif /* CONFIG_STA_POLICY */
 
 #endif /* AP_CONFIG_KNOBS_H */

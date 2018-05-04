@@ -17,6 +17,9 @@
 #include "sta_info.h"
 #include "beacon.h"
 #include "ieee802_11.h"
+#ifdef HOSTAPD
+#include "sta_policy.h"
+#endif /* HOSTAPD */
 
 
 u8 * hostapd_eid_vht_capabilities(struct hostapd_data *hapd, u8 *eid)

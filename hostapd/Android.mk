@@ -99,7 +99,12 @@ OBJS += src/ap/beacon.c
 OBJS += src/ap/bss_load.c
 OBJS += src/ap/neighbor_db.c
 OBJS += src/ap/rrm.c
+
+ifdef CONFIG_STA_POLICY
 OBJS += src/ap/sta_policy.c
+L_CFLAGS += -DCONFIG_STA_POLICY
+endif
+
 OBJS_d =
 OBJS_p =
 LIBS =

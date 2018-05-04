@@ -2597,6 +2597,7 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 	} else if (os_strncmp(buf, "UNI_CAST_PROBING ", 17) == 0) {
 		if (hostapd_ctrl_iface_uni_cast_probing(hapd, buf + 17))
 			reply_len = -1;
+#ifdef CONFIG_STA_POLICY
 	} else if (os_strncmp(buf, "STA_POLICY_ADD ", 15) == 0) {
 		if (sta_policy_add(hapd, (buf + 15)))
 			reply_len = -1;
@@ -2607,6 +2608,7 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 		reply_len = sta_policy_get(hapd, (buf + 15), reply, reply_size);
 		if (reply_len < 0)
 			reply_size = -1;
+#endif /* CONFIG_STA_POLICY */
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);
 		reply_len = 16;

@@ -20,6 +20,9 @@
 #include "hw_features.h"
 #include "ap_drv_ops.h"
 
+#ifdef HOSTAPD
+#include "sta_policy.h"
+#endif /* HOSTAPD */
 
 u8 * hostapd_eid_ht_capabilities(struct hostapd_data *hapd, u8 *eid)
 {

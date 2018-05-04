@@ -35,6 +35,7 @@
 #include "ap/steering.h"
 #include "ap/monitor_sta.h"
 #include "ap/blacklist.h"
+#include "sta_policy.h"
 #endif
 
 #ifdef CONFIG_CLIENT_TAXONOMY

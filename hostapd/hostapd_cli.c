@@ -1277,6 +1277,7 @@ static int hostapd_cli_cmd_uni_cast_probing(struct wpa_ctrl *ctrl,
 	return wpa_ctrl_command(ctrl, cmd);
 }
 
+#ifdef CONFIG_STA_POLICY
 static int hostapd_cli_cmd_sta_policy_get(struct wpa_ctrl *ctrl,
 					int argc, char *argv[])
 {
@@ -1346,6 +1347,7 @@ static int hostapd_cli_cmd_sta_policy_add(struct wpa_ctrl *ctrl, int argc,
 
 	return wpa_ctrl_command(ctrl, cmd);
 }
+#endif /* CONFIG_STA_POLICY */
 
 struct hostapd_cli_cmd {
 	const char *cmd;
@@ -1415,9 +1417,11 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "blacklist_time", hostapd_cli_cmd_blacklist_timeout},
 	{ "blacklist_conn_attempt", hostapd_cli_cmd_blacklist_conn_attempt},
 	{ "uni_cast_probing", hostapd_cli_cmd_uni_cast_probing},
+#ifdef CONFIG_STA_POLICY
 	{ "sta_policy_add", hostapd_cli_cmd_sta_policy_add },
 	{ "sta_policy_del", hostapd_cli_cmd_sta_policy_del },
 	{ "sta_policy_get", hostapd_cli_cmd_sta_policy_get },
+#endif /* CONFIG_STA_POLICY */
 	{ NULL, NULL }
 };
 

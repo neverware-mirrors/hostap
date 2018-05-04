@@ -69,7 +69,11 @@ OBJS += ../src/ap/monitor_sta.o
 OBJS += ../src/ap/blacklist.o
 OBJS += ../src/ap/neighbor_db.o
 OBJS += ../src/ap/rrm.o
+
+ifdef CONFIG_STA_POLICY
 OBJS += ../src/ap/sta_policy.o
+CFLAGS += -DCONFIG_STA_POLICY
+endif
 
 OBJS_c = hostapd_cli.o ../src/common/wpa_ctrl.o ../src/utils/os_$(CONFIG_OS).o
 
