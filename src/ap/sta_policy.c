@@ -1128,6 +1128,13 @@ int stapolicy_cfg_init(struct hostapd_iface *iface)
 {
 	struct per_interface_config *i_cfg = iface->i_cfg;
 
+	/* NULL check for iface->hw_features to avoid segmentation fault */
+	if (!iface->hw_features) {
+		hostapd_logger(iface->bss[0], NULL, HOSTAPD_MODULE_IEEE80211,
+			       HOSTAPD_LEVEL_INFO, "hw_features is NULL");
+		return -1;
+	}
+
 	/* read file and load the params */
 	if (sta_policy_load(iface)) {
 		os_free(i_cfg->cfg_file);
