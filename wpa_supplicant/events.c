@@ -1729,7 +1729,7 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 	}
 
 	if (current_bss->est_throughput > selected->est_throughput + 5000) {
-		wpa_dbg(wpa_s, MSG_DEBUG,
+		wpa_dbg(wpa_s, MSG_INFO,
 			"Skip roam - Current BSS has better estimated throughput");
 		return 0;
 	}
@@ -1781,7 +1781,7 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 		return 0;
 	}
 
-	wpa_dbg(wpa_s, MSG_DEBUG,
+	wpa_dbg(wpa_s, MSG_INFO,
 		"Allow reassociation due to difference in signal level (%d >= %d)",
 		diff, min_diff);
 	return 1;
