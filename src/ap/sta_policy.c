@@ -334,7 +334,7 @@ static int sta_policy_node_delete(struct sta_policy **head, uint8_t *sta_id)
 	cfg = tmp = *head;
 	if (!cfg) {
 		wpa_printf(MSG_ERROR, "Empty sta_policy list");
-		return -1;
+		return 0;
 	}
 
 	while (cfg != NULL) {
@@ -351,7 +351,7 @@ static int sta_policy_node_delete(struct sta_policy **head, uint8_t *sta_id)
 	}
 
 	wpa_printf(MSG_INFO, "No " MACSTR " entry present", MAC2STR(sta_id));
-	return -1;
+	return 0;
 }
 
 /**
