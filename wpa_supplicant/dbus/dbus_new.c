@@ -2045,6 +2045,10 @@ void wpas_dbus_signal_prop_changed(struct wpa_supplicant *wpa_s,
 		prop = "DisconnectReason";
 		flush = TRUE;
 		break;
+	case WPAS_DBUS_PROP_AUTH_STATUS_CODE:
+		prop = "AuthStatusCode";
+		flush = TRUE;
+		break;
 	case WPAS_DBUS_PROP_ASSOC_STATUS_CODE:
 		prop = "AssocStatusCode";
 		flush = TRUE;
@@ -3370,6 +3374,11 @@ static const struct wpa_dbus_property_desc wpas_dbus_interface_properties[] = {
 #endif /* CONFIG_P2P */
 	{ "DisconnectReason", WPAS_DBUS_NEW_IFACE_INTERFACE, "i",
 	  wpas_dbus_getter_disconnect_reason,
+	  NULL,
+	  NULL
+	},
+	{ "AuthStatusCode", WPAS_DBUS_NEW_IFACE_INTERFACE, "i",
+	  wpas_dbus_getter_auth_status_code,
 	  NULL,
 	  NULL
 	},
