@@ -369,6 +369,12 @@ int wpa_supplicant_join_mesh(struct wpa_supplicant *wpa_s,
 	params.conf.hwmp_root_interval = ssid->dot11MeshHwmpRootInterval;
 	params.conf.hwmp_confirmation_interval =
 		ssid->dot11MeshHwmpConfirmationInterval;
+
+	if (ssid->mesh_rssi_threshold < DEFAULT_MESH_RSSI_THRESHOLD) {
+		params.conf.rssi_threshold = ssid->mesh_rssi_threshold;
+		params.conf.flags |= WPA_DRIVER_MESH_CONF_FLAG_RSSI_THRESHOLD;
+	}
+
 	if (ssid->dot11MeshHwmpGateAnnouncements) {
 		params.conf.flags |= WPA_DRIVER_MESH_CONF_FLAG_GATE_ANNOUNCEMENTS;
 	}

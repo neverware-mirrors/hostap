@@ -1065,6 +1065,7 @@ struct wpa_driver_ap_params {
 struct wpa_driver_mesh_bss_params {
 #define WPA_DRIVER_MESH_CONF_FLAG_AUTO_PLINKS	0x00000001
 #define WPA_DRIVER_MESH_CONF_FLAG_GATE_ANNOUNCEMENTS	0x00000002
+#define WPA_DRIVER_MESH_CONF_FLAG_RSSI_THRESHOLD 0x00000004
 	/*
 	 * TODO: Other mesh configuration parameters would go here.
 	 * See NL80211_MESHCONF_* for all the mesh config parameters.
@@ -1084,6 +1085,7 @@ struct wpa_driver_mesh_bss_params {
 	int hwmp_confirmation_interval;
 	int vht_capa;
 	int vht_capa_mask;
+	int rssi_threshold;
 };
 
 struct wpa_driver_mesh_join_params {

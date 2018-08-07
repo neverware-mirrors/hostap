@@ -8248,6 +8248,11 @@ static int nl80211_join_mesh(struct i802_bss *bss,
 	    nla_put_u8(msg, NL80211_MESHCONF_GATE_ANNOUNCEMENTS, 1))
 		goto fail;
 
+	if ((params->conf.flags & WPA_DRIVER_MESH_CONF_FLAG_RSSI_THRESHOLD) &&
+	    nla_put(msg, NL80211_MESHCONF_RSSI_THRESHOLD, sizeof(s32),
+		    &params->conf.rssi_threshold))
+		goto fail;
+
 	if (params->conf.hwmp_max_preq_retries &&
 	    nla_put_u8(msg, NL80211_MESHCONF_HWMP_MAX_PREQ_RETRIES,
 			params->conf.hwmp_max_preq_retries))

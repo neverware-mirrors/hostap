@@ -28,6 +28,7 @@
 #define DEFAULT_MESH_RETRY_TIMEOUT 40
 #define DEFAULT_MESH_CONFIRM_TIMEOUT 40
 #define DEFAULT_MESH_HOLDING_TIMEOUT 40
+#define DEFAULT_MESH_RSSI_THRESHOLD 1 /* no change */
 #define DEFAULT_DISABLE_HT 0
 #define DEFAULT_DISABLE_HT40 0
 #define DEFAULT_DISABLE_SGI 0
@@ -456,6 +457,15 @@ struct wpa_ssid {
 	int dot11MeshHwmpPathToRootTimeout; /* TUs */
 	int dot11MeshHwmpRootInterval; /* TUs */
 	int dot11MeshHwmpConfirmationInterval; /* TUs */
+
+	/**
+	* mesh_rssi_threshold - Set mesh parameter mesh_rssi_threshold (dBm)
+	*
+	* -255..-1 = threshold value in dBm
+	* 0 = not using RSSI threshold
+	* 1 = do not change driver default
+	*/
+	int mesh_rssi_threshold; /*dbm*/
 
 	int ht40;
 
