@@ -1324,4 +1324,13 @@ struct wpa_ssid * wpa_scan_res_match(struct wpa_supplicant *wpa_s,
 				     struct wpa_ssid *group,
 				     int only_first_ssid);
 
+/*
+ * Noise floor values to use when we have signal strength
+ * measurements, but no noise floor measurements. These values were
+ * measured in an office environment with many APs.
+ */
+#define DEFAULT_NOISE_FLOOR_2GHZ (-89)
+#define DEFAULT_NOISE_FLOOR_5GHZ (-92)
+#define IS_5GHZ(n) (n > 4000)
+
 #endif /* WPA_SUPPLICANT_I_H */

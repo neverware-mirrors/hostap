@@ -1776,8 +1776,6 @@ struct wpabuf * wpa_scan_get_vendor_ie_multi(const struct wpa_scan_res *res,
 }
 
 
-#define IS_5GHZ(n) (n > 4000)
-
 /* Compare function for sorting scan results. Return >0 if @b is considered
  * better. */
 static int wpa_scan_result_compar(const void *a, const void *b)
@@ -1981,14 +1979,6 @@ void filter_scan_res(struct wpa_supplicant *wpa_s,
 }
 
 
-/*
- * Noise floor values to use when we have signal strength
- * measurements, but no noise floor measurements. These values were
- * measured in an office environment with many APs.
- */
-#define DEFAULT_NOISE_FLOOR_2GHZ (-89)
-#define DEFAULT_NOISE_FLOOR_5GHZ (-92)
-
 void scan_snr(struct wpa_scan_res *res)
 {
 	if (res->flags & WPA_SCAN_NOISE_INVALID) {
@@ -2072,21 +2062,13 @@ static unsigned int max_vht80_rate(int snr)
 	return 390000; /* VHT80 MCS9 */
 }
 
-
-void scan_est_throughput(struct wpa_supplicant *wpa_s,
-			 struct wpa_scan_res *res)
+unsigned int wpas_get_est_tpt(const struct wpa_supplicant *wpa_s,
+			      const u8 *ies, size_t ies_len, int rate,
+			      int snr)
 {
 	enum local_hw_capab capab = wpa_s->hw_capab;
-	int rate; /* max legacy rate in 500 kb/s units */
-	const u8 *ie;
 	unsigned int est, tmp;
-	int snr = res->snr;
-
-	if (res->est_throughput)
-		return;
-
-	/* Get maximum legacy rate */
-	rate = wpa_scan_get_max_rate(res);
+	const u8 *ie;
 
 	/* Limit based on estimated SNR */
 	if (rate > 1 * 2 && snr < 1)
@@ -2112,7 +2094,7 @@ void scan_est_throughput(struct wpa_supplicant *wpa_s,
 	est = rate * 500;
 
 	if (capab == CAPAB_HT || capab == CAPAB_HT40 || capab == CAPAB_VHT) {
-		ie = wpa_scan_get_ie(res, WLAN_EID_HT_CAP);
+		ie = get_ie(ies, ies_len, WLAN_EID_HT_CAP);
 		if (ie) {
 			tmp = max_ht20_rate(snr);
 			if (tmp > est)
@@ -2121,7 +2103,7 @@ void scan_est_throughput(struct wpa_supplicant *wpa_s,
 	}
 
 	if (capab == CAPAB_HT40 || capab == CAPAB_VHT) {
-		ie = wpa_scan_get_ie(res, WLAN_EID_HT_OPERATION);
+		ie = get_ie(ies, ies_len, WLAN_EID_HT_OPERATION);
 		if (ie && ie[1] >= 2 &&
 		    (ie[3] & HT_INFO_HT_PARAM_SECONDARY_CHNL_OFF_MASK)) {
 			tmp = max_ht40_rate(snr);
@@ -2132,13 +2114,13 @@ void scan_est_throughput(struct wpa_supplicant *wpa_s,
 
 	if (capab == CAPAB_VHT) {
 		/* Use +1 to assume VHT is always faster than HT */
-		ie = wpa_scan_get_ie(res, WLAN_EID_VHT_CAP);
+		ie = get_ie(ies, ies_len, WLAN_EID_VHT_CAP);
 		if (ie) {
 			tmp = max_ht20_rate(snr) + 1;
 			if (tmp > est)
 				est = tmp;
 
-			ie = wpa_scan_get_ie(res, WLAN_EID_HT_OPERATION);
+			ie = get_ie(ies, ies_len, WLAN_EID_HT_OPERATION);
 			if (ie && ie[1] >= 2 &&
 			    (ie[3] &
 			     HT_INFO_HT_PARAM_SECONDARY_CHNL_OFF_MASK)) {
@@ -2147,7 +2129,7 @@ void scan_est_throughput(struct wpa_supplicant *wpa_s,
 					est = tmp;
 			}
 
-			ie = wpa_scan_get_ie(res, WLAN_EID_VHT_OPERATION);
+			ie = get_ie(ies, ies_len, WLAN_EID_VHT_OPERATION);
 			if (ie && ie[1] >= 1 &&
 			    (ie[2] & VHT_OPMODE_CHANNEL_WIDTH_MASK)) {
 				tmp = max_vht80_rate(snr) + 1;
@@ -2157,9 +2139,26 @@ void scan_est_throughput(struct wpa_supplicant *wpa_s,
 		}
 	}
 
-	/* TODO: channel utilization and AP load (e.g., from AP Beacon) */
+	return est;
+}
 
-	res->est_throughput = est;
+void scan_est_throughput(struct wpa_supplicant *wpa_s,
+			 struct wpa_scan_res *res)
+{
+	int rate; /* max legacy rate in 500 kb/s units */
+	int snr = res->snr;
+	const u8 *ies = (void *)(res + 1);
+
+	if (res->est_throughput)
+		return;
+
+	/* Get maximum legacy rate */
+	rate = wpa_scan_get_max_rate(res);
+
+	res->est_throughput =
+		wpas_get_est_tpt(wpa_s, ies, res->ie_len, rate, snr);
+
+	/* TODO: channel utilization and AP load (e.g., from AP Beacon) */
 }
 
 

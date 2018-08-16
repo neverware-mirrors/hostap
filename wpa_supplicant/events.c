@@ -1386,6 +1386,33 @@ int wpa_supplicant_need_scan_results(struct wpa_supplicant *wpa_s)
 }
 
 
+static int wpas_get_snr_signal_info(const struct wpa_signal_info *si)
+{
+	int noise = IS_5GHZ(si->frequency) ?
+		DEFAULT_NOISE_FLOOR_5GHZ :
+		DEFAULT_NOISE_FLOOR_2GHZ;
+
+	/*
+	 * Since we take the average beacon signal, we can't use
+	 * the current noise measurement (average vs. snapshot),
+	 * so use the default values instead.
+	 */
+	return si->avg_beacon_signal - noise;
+}
+
+
+static unsigned int
+wpas_get_est_throughput_from_bss_snr(const struct wpa_supplicant *wpa_s,
+				     const struct wpa_bss *bss, int snr)
+{
+	int rate = wpa_bss_get_max_rate(bss);
+	const u8 *ies = (void *)(bss + 1);
+	size_t ie_len = bss->ie_len ?: bss->beacon_ie_len;
+
+	return wpas_get_est_tpt(wpa_s, ies, ie_len, rate, snr);
+}
+
+
 static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 				       struct wpa_bss *selected,
 				       struct wpa_ssid *ssid)
@@ -1394,7 +1421,9 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 #ifndef CONFIG_NO_ROAMING
 	int min_diff, diff;
 	int to_5ghz;
-	int cur_est, sel_est;
+	int cur_level;
+	unsigned int cur_est, sel_est;
+	struct wpa_signal_info si;
 #endif /* CONFIG_NO_ROAMING */
 
 	if (wpa_s->reassociate)
@@ -1445,40 +1474,70 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 		return 1;
 	}
 
-	if (selected->est_throughput > current_bss->est_throughput + 5000) {
+	cur_level = current_bss->level;
+	cur_est = current_bss->est_throughput;
+
+	/*
+	 * Try to poll the signal from the driver since this will allow to get
+	 * more accurate values. In some cases, there can be big differences
+	 * between the RSSI of the probe response of the AP we are associated
+	 * to and the beacons we hear from the same AP after association. This
+	 * can happen when there are two antennas that hear the AP very
+	 * differently. If the driver chooses to hear the probe responses
+	 * during the scan on the "bad" antenna because it wants to save power,
+	 * but knows to choose the other antenna after association, we will
+	 * hear our AP with a low RSSI as part of the scan, even we can hear
+	 * it decently on the other antenna.
+	 * To cope with this, ask the driver to teach us how it hears the AP.
+	 * Also, the scan results may be a bit old, since we can very quickly
+	 * get fresh information about our own AP, do that.
+	 */
+	if (!wpa_drv_signal_poll(wpa_s, &si)) {
+		if (si.avg_beacon_signal) {
+			int snr = wpas_get_snr_signal_info(&si);
+
+			cur_level = si.avg_beacon_signal;
+			cur_est = wpas_get_est_throughput_from_bss_snr(wpa_s,
+								       current_bss,
+								       snr);
+			wpa_dbg(wpa_s, MSG_INFO,
+				"Using poll to get accurate level and est throughput: level=%d snr=%d est_throughput=%u",
+				cur_level, snr, cur_est);
+		}
+	}
+
+	if (selected->est_throughput > cur_est + 5000) {
 		wpa_dbg(wpa_s, MSG_INFO,
-			"Allow reassociation - selected BSS has better "
-			"estimated throughput (current: %u, selected: %u)",
-			current_bss->est_throughput, selected->est_throughput);
+			"Allow reassociation - selected BSS has better estimated throughput (current: %u, selected: %u)",
+			cur_est, selected->est_throughput);
+
 		return 1;
 	}
 
 	to_5ghz = selected->freq > 4000 && current_bss->freq < 4000;
 
-	if (current_bss->level < 0 &&
-	    current_bss->level > selected->level + to_5ghz * 2) {
+	if (cur_level < 0 && cur_level > selected->level + to_5ghz * 2) {
 		wpa_dbg(wpa_s, MSG_INFO, "Skip roam - Current BSS has better "
 			"signal level");
 		return 0;
 	}
 
-	if (current_bss->est_throughput > selected->est_throughput + 5000) {
+	if (cur_est > selected->est_throughput + 5000) {
 		wpa_dbg(wpa_s, MSG_INFO,
 			"Skip roam - Current BSS has better estimated throughput");
 		return 0;
 	}
 
-	cur_est = current_bss->est_throughput;
 	sel_est = selected->est_throughput;
 	min_diff = 2;
-	if (current_bss->level < 0) {
-		if (current_bss->level < -85)
+	if (cur_level < 0) {
+		if (cur_level < -85)
 			min_diff = 1;
-		else if (current_bss->level < -80)
+		else if (cur_level < -80)
 			min_diff = 2;
-		else if (current_bss->level < -75)
+		else if (cur_level < -75)
 			min_diff = 3;
-		else if (current_bss->level < -70)
+		else if (cur_level < -70)
 			min_diff = 4;
 		else
 			min_diff = 5;
@@ -1508,7 +1567,7 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 		else
 			min_diff = 0;
 	}
-	diff = abs(current_bss->level - selected->level);
+	diff = abs(cur_level - selected->level);
 	if (diff < min_diff) {
 		wpa_dbg(wpa_s, MSG_INFO,
 			"Skip roam - too small difference in signal level (%d < %d)",
