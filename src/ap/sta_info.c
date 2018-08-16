@@ -753,6 +753,9 @@ void ap_sta_disassociate(struct hostapd_data *hapd, struct sta_info *sta,
 		       reason);
 	sta->last_seq_ctrl = WLAN_INVALID_MGMT_SEQ;
 	sta->flags &= ~(WLAN_STA_ASSOC | WLAN_STA_ASSOC_REQ_OK);
+#ifdef CONFIG_IEEE80211W
+	sta->flags &= ~WLAN_STA_MFP;
+#endif /*CONFIG_IEEE80211W*/
 	ap_sta_set_authorized(hapd, sta, 0);
 	sta->timeout_next = STA_DEAUTH;
 	wpa_printf(MSG_DEBUG, "%s: reschedule ap_handle_timer timeout "
@@ -796,6 +799,9 @@ void ap_sta_deauthenticate(struct hostapd_data *hapd, struct sta_info *sta,
 		       reason);
 	sta->last_seq_ctrl = WLAN_INVALID_MGMT_SEQ;
 	sta->flags &= ~(WLAN_STA_AUTH | WLAN_STA_ASSOC | WLAN_STA_ASSOC_REQ_OK);
+#ifdef CONFIG_IEEE80211W
+	sta->flags &= ~WLAN_STA_MFP;
+#endif /*CONFIG_IEEE80211W*/
 	ap_sta_set_authorized(hapd, sta, 0);
 	sta->timeout_next = STA_REMOVE;
 	wpa_printf(MSG_DEBUG, "%s: reschedule ap_handle_timer timeout "
