@@ -178,7 +178,7 @@ nl80211_scan_common(struct i802_bss *bss, u8 cmd,
 		scan_flags |= NL80211_SCAN_FLAG_FLUSH;
 	}
 
-	if (params->low_priority) {
+	if (params->low_priority && drv->have_low_prio_scan) {
 		wpa_printf(MSG_DEBUG,
 			   "nl80211: Add NL80211_SCAN_FLAG_LOW_PRIORITY");
 		scan_flags |= NL80211_SCAN_FLAG_LOW_PRIORITY;
