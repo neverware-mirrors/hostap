@@ -55,6 +55,7 @@
 
 
 #define HOSTAPD_CLI_DUP_VALUE_MAX_LEN 256
+#define JETSTREAM_IE_LEN (1 + 1 + 3 + 1 + 8)
 
 struct wpa_ctrl_dst {
 	struct wpa_ctrl_dst *next;
@@ -2341,6 +2342,27 @@ static int hostapd_ctrl_iface_enable_ftm(struct hostapd_data *hapd,
 	return 0;
 }
 
+static int get_self_vendor_ie_offset(struct wpabuf *vendor_ie)
+{
+	/* Handles multiple VendorIE handling in the buffer */
+	size_t offset = 0;
+	const u8 *buf = wpabuf_head_u8(vendor_ie);
+
+	while (offset + JETSTREAM_IE_LEN <= wpabuf_len(vendor_ie)) {
+		/* In a single vendorIE, Octat 2, 3 and 4 represents the OUI
+		 * Octat 5 represents the Feature ID */
+		if (buf[offset + 2] == 0xf4 && buf[offset + 3] == 0xf5
+		    && buf[offset + 4] == 0xe8 && buf[offset + 5] == 0x5) {
+			return offset;
+		}
+		/* Length does not consider Element ID and Length fields */
+		offset += (2 + buf[offset + 1]);
+	}
+
+	/* Find no vendor IE from Jetstream */
+	return -1;
+}
+
 static int hostapd_ctrl_iface_set_speed_test(struct hostapd_data *hapd,
 					     char *buf)
 {
@@ -2350,16 +2372,11 @@ static int hostapd_ctrl_iface_set_speed_test(struct hostapd_data *hapd,
 	if (!buf || !vendor_ie)
 		return -1;
 
-	/* TODO(ratheeshs@): Handle multiple VendorIE handling in the buffer
-	 * Octat 2, 3 and 4 represents the OUI
-	 * Octat 5 represents the Feature ID
-	 */
-	if (vendor_ie->buf[2] == 0xf4 && vendor_ie->buf[3] == 0xf5 &&
-					 vendor_ie->buf[4] == 0xe8 &&
-					 vendor_ie->buf[5] == 0x5) {
+	int offset;
+	if ((offset = get_self_vendor_ie_offset(vendor_ie)) >= 0) {
 		/* 2 Bytes(octat 8 and 9) are used to store the speed results */
-		vendor_ie->buf[8] = (val & 0xFF00) >> 8;
-		vendor_ie->buf[9] = (val & 0x00FF);
+		vendor_ie->buf[offset + 8] = (val & 0xFF00) >> 8;
+		vendor_ie->buf[offset + 9] = (val & 0x00FF);
 	} else {
 		return -1;
 	}
@@ -2379,14 +2396,34 @@ static int hostapd_ctrl_iface_set_hop_count(struct hostapd_data *hapd,
 	if (!buf || !vendor_ie)
 		return -1;
 
-	/* TODO(ratheeshs@): Handle multiple VendorIE handling in the buffer
-	 * Octat 2, 3 and 4 represents the OUI
-	 * Octat 5 represents the Feature ID
-	 */
-	if (vendor_ie->buf[2] == 0xf4 && vendor_ie->buf[3] == 0xf5 &&
-					 vendor_ie->buf[4] == 0xe8 &&
-					 vendor_ie->buf[5] == 0x5) {
-		vendor_ie->buf[7] = val;
+	int offset;
+	if ((offset = get_self_vendor_ie_offset(vendor_ie)) >= 0) {
+		vendor_ie->buf[offset + 7] = val;
+	} else {
+		return -1;
+	}
+
+	if (ieee802_11_set_beacon(hapd))
+		return -1;
+
+	return 0;
+}
+
+static int hostapd_ctrl_iface_set_path_metric(struct hostapd_data *hapd,
+					      char *buf)
+{
+	u32 val = atoi(buf);
+	struct wpabuf *vendor_ie = hapd->conf->vendor_elements;
+
+	if (!buf || !vendor_ie)
+		return -1;
+
+	int offset;
+	if ((offset = get_self_vendor_ie_offset(vendor_ie)) >= 0) {
+		/* 4 Bytes are used to store path metric */
+		for (int i = 0; i < 4; ++i, val >>= 8) {
+			vendor_ie->buf[offset + 13 - i] = val & 0x000000FF;
+		}
 	} else {
 		return -1;
 	}
@@ -2683,6 +2720,9 @@ static int hostapd_ctrl_iface_receive_process(struct hostapd_data *hapd,
 			reply_len = -1;
 	} else if (os_strncmp(buf, "SET_HOP_COUNT ", 14) == 0) {
 		if (hostapd_ctrl_iface_set_hop_count(hapd, buf + 14))
+			reply_len = -1;
+	} else if (os_strncmp(buf, "SET_PATH_METRIC ", 16) == 0) {
+		if (hostapd_ctrl_iface_set_path_metric(hapd, buf + 16))
 			reply_len = -1;
 	} else {
 		os_memcpy(reply, "UNKNOWN COMMAND\n", 16);

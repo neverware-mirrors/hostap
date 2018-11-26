@@ -1217,6 +1217,27 @@ static int hostapd_cli_cmd_set_hop_count(struct wpa_ctrl *ctrl, int argc,
 	return wpa_ctrl_command(ctrl, cmd);
 }
 
+static int hostapd_cli_cmd_set_path_metric(struct wpa_ctrl *ctrl, int argc,
+		char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid command: needs at least 1 "
+			"arguments set_path_metric <value>");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "SET_PATH_METRIC %s",
+			argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long SET_PATH_METRIC command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
 static int hostapd_cli_cmd_set_monitor_sta_hyst(struct wpa_ctrl *ctrl, int argc,
 						char *argv[])
 {
@@ -1489,6 +1510,7 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "enable_ftm", hostapd_cli_cmd_enable_ftm },
 	{ "set_hop_count", hostapd_cli_cmd_set_hop_count },
 	{ "set_speed_test", hostapd_cli_cmd_set_speed_test },
+	{ "set_path_metric", hostapd_cli_cmd_set_path_metric },
 	{ NULL, NULL }
 };
 
