@@ -3510,6 +3510,15 @@ struct wpa_driver_ops {
 	 * on. Local device is assuming P2P Client role.
 	 */
 	int (*set_prob_oper_freq)(void *priv, unsigned int freq);
+
+	/**
+	 * set_4addr_mode - Set 4-address mode
+	 * @priv: Private driver interface data
+	 * @bridge_ifname: Bridge interface name
+	 * @val: 0 - disable 4addr mode, 1 - enable 4addr mode
+	 * Returns: 0 on success, < 0 on failure
+	 */
+	int (*set_4addr_mode)(void *priv, const char *bridge_ifname, int val);
 };
 
 

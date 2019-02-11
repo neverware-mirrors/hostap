@@ -741,6 +741,13 @@ struct wpa_ssid {
 	 * this MBSS will trigger a peering attempt.
 	 */
 	int no_auto_peer;
+
+	/**
+	 * multi_ap_backhaul_sta - Multi-AP backhaul STA
+	 * 0 = normal (non-Multi-AP) station
+	 * 1 = Multi-AP backhaul station
+	 */
+	int multi_ap_backhaul_sta;
 };
 
 #endif /* CONFIG_SSID_H */
