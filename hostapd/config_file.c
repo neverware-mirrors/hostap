@@ -3413,6 +3413,16 @@ static int hostapd_config_fill(struct hostapd_config *conf,
 		bss->ftm_responder = atoi(pos);
 	} else if (os_strcmp(buf, "ftm_initiator") == 0) {
 		bss->ftm_initiator = atoi(pos);
+	} else if (os_strcmp(buf, "multi_ap") == 0) {
+		int val = atoi(pos);
+
+		if (val < 0 || val > 3) {
+			wpa_printf(MSG_ERROR, "Line %d: Invalid multi_ap '%s'",
+				   line, buf);
+			return -1;
+		}
+
+		bss->multi_ap = val;
 	} else {
 		wpa_printf(MSG_ERROR,
 			   "Line %d: unknown configuration item '%s'",

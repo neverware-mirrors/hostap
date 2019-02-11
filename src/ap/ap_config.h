@@ -571,6 +571,10 @@ struct hostapd_bss_config {
 
 	int ftm_responder;
 	int ftm_initiator;
+
+#define BACKHAUL_BSS 1
+#define FRONTHAUL_BSS 2
+	int multi_ap; /* bitmap of BACKHAUL_BSS, FRONTHAUL_BSS */
 };
 
 

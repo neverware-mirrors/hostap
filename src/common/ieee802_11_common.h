@@ -62,6 +62,7 @@ struct ieee802_11_elems {
 	const u8 *google_debug_dialog_token;
 	const u8 *google_mesh_group_privacy_mode;
 	const u8 *rrm_enabled;
+	const u8 *multi_ap;
 
 	u8 ssid_len;
 	u8 supp_rates_len;
@@ -94,6 +95,7 @@ struct ieee802_11_elems {
 	u8 google_debug_dialog_token_len;
 	u8 google_mesh_group_privacy_mode_len;
 	u8 rrm_enabled_len;
+	u8 multi_ap_len;
 	struct mb_ies_info mb_ies;
 };
 
@@ -129,6 +131,7 @@ enum phy_type ieee80211_get_phy_type(int freq, int ht, int vht);
 int supp_rates_11b_only(struct ieee802_11_elems *elems);
 int mb_ies_info_by_ies(struct mb_ies_info *info, const u8 *ies_buf,
 		       size_t ies_len);
+size_t add_multi_ap_ie(u8 *buf, size_t len, u8 value);
 struct wpabuf * mb_ies_by_info(struct mb_ies_info *info);
 
 const char * fc2str(u16 fc);
