@@ -2199,9 +2199,9 @@ static void handle_assoc(struct hostapd_data *hapd,
 fail:
 	ret = send_assoc_resp(hapd, sta, resp, reassoc, pos, left);
 #ifdef CONFIG_IEEE80211W
-	if (resp != WLAN_STATUS_SUCCESS && sta->flags != WLAN_STA_ASSOC) {
+	if (resp != WLAN_STATUS_SUCCESS && !(sta->flags & WLAN_STA_ASSOC)) {
 		wpa_printf(MSG_DEBUG, "Resetting MFP flag due to assoc "
-				"rejection\n");
+                           "rejection");
 		sta->flags &= ~WLAN_STA_MFP;
 	}
 #endif /* CONFIG_IEEE80211W */
