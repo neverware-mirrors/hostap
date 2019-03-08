@@ -1060,6 +1060,23 @@ struct wpa_driver_ap_params {
 	 * reenable - Whether this is to re-enable beaconing
 	 */
 	int reenable;
+
+	/**
+	 * ftm_responder - Whether FTM responder is enabled
+	 */
+	int ftm_responder;
+
+	/**
+	 * lci - Binary data, the content of an LCI report IE with type 8 as
+	 * defined in IEEE Std 802.11-2016, 9.4.2.22.10
+	 */
+	const struct wpabuf *lci;
+
+	/**
+	 * civic - Binary data, the content of a measurement report IE with
+	 * type 11 as defined in IEEE Std 802.11-2016, 9.4.2.22.13
+	 */
+	const struct wpabuf *civic;
 };
 
 struct wpa_driver_mesh_bss_params {
@@ -1237,6 +1254,8 @@ struct wpa_driver_capa {
 #define WPA_DRIVER_FLAGS_SUPPORT_HW_MODE_ANY	0x0000004000000000ULL
 /* Driver supports critical protocol */
 #define WPA_DRIVER_FLAGS_CRIT_PROTOCOL		0x0000008000000000ULL
+/** Driver supports FTM responder functionality */
+#define WPA_DRIVER_FLAGS_FTM_RESPONDER		0x0100000000000000ULL
 	u64 flags;
 
 #define WPA_DRIVER_SMPS_MODE_STATIC			0x00000001
