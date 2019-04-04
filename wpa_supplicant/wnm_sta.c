@@ -530,6 +530,17 @@ compare_scan_neighbor_results(struct wpa_supplicant *wpa_s)
 			continue;
 		}
 
+		if (wpa_s->current_ssid &&
+		    !wpa_scan_res_match(wpa_s, 0, target, wpa_s->current_ssid,
+					1)) {
+			wpa_printf(MSG_DEBUG, "Candidate BSS " MACSTR
+				   " (pref %d) does not match the current network profile",
+				   MAC2STR(nei->bssid),
+				   nei->preference_present ? nei->preference :
+				   -1);
+			continue;
+		}
+
 		if (target->level < bss->level && target->level < -80) {
 			wpa_printf(MSG_DEBUG, "Candidate BSS " MACSTR
 				   " (pref %d) does not have sufficient signal level (%d)",

@@ -1190,4 +1190,8 @@ void fst_wpa_supplicant_fill_iface_obj(struct wpa_supplicant *wpa_s,
 
 #endif /* CONFIG_FST */
 
+struct wpa_ssid * wpa_scan_res_match(struct wpa_supplicant *wpa_s,
+				     int i, struct wpa_bss *bss,
+				     struct wpa_ssid *group,
+				     int only_first_ssid);
 #endif /* WPA_SUPPLICANT_I_H */
