@@ -839,6 +839,15 @@ static int hostapd_ctrl_iface_disassoc_imminent(struct hostapd_data *hapd,
 	u8 addr[ETH_ALEN];
 	int disassoc_timer;
 	struct sta_info *sta;
+	int enabled = hapd->conf->bss_transition;
+
+	if (!enabled) {
+		wpa_printf(MSG_DEBUG,
+			   "Ignore BSS Transition Management Request from "
+			   "User"
+			   " since BSS Transition Management is disabled");
+		return -1;
+	}
 
 	if (hwaddr_aton(cmd, addr))
 		return -1;
@@ -865,6 +874,15 @@ static int hostapd_ctrl_iface_ess_disassoc(struct hostapd_data *hapd,
 	const char *url, *timerstr;
 	int disassoc_timer;
 	struct sta_info *sta;
+	int enabled = hapd->conf->bss_transition;
+
+	if (!enabled) {
+		wpa_printf(MSG_DEBUG,
+			   "Ignore BSS Transition Management Request from "
+			   "User"
+			   " since BSS Transition Management is disabled");
+		return -1;
+	}
 
 	if (hwaddr_aton(cmd, addr))
 		return -1;
@@ -907,6 +925,15 @@ static int hostapd_ctrl_iface_bss_tm_req(struct hostapd_data *hapd,
 	int ret;
 	u8 nei_rep[1000];
 	u8 *nei_pos = nei_rep;
+	int enabled = hapd->conf->bss_transition;
+
+	if (!enabled) {
+		wpa_printf(MSG_DEBUG,
+			   "Ignore BSS Transition Management Request from "
+			   "User"
+			   " since BSS Transition Management is disabled");
+		return -1;
+	}
 
 	if (hwaddr_aton(cmd, addr)) {
 		wpa_printf(MSG_DEBUG, "Invalid STA MAC address");

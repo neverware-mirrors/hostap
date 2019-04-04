@@ -305,6 +305,16 @@ static void ieee802_11_rx_bss_trans_mgmt_query(struct hostapd_data *hapd,
 {
 	u8 dialog_token, reason;
 	const u8 *pos, *end;
+	int enabled = hapd->conf->bss_transition;
+
+	if (!enabled) {
+		wpa_printf(MSG_DEBUG,
+			   "Ignore BSS Transition Management Query from "
+			   MACSTR
+			   " since BSS Transition Management is disabled",
+			   MAC2STR(addr));
+		return;
+	}
 
 	if (len < 2) {
 		wpa_printf(MSG_DEBUG, "WNM: Ignore too short BSS Transition Management Query from "
@@ -334,6 +344,16 @@ static void ieee802_11_rx_bss_trans_mgmt_resp(struct hostapd_data *hapd,
 {
 	u8 dialog_token, status_code, bss_termination_delay;
 	const u8 *pos, *end;
+	int enabled = hapd->conf->bss_transition;
+
+	if (!enabled) {
+		wpa_printf(MSG_DEBUG,
+			   "Ignore BSS Transition Management Response from "
+			   MACSTR
+			   " since BSS Transition Management is disabled",
+			   MAC2STR(addr));
+		return;
+	}
 
 	if (len < 3) {
 		wpa_printf(MSG_DEBUG, "WNM: Ignore too short BSS Transition Management Response from "
