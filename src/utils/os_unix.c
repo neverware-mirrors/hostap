@@ -508,6 +508,16 @@ int os_memcmp_const(const void *a, const void *b, size_t len)
 }
 
 
+void * os_memdup(const void *src, size_t len)
+{
+	void *r = os_malloc(len);
+
+	if (r && src)
+		os_memcpy(r, src, len);
+	return r;
+}
+
+
 #ifdef WPA_TRACE
 
 #if defined(WPA_TRACE_BFD) && defined(CONFIG_TESTING_OPTIONS)

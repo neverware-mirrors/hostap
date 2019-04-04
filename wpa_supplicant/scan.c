@@ -2246,6 +2246,15 @@ wpa_scan_clone_params(const struct wpa_driver_scan_params *src)
 	    wpa_setup_mac_addr_rand_params(params, (const u8 *)src->mac_addr))
 		goto failed;
 
+	if (src->bssid) {
+		u8 *bssid;
+
+		bssid = os_memdup(src->bssid, ETH_ALEN);
+		if (!bssid)
+			goto failed;
+		params->bssid = bssid;
+	}
+
 	return params;
 
 failed:
@@ -2272,6 +2281,8 @@ void wpa_scan_free_params(struct wpa_driver_scan_params *params)
 	 * must not be freed separately.
 	 */
 	os_free((u8 *) params->mac_addr);
+
+	os_free((u8 *) params->bssid);
 
 	os_free(params);
 }
