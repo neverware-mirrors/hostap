@@ -290,6 +290,9 @@ extern "C" {
 #define STA_POLICY_AMPDU_SUBFRAME_COUNT "STA-POLICY-AMPDU-SUBFRAME-COUNT "
 #define STA_POLICY_PSPOLL_STA_KO_ENABLED "STA-POLICY-PSPOLL-STA-KO-ENABLED "
 
+/* Indication to MFP station disconnection reason */
+#define AP_STA_MFP_REJECT "AP-STA-MFP-REJECT "
+
 /* BSS command information masks */
 
 #define WPA_BSS_MASK_ALL		0xFFFDFFFF
