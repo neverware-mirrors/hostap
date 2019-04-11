@@ -1471,6 +1471,7 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 	const u8 *wpa_ie;
 	size_t wpa_ie_len;
 	const u8 *p2p_dev_addr = NULL;
+	struct os_time now;
 
 	if (ieee802_11_parse_elems(ies, ies_len, &elems, 1) == ParseFailed) {
 		hostapd_logger(hapd, sta->addr, HOSTAPD_MODULE_IEEE80211,
@@ -1669,7 +1670,12 @@ static u16 check_assoc_ies(struct hostapd_data *hapd, struct sta_info *sta,
 
 			if (sta->sa_query_count == 0)
 				ap_sta_start_sa_query(hapd, sta);
-
+			os_get_time(&now);
+			wpa_msg(hapd->msg_ctx, MSG_INFO, AP_STA_MFP_REJECT
+				MACSTR " timestamp:%lu%03lu Sending MFP"
+				" STA Reject Event", MAC2STR(sta->addr),
+				(unsigned long)now.sec,
+				(unsigned long)now.usec/1000);
 			return WLAN_STATUS_ASSOC_REJECTED_TEMPORARILY;
 		}
 
