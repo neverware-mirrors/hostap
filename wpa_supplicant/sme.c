@@ -923,11 +923,11 @@ void sme_event_auth(struct wpa_supplicant *wpa_s, union wpa_event_data *data)
 					    data->auth.peer, NULL, 0) < 0) {
 			wpa_dbg(wpa_s, MSG_DEBUG,
 				"SME: FT Authentication response processing failed");
+			u16 reason = WLAN_REASON_DEAUTH_LEAVING;
 			wpa_msg(wpa_s, MSG_INFO, WPA_EVENT_DISCONNECTED "bssid="
 				MACSTR
-				" reason=%d locally_generated=1",
-				MAC2STR(wpa_s->pending_bssid),
-				WLAN_REASON_DEAUTH_LEAVING);
+				" reason=%u (%s) locally_generated=1",
+				MAC2STR(wpa_s->pending_bssid), reason, reason2str(reason));
 			wpas_connection_failed(wpa_s, wpa_s->pending_bssid);
 			wpa_supplicant_mark_disassoc(wpa_s);
 			return;
