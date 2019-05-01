@@ -611,7 +611,7 @@ int main(int argc, char *argv[])
 	interfaces.uni_cast_probing = 1;
 
 	for (;;) {
-		c = getopt(argc, argv, "b:Bde:f:hKP:Ttu:vg:G:s:l:r:S");
+		c = getopt(argc, argv, "b:Bde:f:hKP:Ttu:vg:G:R:l:r:S");
 		if (c < 0)
 			break;
 		switch (c) {
@@ -678,7 +678,7 @@ int main(int argc, char *argv[])
 		case 'l':
 			steering_path = optarg;
 			break;
-		case 's':
+		case 'R':
 			steering_target_interface = optarg;
 			break;
 		case 'r':
