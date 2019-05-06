@@ -1898,22 +1898,22 @@ DBusMessage * wpas_dbus_handler_roam(DBusMessage *message,
 	struct wpa_ssid *ssid = wpa_s->current_ssid;
 
 	if (hwaddr_aton(addr, bssid)) {
-		wpa_printf(MSG_DEBUG, "[dbus] invalid address '%s'", addr);
+		wpa_printf(MSG_DEBUG, "%s[dbus] invalid address '%s'", __func__, addr);
 		return NULL;
 	}
 
-	wpa_printf(MSG_DEBUG, "[dbus] " MACSTR, MAC2STR(bssid));
+	wpa_printf(MSG_DEBUG, "%s[dbus] " MACSTR, __func__, MAC2STR(bssid));
 
 	if (!ssid) {
-		wpa_printf(MSG_DEBUG, "[dbus] No network configuration known "
-			   "for the target AP");
+		wpa_printf(MSG_DEBUG, "%s[dbus] No network configuration known "
+			   "for the target AP", __func__);
 		return NULL;
 	}
 
 	bss = wpa_bss_get(wpa_s, bssid, ssid->ssid, ssid->ssid_len);
 	if (!bss) {
-		wpa_printf(MSG_DEBUG, "[dbus] Target AP not found from BSS "
-			   "table");
+		wpa_printf(MSG_DEBUG, "%s[dbus] Target AP not found from BSS "
+			   "table", __func__);
 		return NULL;
 	}
 
