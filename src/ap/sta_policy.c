@@ -1129,7 +1129,7 @@ void sta_policy_send_event(struct hostapd_data *hapd, uint8_t *sta_addr)
  * This function will initilalize the Dynamic Mask values of the
  * sta policy params for the given interface
  */
-int stapolicy_cfg_init(struct hostapd_iface *iface)
+int stapolicy_cfg_interface(struct hostapd_iface *iface)
 {
 	struct per_interface_config *i_cfg = iface->i_cfg;
 

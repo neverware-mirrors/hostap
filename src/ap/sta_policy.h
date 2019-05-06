@@ -132,7 +132,7 @@ int stapolicy_interface_init(struct hostapd_iface *iface);
  * This function will initilalize the Dynamic Mask values of the
  * sta policy params for the given interface
  */
-int stapolicy_cfg_init(struct hostapd_iface *iface);
+int stapolicy_cfg_interface(struct hostapd_iface *iface);
 
 /**
  * Deinitialization function for Config knob.
@@ -221,7 +221,10 @@ static inline int stapolicy_interface_init(struct hostapd_iface *iface)
 	return 0;
 }
 
-static inline int stapolicy_cfg_init(struct hostapd_iface *iface) { return 0; }
+static inline int stapolicy_cfg_interface(struct hostapd_iface *iface)
+{
+	return 0;
+}
 
 static inline void stapolicy_interface_deinit(struct hostapd_iface *iface) { }
 

@@ -46,6 +46,9 @@
 #include "neighbor_db.h"
 #include "rrm.h"
 #include "acs.h"
+#ifdef HOSTAPD
+#include "sta_policy.h"
+#endif
 
 
 static int hostapd_flush_old_stations(struct hostapd_data *hapd, u16 reason);
@@ -1390,6 +1393,12 @@ static int setup_interface2(struct hostapd_iface *iface)
 		if (iface->conf->ieee80211h)
 			wpa_printf(MSG_DEBUG, "DFS support is enabled");
 	}
+
+#ifdef HOSTAPD
+	if (stapolicy_cfg_interface(iface))
+		goto fail;
+#endif
+
 	return hostapd_setup_interface_complete(iface, 0);
 
 fail:

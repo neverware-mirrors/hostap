@@ -809,9 +809,6 @@ int main(int argc, char *argv[])
 		if (hostapd_driver_init(interfaces.iface[i]) ||
 		    hostapd_setup_interface(interfaces.iface[i]))
 			goto out;
-
-		if (stapolicy_cfg_init(interfaces.iface[i]))
-			goto out;
 	}
 
 	hostapd_global_ctrl_iface_init(&interfaces);
