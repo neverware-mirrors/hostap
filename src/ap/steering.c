@@ -437,24 +437,16 @@ Boolean is_sta_2g5g_capable(const u8 *mac)
 	size_t buf_size;
 	int pos;
 	struct stat st;
-	Boolean is_2g_capable = FALSE, is_5g_capable = FALSE;
 
 	if (steering_path == NULL)
 		return FALSE;
 
+	/* TODO: Some of Google WiFi products firmware doesn't
+	 * populate 2.4ghz probe request info to user space
+	 * hence the assumption here is that device would be 2.4ghz
+	 * capable if 5ghz probe request info is available.
+	 */
 	buf_size = sizeof(probepath);
-	pos = os_strlcpy(probepath, steering_path, buf_size);
-	pos += os_strlcpy(&probepath[pos], "/", buf_size - pos);
-	pos += os_strlcpy(&probepath[pos],  "i_", buf_size - pos);
-	pos += os_strlcpy(&probepath[pos], ifnames[0], buf_size - pos);
-	os_snprintf(&probepath[pos], buf_size - pos, "/" COMPACT_MACSTR ".%d",
-		    MAC2STR(mac), STEER_EVENT_PROBE);
-
-	if (stat(probepath, &st) != -1)
-		is_2g_capable = TRUE;
-
-	os_memset(probepath, 0, buf_size);
-
 	pos = os_strlcpy(probepath, steering_path, buf_size);
 	pos += os_strlcpy(&probepath[pos], "/", buf_size - pos);
 	pos += os_strlcpy(&probepath[pos],  "i_", buf_size - pos);
@@ -462,10 +454,7 @@ Boolean is_sta_2g5g_capable(const u8 *mac)
 	os_snprintf(&probepath[pos], buf_size - pos, "/" COMPACT_MACSTR ".%d",
 		    MAC2STR(mac), STEER_EVENT_PROBE);
 
-	if (stat(probepath, &st) != -1)
-		is_5g_capable = TRUE;
-
-	return (is_2g_capable && is_5g_capable);
+	return (stat(probepath, &st) != -1) ? TRUE : FALSE;
 }
 
 /**
