@@ -1270,7 +1270,8 @@ int wpa_supplicant_set_suites(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_SUITEB */
 #ifdef CONFIG_IEEE80211R
 	} else if ((sel & WPA_KEY_MGMT_FT_IEEE8021X) &&
-		   (wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME)) {
+		   (wpa_s->drv_flags & WPA_DRIVER_FLAGS_SME) &&
+		   (os_strcmp(wpa_supplicant_get_eap_mode(wpa_s), "LEAP") != 0)) {
 		wpa_s->key_mgmt = WPA_KEY_MGMT_FT_IEEE8021X;
 		wpa_dbg(wpa_s, MSG_DEBUG, "WPA: using KEY_MGMT FT/802.1X");
 	} else if ((sel & WPA_KEY_MGMT_FT_PSK) &&
