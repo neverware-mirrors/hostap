@@ -79,32 +79,6 @@ static int wpas_wps_in_use(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_WPS */
 
 
-static int wpa_setup_mac_addr_rand_params(struct wpa_driver_scan_params *params,
-					  const u8 *mac_addr)
-{
-	u8 *tmp;
-
-	if (!mac_addr)
-		return 0;
-
-	if (params->mac_addr) {
-		os_free((u8 *) params->mac_addr);
-		params->mac_addr = NULL;
-	}
-
-	params->mac_addr_rand = 1;
-
-	tmp = os_malloc(2 * ETH_ALEN);
-	if (!tmp)
-		return -1;
-
-	os_memcpy(tmp, mac_addr, 2 * ETH_ALEN);
-	params->mac_addr = tmp;
-	params->mac_addr_mask = tmp + ETH_ALEN;
-	return 0;
-}
-
-
 /**
  * wpa_supplicant_enabled_networks - Check whether there are enabled networks
  * @wpa_s: Pointer to wpa_supplicant data
@@ -195,9 +169,7 @@ static void wpas_trigger_scan_cb(struct wpa_radio_work *work, int deinit)
 		return;
 	}
 
-	if (wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCAN)
-		wpa_setup_mac_addr_rand_params(params, wpa_s->mac_addr_scan);
-	else if (wpas_update_random_addr_disassoc(wpa_s) < 0) {
+	if (wpas_update_random_addr_disassoc(wpa_s) < 0) {
 		wpa_msg(wpa_s, MSG_INFO,
 			"Failed to assign random MAC address for a scan");
 		wpa_scan_free_params(params);
@@ -1240,7 +1212,11 @@ ssid_list_set:
 
 	if ((wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCAN) &&
 	    wpa_s->wpa_state <= WPA_SCANNING) {
-		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_scan);
+		params.mac_addr_rand = 1;
+		if (wpa_s->mac_addr_scan) {
+			params.mac_addr = wpa_s->mac_addr_scan;
+			params.mac_addr_mask = wpa_s->mac_addr_scan + ETH_ALEN;
+		}
 	}
 
 	if (!is_zero_ether_addr(wpa_s->next_scan_bssid)) {
@@ -1689,7 +1665,12 @@ scan:
 
 	if ((wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_SCHED_SCAN) &&
 	    wpa_s->wpa_state <= WPA_SCANNING) {
-		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_sched_scan);
+		params.mac_addr_rand = 1;
+		if (wpa_s->mac_addr_sched_scan) {
+			params.mac_addr = wpa_s->mac_addr_sched_scan;
+			params.mac_addr_mask = wpa_s->mac_addr_sched_scan +
+				ETH_ALEN;
+		}
 	}
 
 	wpa_scan_set_relative_rssi_params(wpa_s, scan_params);
@@ -2554,9 +2535,23 @@ wpa_scan_clone_params(const struct wpa_driver_scan_params *src)
 		params->sched_scan_plans_num = src->sched_scan_plans_num;
 	}
 
-	if (src->mac_addr_rand &&
-	    wpa_setup_mac_addr_rand_params(params, (const u8 *)src->mac_addr))
-		goto failed;
+	if (src->mac_addr_rand) {
+		params->mac_addr_rand = src->mac_addr_rand;
+
+		if (src->mac_addr && src->mac_addr_mask) {
+			u8 *mac_addr;
+
+			mac_addr = os_malloc(2 * ETH_ALEN);
+			if (!mac_addr)
+				goto failed;
+
+			os_memcpy(mac_addr, src->mac_addr, ETH_ALEN);
+			os_memcpy(mac_addr + ETH_ALEN, src->mac_addr_mask,
+				  ETH_ALEN);
+			params->mac_addr = mac_addr;
+			params->mac_addr_mask = mac_addr + ETH_ALEN;
+		}
+	}
 
 	if (src->bssid) {
 		u8 *bssid;
@@ -2744,7 +2739,11 @@ int wpas_start_pno(struct wpa_supplicant *wpa_s)
 
 	if ((wpa_s->mac_addr_rand_enable & MAC_ADDR_RAND_PNO) &&
 	    wpa_s->wpa_state <= WPA_SCANNING) {
-		wpa_setup_mac_addr_rand_params(&params, wpa_s->mac_addr_pno);
+		params.mac_addr_rand = 1;
+		if (wpa_s->mac_addr_pno) {
+			params.mac_addr = wpa_s->mac_addr_pno;
+			params.mac_addr_mask = wpa_s->mac_addr_pno + ETH_ALEN;
+		}
 	}
 
 	wpa_scan_set_relative_rssi_params(wpa_s, &params);
