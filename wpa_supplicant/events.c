@@ -1660,7 +1660,8 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 #ifndef CONFIG_NO_ROAMING
 	int min_diff, diff;
 	int to_5ghz;
-	int cur_est, sel_est;
+	int cur_level;
+	unsigned int cur_est, sel_est;
 #endif /* CONFIG_NO_ROAMING */
 
 	if (wpa_s->reassociate)
@@ -1711,40 +1712,39 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 		return 1;
 	}
 
-	if (selected->est_throughput > current_bss->est_throughput + 5000) {
+	cur_level = current_bss->level;
+	cur_est = current_bss->est_throughput;
+
+	if (selected->est_throughput > cur_est + 5000) {
 		wpa_dbg(wpa_s, MSG_INFO,
-			"Allow reassociation - selected BSS has better "
-			"estimated throughput (current: %u, selected: %u)",
-			current_bss->est_throughput, selected->est_throughput);
+			"Allow reassociation - selected BSS has better estimated throughput");
 		return 1;
 	}
 
 	to_5ghz = selected->freq > 4000 && current_bss->freq < 4000;
 
-	if (current_bss->level < 0 &&
-	    current_bss->level > selected->level + to_5ghz * 2) {
+	if (cur_level < 0 && cur_level > selected->level + to_5ghz * 2) {
 		wpa_dbg(wpa_s, MSG_INFO, "Skip roam - Current BSS has better "
 			"signal level");
 		return 0;
 	}
 
-	if (current_bss->est_throughput > selected->est_throughput + 5000) {
+	if (cur_est > selected->est_throughput + 5000) {
 		wpa_dbg(wpa_s, MSG_INFO,
 			"Skip roam - Current BSS has better estimated throughput");
 		return 0;
 	}
 
-	cur_est = current_bss->est_throughput;
 	sel_est = selected->est_throughput;
 	min_diff = 2;
-	if (current_bss->level < 0) {
-		if (current_bss->level < -85)
+	if (cur_level < 0) {
+		if (cur_level < -85)
 			min_diff = 1;
-		else if (current_bss->level < -80)
+		else if (cur_level < -80)
 			min_diff = 2;
-		else if (current_bss->level < -75)
+		else if (cur_level < -75)
 			min_diff = 3;
-		else if (current_bss->level < -70)
+		else if (cur_level < -70)
 			min_diff = 4;
 		else
 			min_diff = 5;
@@ -1773,7 +1773,7 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 		else
 			min_diff = 0;
 	}
-	diff = abs(current_bss->level - selected->level);
+	diff = abs(cur_level - selected->level);
 	if (diff < min_diff) {
 		wpa_dbg(wpa_s, MSG_INFO,
 			"Skip roam - too small difference in signal level (%d < %d)",
