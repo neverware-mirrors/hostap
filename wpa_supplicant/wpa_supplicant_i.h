@@ -1524,13 +1524,4 @@ int wpas_ctrl_iface_get_pref_freq_list_override(struct wpa_supplicant *wpa_s,
 int wpa_is_fils_supported(struct wpa_supplicant *wpa_s);
 int wpa_is_fils_sk_pfs_supported(struct wpa_supplicant *wpa_s);
 
-/*
- * Noise floor values to use when we have signal strength
- * measurements, but no noise floor measurements. These values were
- * measured in an office environment with many APs.
- */
-#define DEFAULT_NOISE_FLOOR_2GHZ (-89)
-#define DEFAULT_NOISE_FLOOR_5GHZ (-92)
-#define IS_5GHZ(n) (n > 4000)
-
 #endif /* WPA_SUPPLICANT_I_H */
