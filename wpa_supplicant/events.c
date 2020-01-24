@@ -1769,7 +1769,7 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 		cur_est = wpas_get_est_throughput_from_bss_snr(wpa_s,
 							       current_bss,
 							       snr);
-		wpa_dbg(wpa_s, MSG_DEBUG,
+		wpa_dbg(wpa_s, MSG_INFO,
 			"Using signal poll values for the current BSS: level=%d snr=%d est_throughput=%u",
 			cur_level, snr, cur_est);
 	}
