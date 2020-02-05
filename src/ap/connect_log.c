@@ -293,7 +293,7 @@ void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 
 		if (sta_data.rx_rate_info.mcs >= 0) {
 			ret = os_snprintf(buf + len, buflen - len,
-					  " rx_rate_mcs:%d ",
+					  " rx_rate_mcs:%d",
 					  sta_data.rx_rate_info.mcs);
 			len += ret;
 		}
