@@ -1684,8 +1684,10 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 	struct wpa_bss *current_bss = NULL;
 #ifndef CONFIG_NO_ROAMING
 	int min_diff, diff;
-	int to_5ghz;
+	int to_2ghz, to_5ghz;
 	int cur_level;
+	int adjust = 0;
+	double adjust_factor, est_ratio;
 	unsigned int cur_est, sel_est;
 	struct wpa_signal_info si;
 	int cur_snr = 0;
@@ -1773,65 +1775,60 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 			cur_level, cur_snr, cur_est);
 	}
 
-	if (sel_est > cur_est + 5000) {
-		wpa_dbg(wpa_s, MSG_INFO,
-			"Allow reassociation - selected BSS has better estimated throughput");
-		return 1;
-	}
-
+	to_2ghz = current_bss->freq > 4000 && selected->freq < 4000;
 	to_5ghz = selected->freq > 4000 && current_bss->freq < 4000;
 
-	if (cur_level < 0 && cur_level > selected->level + to_5ghz * 2 &&
-	    sel_est < cur_est * 1.2) {
-		wpa_dbg(wpa_s, MSG_INFO, "Skip roam - Current BSS has better "
-			"signal level");
-		return 0;
-	}
-
-	if (cur_est > sel_est + 5000) {
-		wpa_dbg(wpa_s, MSG_INFO,
-			"Skip roam - Current BSS has better estimated throughput");
-		return 0;
-	}
-
-	if (cur_snr > GREAT_SNR) {
-		wpa_dbg(wpa_s, MSG_DEBUG,
-			"Skip roam - Current BSS has good SNR (%u > %u)",
-			cur_snr, GREAT_SNR);
-		return 0;
-	}
-
-	if (cur_level < -85) /* ..-86 dBm */
-		min_diff = 1;
-	else if (cur_level < -80) /* -85..-81 dBm */
-		min_diff = 2;
-	else if (cur_level < -75) /* -80..-76 dBm */
-		min_diff = 3;
-	else if (cur_level < -70) /* -75..-71 dBm */
+	/*
+	 * Set the minimum RSSI difference needed to roam (`min_diff`) and the
+	 * estimated throughput weight (`adjust_factor`) based on the RSSI of
+	 * the current AP. At low RSSI (< -70 dBm), we ignore estimated
+	 * throughput gains and only consider RSSI gains. At higher RSSI,
+	 * `adjust_factor` is multiplied by `adjust` (set below according to the
+	 * selected AP's estimated throughput relative to the current AP's
+	 * estimated throughput) to influence the `min_diff`.
+	 */
+	if (cur_level < -85) { /* ..-86 dBm */
 		min_diff = 4;
-	else if (cur_level < 0) /* -70..-1 dBm */
+		adjust_factor = 0;
+	} else if (cur_level < -80) { /* -85..-81 dBm */
 		min_diff = 5;
-	else /* unspecified units (not in dBm) */
-		min_diff = 2;
+		adjust_factor = 0.2;
+	} else if (cur_level < -75) { /* -80..-76 dBm */
+		min_diff = 6;
+		adjust_factor = 0.4;
+	} else if (cur_level < -70) { /* -75..-71 dBm */
+		min_diff = 7;
+		adjust_factor = 0.6;
+	} else if (cur_level < -65) { /* -70..-66 dBm */
+		min_diff = 8;
+		adjust_factor = 0.8;
+	} else if (cur_level < -60) { /* -65..-61 dBm */
+		min_diff = 9;
+		adjust_factor = 1.0;
+	} else if (cur_level < 0) { /* -60..-1 dBm */
+		min_diff = 10;
+		adjust_factor = 1.2;
+	} else { /* unspecified units (not in dBm) */
+		min_diff = 5;
+		adjust_factor = 1.0;
+	}
 
-	if (cur_est > sel_est * 1.5)
-		min_diff += 10;
-	else if (cur_est > sel_est * 1.2)
-		min_diff += 5;
-	else if (cur_est > sel_est * 1.1)
+	sel_est = selected->est_throughput;
+	if (cur_est > sel_est) {
+		adjust = 1;
+		est_ratio = sel_est == 0 ? 2 : (double) cur_est / sel_est;
+	} else {
+		adjust = -1;
+		est_ratio = cur_est == 0 ? 2 : (double) sel_est / cur_est;
+	}
+	if (est_ratio > 2)
+		est_ratio = 2;
+	adjust *= (int) ((est_ratio - 1) * 10);
+	min_diff += adjust * adjust_factor;
+
+	if (to_2ghz)
 		min_diff += 2;
-	else if (cur_est > sel_est)
-		min_diff++;
-	else if (sel_est > cur_est * 1.5)
-		min_diff -= 10;
-	else if (sel_est > cur_est * 1.2)
-		min_diff -= 5;
-	else if (sel_est > cur_est * 1.1)
-		min_diff -= 2;
-	else if (sel_est > cur_est)
-		min_diff--;
-
-	if (to_5ghz)
+	else if (to_5ghz)
 		min_diff -= 2;
 	diff = selected->level - cur_level;
 	if (diff < min_diff) {
