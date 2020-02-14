@@ -2182,76 +2182,86 @@ void scan_snr(struct wpa_scan_res *res)
 
 static unsigned int max_ht20_rate(int snr, int vht)
 {
-	if (snr < 2)
+	if (snr < 0)
 		return 0;
+	if (snr < 2)
+		return 0 + (snr - 0.0) / (2 - 0) * (6500 - 0); /* HT20 MCS0 */
 	if (snr < 5)
-		return 6500; /* HT20 MCS0 */
+		return 6500 + (snr - 2.0) / (5 - 2) * (13000 - 6500); /* HT20 MCS1 */
 	if (snr < 9)
-		return 13000; /* HT20 MCS1 */
+		return 13000 + (snr - 5.0) / (9 - 5) * (19500 - 13000); /* HT20 MCS2 */
 	if (snr < 11)
-		return 19500; /* HT20 MCS2 */
+		return 19500 + (snr - 9.0) / (11 - 9) * (26000 - 19500); /* HT20 MCS3 */
 	if (snr < 15)
-		return 26000; /* HT20 MCS3 */
+		return 26000 + (snr - 11.0) / (15 - 11) * (39000 - 26000); /* HT20 MCS4 */
 	if (snr < 18)
-		return 39000; /* HT20 MCS4 */
+		return 39000 + (snr - 15.0) / (18 - 15) * (52000 - 39000); /* HT20 MCS5 */
 	if (snr < 20)
-		return 52000; /* HT20 MCS5 */
+		return 52000 + (snr - 18.0) / (20 - 18) * (58500 - 52000); /* HT20 MCS6 */
 	if (snr < 25)
-		return 58500; /* HT20 MCS6 */
-	if (snr < 29 || !vht)
-		return 65000; /* HT20 MCS7 */
+		return 58500 + (snr - 20.0) / (25 - 20) * (65000 - 58500); /* HT20 MCS7 */
+	if (!vht)
+		return 65000;
+	if (snr < 29)
+		return 65000 + (snr - 25.0) / (29 - 25) * (78000 - 65000); /* VHT20 MCS8 */
 	return 78000;
 }
 
 
 static unsigned int max_ht40_rate(int snr, int vht)
 {
-	if (snr < 5)
+	if (snr < 0)
 		return 0;
+	if (snr < 5)
+		return 0 + (snr - 0.0) / (5 - 0) * (13500 - 0); /* HT40 MCS0 */
 	if (snr < 8)
-		return 13500; /* HT40 MCS0 */
+		return 13500 + (snr - 5.0) / (8 - 5) * (27000 - 13500); /* HT40 MCS1 */
 	if (snr < 12)
-		return 27000; /* HT40 MCS1 */
+		return 27000 + (snr - 8.0) / (12 - 8) * (40500 - 27000); /* HT40 MCS2 */
 	if (snr < 14)
-		return 40500; /* HT40 MCS2 */
+		return 40500 + (snr - 12.0) / (14 - 12) * (54000 - 40500); /* HT40 MCS3 */
 	if (snr < 18)
-		return 54000; /* HT40 MCS3 */
+		return 54000 + (snr - 14.0) / (18 - 14) * (81000 - 54000); /* HT40 MCS4 */
 	if (snr < 21)
-		return 81000; /* HT40 MCS4 */
+		return 81000 + (snr - 18.0) / (21 - 18) * (108000 - 81000); /* HT40 MCS5 */
 	if (snr < 23)
-		return 108000; /* HT40 MCS5 */
+		return 108000 + (snr - 21.0) / (23 - 21) * (121500 - 108000); /* HT40 MCS6 */
 	if (snr < 28)
-		return 121500; /* HT40 MCS6 */
-	if (snr < 32 || !vht)
-		return 135000; /* HT40 MCS7 */
+		return 121500 + (snr - 23.0) / (28 - 23) * (135000 - 121500); /* HT40 MCS7 */
+	if (!vht)
+		return 135000;
+	if (snr < 32)
+		return 135000 + (snr - 28.0) / (32 - 28) * (162000 - 135000); /* VHT40 MCS8 */
 	if (snr < 34)
-		return 162000; /* VHT40 MCS8 */
+		return 162000 + (snr - 32.0) / (34 - 32) * (180000 - 162000); /* VHT40 MCS9 */
 	return 180000;
 }
 
 
 static unsigned int max_vht80_rate(int snr)
 {
-	if (snr < 8)
+	if (snr < 0)
 		return 0;
+	if (snr < 8)
+		return 0 + (snr - 0.0) / (8 - 0) * (29300 - 0); /* VHT80 MCS0 */
 	if (snr < 11)
-		return 29300; /* VHT80 MCS0 */
+		return 29300 + (snr - 8.0) / (11 - 8) * (58500 - 29300); /* VHT80 MCS1 */
 	if (snr < 15)
-		return 58500; /* VHT80 MCS1 */
+		return 58500 + (snr - 11.0) / (15 - 11) * (87800 - 58500); /* VHT80 MCS2 */
 	if (snr < 17)
-		return 87800; /* VHT80 MCS2 */
+		return 87800 + (snr - 15.0) / (17 - 15) * (117000 - 87800); /* VHT80 MCS3 */
 	if (snr < 21)
-		return 117000; /* VHT80 MCS3 */
+		return 117000 + (snr - 17.0) / (21 - 17) * (175500 - 117000); /* VHT80 MCS4 */
 	if (snr < 24)
-		return 175500; /* VHT80 MCS4 */
+		return 175500 + (snr - 21.0) / (24 - 21) * (234000 - 175500); /* VHT80 MCS5 */
 	if (snr < 26)
-		return 234000; /* VHT80 MCS5 */
+		return 234000 + (snr - 24.0) / (26 - 24) * (263300 - 234000); /* VHT80 MCS6 */
 	if (snr < 31)
-		return 263300; /* VHT80 MCS6 */
+		return 263300 + (snr - 26.0) / (31 - 26) * (292500 - 263300); /* VHT80 MCS7 */
 	if (snr < 35)
-		return 292500; /* VHT80 MCS7 */
+		return 292500 + (snr - 31.0) / (35 - 31) * (351000 - 292500); /* VHT80 MCS8 */
 	if (snr < 37)
-		return 351000; /* VHT80 MCS8 */
+		return 351000 + (snr - 35.0) / (37 - 35) * (390000 - 351000);
 	return 390000; /* VHT80 MCS9 */
 }
 
@@ -2275,14 +2285,32 @@ unsigned int wpas_get_est_tpt(const struct wpa_supplicant *wpa_s,
 		rate = 9 * 2;
 	else if (rate > 12 * 2 && snr < 7)
 		rate = 12 * 2;
+	else if (rate > 12 * 2 && snr < 8)
+		rate = 14 * 2;
+	else if (rate > 12 * 2 && snr < 9)
+		rate = 16 * 2;
 	else if (rate > 18 * 2 && snr < 10)
 		rate = 18 * 2;
 	else if (rate > 24 * 2 && snr < 11)
 		rate = 24 * 2;
+	else if (rate > 24 * 2 && snr < 12)
+		rate = 27 * 2;
+	else if (rate > 24 * 2 && snr < 13)
+		rate = 30 * 2;
+	else if (rate > 24 * 2 && snr < 14)
+		rate = 33 * 2;
 	else if (rate > 36 * 2 && snr < 15)
 		rate = 36 * 2;
+	else if (rate > 36 * 2 && snr < 16)
+		rate = 39 * 2;
+	else if (rate > 36 * 2 && snr < 17)
+		rate = 42 * 2;
+	else if (rate > 36 * 2 && snr < 18)
+		rate = 45 * 2;
 	else if (rate > 48 * 2 && snr < 19)
 		rate = 48 * 2;
+	else if (rate > 48 * 2 && snr < 20)
+		rate = 51 * 2;
 	else if (rate > 54 * 2 && snr < 21)
 		rate = 54 * 2;
 	est = rate * 500;
