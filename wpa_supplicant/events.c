@@ -1695,13 +1695,13 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 #endif /* CONFIG_NO_ROAMING */
 
 	if (wpa_s->reassociate)
-		return 1; /* explicit request to reassociate */
+		goto do_roam; /* explicit request to reassociate */
 	if (wpa_s->wpa_state < WPA_ASSOCIATED)
-		return 1; /* we are not associated; continue */
+		goto do_roam; /* we are not associated; continue */
 	if (wpa_s->current_ssid == NULL)
-		return 1; /* unknown current SSID */
+		goto do_roam; /* unknown current SSID */
 	if (wpa_s->current_ssid != ssid)
-		return 1; /* different network block */
+		goto do_roam; /* different network block */
 
 	if (wpas_driver_bss_selection(wpa_s))
 		return 0; /* Driver-based roaming */
@@ -1714,13 +1714,13 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 		current_bss = wpa_bss_get_bssid(wpa_s, wpa_s->bssid);
 
 	if (!current_bss)
-		return 1; /* current BSS not seen in scan results */
+		goto do_roam; /* current BSS not seen in scan results */
 
 	if (current_bss == selected)
 		return 0;
 
 	if (selected->last_update_idx > current_bss->last_update_idx)
-		return 1; /* current BSS not seen in the last scan */
+		goto do_roam; /* current BSS not seen in the last scan */
 
 #ifndef CONFIG_NO_ROAMING
 	wpa_dbg(wpa_s, MSG_INFO, "Considering within-ESS reassociation");
@@ -1739,6 +1739,7 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 	    0) {
 		wpa_dbg(wpa_s, MSG_INFO, "Allow reassociation - selected BSS "
 			"has preferred BSSID");
+		os_get_reltime(&wpa_s->last_roam);
 		return 1;
 	}
 
@@ -1860,6 +1861,17 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 		min_diff += 2;
 	else if (to_5ghz)
 		min_diff -= 2;
+
+	if (os_reltime_initialized(&wpa_s->last_roam)) {
+		struct os_reltime last_roam_age;
+		os_reltime_age(&wpa_s->last_roam, &last_roam_age);
+		if (last_roam_age.sec < 60)
+			min_diff += 5;
+		else if (last_roam_age.sec < 120)
+			min_diff += 3;
+		else if (last_roam_age.sec < 300)
+			min_diff += 1;
+	}
 	diff = selected->level - cur_level;
 	if (diff < min_diff) {
 		wpa_dbg(wpa_s, MSG_INFO,
@@ -1871,10 +1883,17 @@ static int wpa_supplicant_need_to_roam(struct wpa_supplicant *wpa_s,
 	wpa_dbg(wpa_s, MSG_INFO,
 		"Allow reassociation due to difference in signal level (%d >= %d)",
 		diff, min_diff);
+	os_get_reltime(&wpa_s->last_roam);
 	return 1;
 #else /* CONFIG_NO_ROAMING */
 	return 0;
 #endif /* CONFIG_NO_ROAMING */
+
+do_roam:
+	/* Allow reassociation and clear the last_roam timestamp. */
+	wpa_s->last_roam.sec = 0;
+	wpa_s->last_roam.usec = 0;
+	return 1;
 }
 
 
