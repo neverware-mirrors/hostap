@@ -1681,7 +1681,7 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 {
 	int min_diff, diff;
 	int to_2ghz, to_5ghz;
-	int cur_level;
+	int cur_level, sel_level;
 	int adjust = 0;
 	double adjust_factor, est_ratio;
 	unsigned int cur_est, sel_est;
@@ -1780,6 +1780,7 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 	}
 
 	sel_est = selected->est_throughput;
+	sel_level = selected->level;
 	if (cur_est > sel_est) {
 		adjust = 1;
 		est_ratio = sel_est == 0 ? 2 : (double) cur_est / sel_est;
@@ -1795,6 +1796,9 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 	if (to_2ghz)
 		min_diff += 2;
 	else if (to_5ghz)
+		min_diff -= 2;
+	if (wpa_s->signal_threshold && cur_level <= wpa_s->signal_threshold &&
+	    sel_level > wpa_s->signal_threshold)
 		min_diff -= 2;
 	diff = selected->level - cur_level;
 	if (diff < min_diff) {
