@@ -92,6 +92,10 @@ extern "C" {
 /** SAE authentication failed due to unknown password identifier */
 #define WPA_EVENT_SAE_UNKNOWN_PASSWORD_IDENTIFIER \
 	"CTRL-EVENT-SAE-UNKNOWN-PASSWORD-IDENTIFIER "
+/** Decision made to do a within-ESS roam */
+#define WPA_EVENT_DO_ROAM "CTRL-EVENT-DO-ROAM"
+/** Decision made to skip a within-ESS roam */
+#define WPA_EVENT_SKIP_ROAM "CTRL-EVENT-SKIP-ROAM"
 
 /** IP subnet status change notification
  *

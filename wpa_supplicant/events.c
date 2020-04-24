@@ -1687,6 +1687,7 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 	unsigned int cur_est, sel_est;
 	struct wpa_signal_info si;
 	int cur_snr = 0;
+	int ret = 0;
 
 	wpa_dbg(wpa_s, MSG_INFO, "Considering within-ESS reassociation");
 	wpa_dbg(wpa_s, MSG_INFO, "Current BSS: " MACSTR
@@ -1805,13 +1806,22 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 		wpa_dbg(wpa_s, MSG_INFO,
 			"Skip roam - too small difference in signal level (%d < %d)",
 			diff, min_diff);
-		return 0;
+		ret = 0;
+	} else {
+		wpa_dbg(wpa_s, MSG_INFO,
+			"Allow reassociation due to difference in signal level (%d >= %d)",
+			diff, min_diff);
+		ret = 1;
 	}
-
-	wpa_dbg(wpa_s, MSG_INFO,
-		"Allow reassociation due to difference in signal level (%d >= %d)",
-		diff, min_diff);
-	return 1;
+	wpa_msg_ctrl(wpa_s, MSG_INFO, "%s "
+		     "cur_bssid=" MACSTR " cur_freq=%d cur_level=%d cur_est=%d "
+		     "sel_bssid=" MACSTR " sel_freq=%d sel_level=%d sel_est=%d",
+		     ret ? WPA_EVENT_DO_ROAM : WPA_EVENT_SKIP_ROAM,
+		     MAC2STR(current_bss->bssid),
+		     current_bss->freq, cur_level, cur_est,
+		     MAC2STR(selected->bssid),
+		     selected->freq, sel_level, sel_est);
+	return ret;
 }
 
 #endif /* CONFIG_NO_ROAMING */
