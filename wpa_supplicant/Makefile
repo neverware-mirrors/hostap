@@ -236,6 +236,7 @@ CFLAGS += -DCONFIG_MESH
 OBJS += mesh.o
 OBJS += mesh_mpm.o
 OBJS += mesh_rsn.o
+OBJS += ../src/ap/connect_log.o
 endif
 
 ifdef CONFIG_SAE

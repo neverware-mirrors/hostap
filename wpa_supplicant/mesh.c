@@ -26,6 +26,7 @@
 #include "mesh_rsn.h"
 #include "mesh.h"
 #include "ap/ap_drv_ops.h"
+#include "ap/connect_log.h"
 
 
 static void wpa_supplicant_mesh_deinit(struct wpa_supplicant *wpa_s)
@@ -282,7 +283,10 @@ void wpa_mesh_notify_peer(struct wpa_supplicant *wpa_s, const u8 *addr,
 {
 	struct ieee802_11_elems elems;
 
-	wpa_msg(wpa_s, MSG_INFO, MESH_PEER_NEW_PEER MACSTR, MAC2STR(addr));
+	mesh_connect_log_event(wpa_s->ifmsh->bss[0], addr,
+		CONNECTION_EVENT_MESH_NEW_PEER, 1, REASON_NONE,
+		NULL, INVALID_FRAME_STATUS, INVALID_SIGNAL,
+		INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 
 	if (ieee802_11_parse_elems(ies, ie_len, &elems, 0) == ParseFailed) {
 		wpa_msg(wpa_s, MSG_INFO, "Could not parse beacon from " MACSTR,

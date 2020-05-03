@@ -24,6 +24,7 @@
 #include "wpas_glue.h"
 #include "mesh_mpm.h"
 #include "mesh_rsn.h"
+#include "ap/connect_log.h"
 
 #define MESH_AUTH_TIMEOUT 10
 #define MESH_AUTH_RETRY 3
@@ -40,6 +41,11 @@ void mesh_auth_timer(void *eloop_ctx, void *user_data)
 			   MAC2STR(sta->addr), sta->sae_auth_retry);
 		wpa_msg(wpa_s, MSG_INFO, MESH_SAE_AUTH_FAILURE MACSTR,
 			MAC2STR(sta->addr));
+		mesh_connect_log_event(wpa_s->ifmsh->bss[0], sta->addr,
+			CONNECTION_EVENT_MESH_AUTH, 0,
+			REASON_MESH_AUTH_SAE_FAIL, sta, INVALID_FRAME_STATUS,
+			INVALID_SIGNAL, INVALID_STEERING_REASON,
+			NULL, NULL, NULL, -1);
 		if (sta->sae_auth_retry < MESH_AUTH_RETRY) {
 			mesh_rsn_auth_sae_sta(wpa_s, sta);
 		} else {
@@ -60,6 +66,11 @@ void mesh_auth_timer(void *eloop_ctx, void *user_data)
 				MACSTR " duration=%d",
 				MAC2STR(sta->addr),
 				wpa_s->mesh_auth_block_duration);
+			mesh_connect_log_event(wpa_s->ifmsh->bss[0], sta->addr,
+				CONNECTION_EVENT_MESH_AUTH, 0,
+				REASON_MESH_AUTH_SAE_BLOCK, sta,
+				INVALID_FRAME_STATUS, INVALID_SIGNAL,
+				INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 		}
 		sta->sae_auth_retry++;
 	}
@@ -136,6 +147,10 @@ static int auth_start_ampe(void *ctx, const u8 *addr)
 
 	wpa_msg(mesh_rsn->wpa_s, MSG_INFO, MESH_PEER_AUTH_COMPLETE MACSTR,
 		MAC2STR(sta->addr));
+	mesh_connect_log_event(hapd, addr,
+		CONNECTION_EVENT_MESH_AUTH, 1, REASON_NONE,
+		sta, INVALID_FRAME_STATUS, INVALID_SIGNAL,
+		INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 	mesh_mpm_auth_peer(mesh_rsn->wpa_s, addr);
 	return 0;
 }

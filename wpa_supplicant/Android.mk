@@ -223,6 +223,7 @@ L_CFLAGS += -DCONFIG_MESH
 OBJS += mesh.c
 OBJS += mesh_mpm.c
 OBJS += mesh_rsn.c
+OBJS += ../src/ap/connect_log.c
 endif
 
 ifdef CONFIG_SAE

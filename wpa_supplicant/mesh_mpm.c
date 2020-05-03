@@ -20,6 +20,7 @@
 #include "mesh_mpm.h"
 #include "mesh_rsn.h"
 #include "ap/ap_drv_ops.h"
+#include "ap/connect_log.h"
 
 struct mesh_peer_mgmt_ie {
 	const u8 *proto_id; /* Mesh Peering Protocol Identifier (2 octets) */
@@ -446,6 +447,7 @@ static void plink_timer(void *eloop_ctx, void *user_data)
 	struct wpa_supplicant *wpa_s = eloop_ctx;
 	struct sta_info *sta = user_data;
 	u16 reason = 0;
+	connection_event_reason event_reason = REASON_NONE;
 	struct mesh_conf *conf = wpa_s->ifmsh->mconf;
 
 	switch (sta->plink_state) {
@@ -462,17 +464,24 @@ static void plink_timer(void *eloop_ctx, void *user_data)
 			break;
 		}
 		reason = WLAN_REASON_MESH_MAX_RETRIES;
+		event_reason = REASON_MESH_DISCONNECT_MAX_RETRIES;
 		/* fall through on else */
 
 	case PLINK_CNF_RCVD:
 		/* confirm timer */
-		if (!reason)
+		if (!reason) {
 			reason = WLAN_REASON_MESH_CONFIRM_TIMEOUT;
+			event_reason = REASON_MESH_DISCONNECT_CONFIRM_TIMEOUT;
+		}
 		wpa_mesh_set_plink_state(wpa_s, sta, PLINK_HOLDING);
 		eloop_register_timeout(conf->dot11MeshHoldingTimeout / 1000,
 			(conf->dot11MeshHoldingTimeout % 1000) * 1000,
 			plink_timer, wpa_s, sta);
 		mesh_mpm_send_plink_action(wpa_s, sta, PLINK_CLOSE, reason);
+		mesh_connect_log_event(wpa_s->ifmsh->bss[0], sta->addr,
+			CONNECTION_EVENT_MESH_DISCONNECT, 1, event_reason,
+			sta, INVALID_FRAME_STATUS, INVALID_SIGNAL,
+			INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 		break;
 	case PLINK_HOLDING:
 		/* holding timer */
@@ -511,6 +520,11 @@ int mesh_mpm_plink_close(struct hostapd_data *hapd,
 		mesh_mpm_send_plink_action(wpa_s, sta, PLINK_CLOSE, reason);
 		wpa_printf(MSG_DEBUG, "MPM closing plink sta=" MACSTR,
 			   MAC2STR(sta->addr));
+		mesh_connect_log_event(hapd, sta->addr,
+			CONNECTION_EVENT_MESH_DISCONNECT, 1,
+			REASON_MESH_DISCONNECT_PEERING_CANCELLED,
+			sta, INVALID_FRAME_STATUS, INVALID_SIGNAL,
+			INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 		eloop_cancel_timeout(plink_timer, wpa_s, sta);
 		return 0;
 	}
@@ -758,8 +772,10 @@ static void mesh_mpm_plink_estab(struct wpa_supplicant *wpa_s,
 	eloop_cancel_timeout(plink_timer, wpa_s, sta);
 
 	/* Send ctrl event */
-	wpa_msg(wpa_s, MSG_INFO, MESH_PEER_CONNECTED MACSTR,
-		MAC2STR(sta->addr));
+	mesh_connect_log_event(hapd, sta->addr,
+		CONNECTION_EVENT_MESH_CONNECT, 1, REASON_NONE,
+		sta, INVALID_FRAME_STATUS, INVALID_SIGNAL,
+		INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 }
 
 
@@ -769,6 +785,7 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 	struct hostapd_data *hapd = wpa_s->ifmsh->bss[0];
 	struct mesh_conf *conf = wpa_s->ifmsh->mconf;
 	u16 reason = 0;
+	connection_event_reason event_reason = REASON_NONE;
 
 	wpa_msg(wpa_s, MSG_INFO, MESH_PEER_MPM_STATE_EVENT MACSTR "state %s event %s",
 		MAC2STR(sta->addr), mplstate[sta->plink_state],
@@ -794,17 +811,27 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 		case OPN_RJCT:
 		case CNF_RJCT:
 			reason = WLAN_REASON_MESH_CONFIG_POLICY_VIOLATION;
+			event_reason =
+				REASON_MESH_DISCONNECT_CONFIG_POLICY_VIOLATION;
 			/* fall-through */
 		case CLS_ACPT:
 			wpa_mesh_set_plink_state(wpa_s, sta, PLINK_HOLDING);
-			if (!reason)
+			if (!reason) {
 				reason = WLAN_REASON_MESH_CLOSE_RCVD;
+				event_reason =
+					REASON_MESH_DISCONNECT_CLOSE_RCVD;
+			}
 			eloop_register_timeout(
 				conf->dot11MeshHoldingTimeout / 1000,
 				(conf->dot11MeshHoldingTimeout % 1000) * 1000,
 				plink_timer, wpa_s, sta);
 			mesh_mpm_send_plink_action(wpa_s, sta,
 						   PLINK_CLOSE, reason);
+			mesh_connect_log_event(hapd, sta->addr,
+				CONNECTION_EVENT_MESH_DISCONNECT, 1,
+				event_reason, sta, INVALID_FRAME_STATUS,
+				INVALID_SIGNAL, INVALID_STEERING_REASON,
+				NULL, NULL, NULL, -1);
 			break;
 		case OPN_ACPT:
 			/* retry timer is left untouched */
@@ -829,11 +856,16 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 		case OPN_RJCT:
 		case CNF_RJCT:
 			reason = WLAN_REASON_MESH_CONFIG_POLICY_VIOLATION;
+			event_reason =
+				REASON_MESH_DISCONNECT_CONFIG_POLICY_VIOLATION;
 			/* fall-through */
 		case CLS_ACPT:
 			wpa_mesh_set_plink_state(wpa_s, sta, PLINK_HOLDING);
-			if (!reason)
+			if (!reason) {
 				reason = WLAN_REASON_MESH_CLOSE_RCVD;
+				event_reason =
+					REASON_MESH_DISCONNECT_CLOSE_RCVD;
+			}
 			eloop_register_timeout(
 				conf->dot11MeshHoldingTimeout / 1000,
 				(conf->dot11MeshHoldingTimeout % 1000) * 1000,
@@ -841,6 +873,11 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 			sta->mpm_close_reason = reason;
 			mesh_mpm_send_plink_action(wpa_s, sta,
 						   PLINK_CLOSE, reason);
+			mesh_connect_log_event(hapd, sta->addr,
+				CONNECTION_EVENT_MESH_DISCONNECT, 1,
+				event_reason, sta, INVALID_FRAME_STATUS,
+				INVALID_SIGNAL, INVALID_STEERING_REASON,
+				NULL, NULL, NULL, -1);
 			break;
 		case OPN_ACPT:
 			mesh_mpm_send_plink_action(wpa_s, sta,
@@ -860,11 +897,16 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 		case OPN_RJCT:
 		case CNF_RJCT:
 			reason = WLAN_REASON_MESH_CONFIG_POLICY_VIOLATION;
-			/* fall-through */
+			event_reason =
+				REASON_MESH_DISCONNECT_CONFIG_POLICY_VIOLATION;
+		/* fall-through */
 		case CLS_ACPT:
 			wpa_mesh_set_plink_state(wpa_s, sta, PLINK_HOLDING);
-			if (!reason)
+			if (!reason) {
 				reason = WLAN_REASON_MESH_CLOSE_RCVD;
+				event_reason =
+					REASON_MESH_DISCONNECT_CLOSE_RCVD;
+			}
 			eloop_register_timeout(
 				conf->dot11MeshHoldingTimeout / 1000,
 				(conf->dot11MeshHoldingTimeout % 1000) * 1000,
@@ -872,6 +914,11 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 			sta->mpm_close_reason = reason;
 			mesh_mpm_send_plink_action(wpa_s, sta,
 						   PLINK_CLOSE, reason);
+			mesh_connect_log_event(hapd, sta->addr,
+				CONNECTION_EVENT_MESH_DISCONNECT, 1,
+				event_reason, sta, INVALID_FRAME_STATUS,
+				INVALID_SIGNAL, INVALID_STEERING_REASON,
+				NULL, NULL, NULL, -1);
 			break;
 		case OPN_ACPT:
 			if (conf->security & MESH_CONF_SEC_AMPE)
@@ -896,8 +943,11 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 				plink_timer, wpa_s, sta);
 			sta->mpm_close_reason = reason;
 
-			wpa_msg(wpa_s, MSG_INFO, MESH_PEER_DISCONNECTED MACSTR " reason %d",
-				MAC2STR(sta->addr), reason);
+			mesh_connect_log_event(hapd, sta->addr,
+				CONNECTION_EVENT_MESH_DISCONNECT, 1,
+				REASON_MESH_DISCONNECT_CLOSE_RCVD, sta,
+				INVALID_FRAME_STATUS, INVALID_SIGNAL,
+				INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 
 			hapd->num_plinks--;
 

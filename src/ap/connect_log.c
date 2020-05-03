@@ -125,6 +125,22 @@ static const char *disconnect_log_event_str(connection_event_reason event)
 			return "gtk_m1_timeout";
 		case REASON_DISCONNECT_PSK_MISMATCH:
 			return "psk_mismatch";
+		case REASON_MESH_AUTH_SAE_FAIL:
+			return "mesh_sae_fail";
+		case REASON_MESH_AUTH_SAE_BLOCK:
+			return "mesh_sae_block";
+		case REASON_MESH_DISCONNECT_CLOSE_RCVD:
+			return "mesh_close_rcvd";
+		case REASON_MESH_DISCONNECT_MAX_RETRIES:
+			return "mesh_max_retries";
+		case REASON_MESH_DISCONNECT_PEERING_CANCELLED:
+			return "mesh_peering_cancelled";
+		case REASON_MESH_DISCONNECT_CONFIRM_TIMEOUT:
+			return "mesh_confirm_timeout";
+		case REASON_MESH_DISCONNECT_CONFIG_POLICY_VIOLATION:
+			return "mesh_conf_policy_violation";
+		case REASON_MESH_DISCONNECT_INACTIVITY:
+			return "mesh_inactivity";
 		default:
 			return "unknown";
 	}
@@ -153,6 +169,19 @@ static const char *connect_log_event_str(connection_event event)
 		break;
 	case CONNECTION_EVENT_DISASSOC_RESP:
 		return AP_STA_DISASSOC_RESP;
+		break;
+	case CONNECTION_EVENT_MESH_NEW_PEER:
+		return MESH_PEER_NEW_PEER;
+		break;
+	case CONNECTION_EVENT_MESH_AUTH:
+		return MESH_PEER_AUTH;
+		break;
+	case CONNECTION_EVENT_MESH_CONNECT:
+		return MESH_PEER_CONNECTED;
+		break;
+	case CONNECTION_EVENT_MESH_DISCONNECT:
+		return MESH_PEER_DISCONNECTED;
+		break;
 	default:
 		return NULL;
 		break;
@@ -173,7 +202,7 @@ static Boolean is_valid_delta_time(struct os_reltime *delta_time)
 /**
  * log connection specific event on to control socket.
  */
-void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
+void log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 		       connection_event c_event, int status,
 		       connection_event_reason event_reason,
 		       struct sta_info *sta, int frame_status,
@@ -325,6 +354,7 @@ void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 		len += ret;
 	}
 
+#ifdef HOSTAPD
 	if (sta && c_event == CONNECTION_EVENT_CONNECT) {
 		if (sta->vht_capabilities)
 			vht = sta->vht_capabilities;
@@ -358,17 +388,20 @@ void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 				        EXT_CAP_BSS_TRANSITION)) ? 1 : 0);
 		len += ret;
 	}
+#endif /* HOSTAPD */
 
 	if (signal != INVALID_SIGNAL) {
 		ret = os_snprintf(buf + len, buflen - len, " frame_rssi:%d",
 				  signal);
 		len += ret;
 	}
+#ifdef HOSTAPD
 	if (s_reason != INVALID_STEERING_REASON) {
 		ret = os_snprintf(buf + len, buflen - len, " steering_reason:%s",
 				  steering_reason_str(s_reason));
 		len += ret;
 	}
+#endif /* HOSTAPD */
 	if (is_valid_delta_time(probe_delta_time)) {
 		ret = os_snprintf(buf + len, buflen - len, " probe_delta_ms:%ld",
 				  (probe_delta_time->sec * 1000 +

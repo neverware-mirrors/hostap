@@ -501,6 +501,11 @@ skip_poll:
 #ifdef CONFIG_MESH
 		wpa_printf(MSG_INFO, MACSTR " disassociated due to inactivity",
 			   MAC2STR(sta->addr));
+		mesh_connect_log_event(hapd, sta->addr,
+			CONNECTION_EVENT_MESH_DISCONNECT, 1,
+			REASON_MESH_DISCONNECT_INACTIVITY,
+			sta, INVALID_FRAME_STATUS, INVALID_SIGNAL,
+			INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 #endif
 		reason = (sta->timeout_next == STA_DISASSOC) ?
 			WLAN_REASON_DISASSOC_DUE_TO_INACTIVITY :

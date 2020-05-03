@@ -20,6 +20,10 @@ typedef enum {
 	CONNECTION_EVENT_CONNECT,
 	CONNECTION_EVENT_DISCONNECT,
 	CONNECTION_EVENT_DISASSOC_RESP,
+	CONNECTION_EVENT_MESH_NEW_PEER,
+	CONNECTION_EVENT_MESH_AUTH,
+	CONNECTION_EVENT_MESH_CONNECT,
+	CONNECTION_EVENT_MESH_DISCONNECT,
 } connection_event;
 
 /* reasons for the events */
@@ -66,18 +70,25 @@ typedef enum {
 	REASON_DISCONNECT_EAPOL_M1_TIMEOUT,
 	REASON_DISCONNECT_EAPOL_M3_TIMEOUT,
 	REASON_DISCONNECT_GTK_M1_TIMEOUT,
-	REASON_DISCONNECT_PSK_MISMATCH
+	REASON_DISCONNECT_PSK_MISMATCH,
+	REASON_MESH_AUTH_SAE_FAIL,
+	REASON_MESH_AUTH_SAE_BLOCK,
+	REASON_MESH_DISCONNECT_CLOSE_RCVD,
+	REASON_MESH_DISCONNECT_MAX_RETRIES,
+	REASON_MESH_DISCONNECT_PEERING_CANCELLED,
+	REASON_MESH_DISCONNECT_CONFIRM_TIMEOUT,
+	REASON_MESH_DISCONNECT_CONFIG_POLICY_VIOLATION,
+	REASON_MESH_DISCONNECT_INACTIVITY
 } connection_event_reason;
 
 #define INVALID_STEERING_REASON -1
 #define INVALID_FRAME_STATUS -1
 #define INVALID_SIGNAL 0xffff
+
 /**
  * log connection specific event.
  */
-
-#ifdef HOSTAPD
-void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
+void log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 		       connection_event c_event, int status,
 		       connection_event_reason event_reason,
 		       struct sta_info *sta, int frame_status,
@@ -86,8 +97,18 @@ void connect_log_event(struct hostapd_data *hapd, const u8 *sta_addr,
 		       struct os_reltime *steer_delta_time,
 		       struct os_reltime *defer_delta_time,
 		       int eapol_ack_bitmap);
+
+
+#ifdef HOSTAPD
+#define connect_log_event(args...) log_event(args)
 #else  /* HOSTAPD */
 #define connect_log_event(args...) do { } while (0)
 #endif /* HOSTAPD */
+
+#ifdef CONFIG_MESH
+#define mesh_connect_log_event(args...) log_event(args)
+#else
+#define mesh_connect_log_event(args...) do { } while (0)
+#endif
 
 #endif /* CONNECTION_LOG_H */
