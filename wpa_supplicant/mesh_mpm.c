@@ -829,7 +829,7 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 						   PLINK_CLOSE, reason);
 			mesh_connect_log_event(hapd, sta->addr,
 				CONNECTION_EVENT_MESH_DISCONNECT, 1,
-				event_reason, sta, INVALID_FRAME_STATUS,
+				event_reason, sta, sta->rcvd_mpm_close_reason,
 				INVALID_SIGNAL, INVALID_STEERING_REASON,
 				NULL, NULL, NULL, -1);
 			break;
@@ -875,7 +875,7 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 						   PLINK_CLOSE, reason);
 			mesh_connect_log_event(hapd, sta->addr,
 				CONNECTION_EVENT_MESH_DISCONNECT, 1,
-				event_reason, sta, INVALID_FRAME_STATUS,
+				event_reason, sta, sta->rcvd_mpm_close_reason,
 				INVALID_SIGNAL, INVALID_STEERING_REASON,
 				NULL, NULL, NULL, -1);
 			break;
@@ -916,7 +916,7 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 						   PLINK_CLOSE, reason);
 			mesh_connect_log_event(hapd, sta->addr,
 				CONNECTION_EVENT_MESH_DISCONNECT, 1,
-				event_reason, sta, INVALID_FRAME_STATUS,
+				event_reason, sta, sta->rcvd_mpm_close_reason,
 				INVALID_SIGNAL, INVALID_STEERING_REASON,
 				NULL, NULL, NULL, -1);
 			break;
@@ -946,7 +946,7 @@ static void mesh_mpm_fsm(struct wpa_supplicant *wpa_s, struct sta_info *sta,
 			mesh_connect_log_event(hapd, sta->addr,
 				CONNECTION_EVENT_MESH_DISCONNECT, 1,
 				REASON_MESH_DISCONNECT_CLOSE_RCVD, sta,
-				INVALID_FRAME_STATUS, INVALID_SIGNAL,
+				sta->rcvd_mpm_close_reason, INVALID_SIGNAL,
 				INVALID_STEERING_REASON, NULL, NULL, NULL, -1);
 
 			hapd->num_plinks--;
@@ -1139,6 +1139,9 @@ void mesh_mpm_action_rx(struct wpa_supplicant *wpa_s,
 			   MAC2STR(mgmt->sa));
 		return;
 	}
+
+	if (action_field == PLINK_CLOSE)
+		sta->rcvd_mpm_close_reason = WPA_GET_LE16(peer_mgmt_ie.reason);
 
 #ifdef CONFIG_SAE
 	/* peer is in sae_accepted? */

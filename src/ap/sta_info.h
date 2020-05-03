@@ -65,6 +65,7 @@ struct sta_info {
 	u16 peer_lid;
 	u16 my_lid;
 	u16 mpm_close_reason;
+	u16 rcvd_mpm_close_reason;
 	int mpm_retries;
 	u8 my_nonce[32];
 	u8 peer_nonce[32];
