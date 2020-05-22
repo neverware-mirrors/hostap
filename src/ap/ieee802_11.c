@@ -3297,5 +3297,85 @@ void ieee802_11_rx_from_unknown(struct hostapd_data *hapd, const u8 *src,
 			WLAN_REASON_CLASS3_FRAME_FROM_NONASSOC_STA);
 }
 
+int hostapd_acl_comp(const void *a, const void *b)
+{
+	const struct mac_acl_entry *aa = a;
+	const struct mac_acl_entry *bb = b;
+
+	return os_memcmp(aa->addr, bb->addr, sizeof(macaddr));
+}
+
+int hostapd_config_read_maclist(const char *fname,
+			       struct mac_acl_entry **acl, int *num)
+{
+	FILE *f;
+	char buf[128], *pos;
+	int line = 0;
+	u8 addr[ETH_ALEN];
+	int vlan_id;
+
+	f = fopen(fname, "r");
+	if (!f) {
+		wpa_printf(MSG_ERROR, "MAC list file '%s' not found.", fname);
+		return -1;
+	}
+
+	while (fgets(buf, sizeof(buf), f)) {
+		int rem = 0;
+
+		line++;
+
+		if (buf[0] == '#')
+			continue;
+		pos = buf;
+		while (*pos != '\0') {
+			if (*pos == '\n') {
+				*pos = '\0';
+				break;
+			}
+			pos++;
+		}
+		if (buf[0] == '\0')
+			continue;
+		pos = buf;
+		if (buf[0] == '-') {
+			rem = 1;
+			pos++;
+		}
+
+		if (hwaddr_aton(pos, addr)) {
+			wpa_printf(MSG_ERROR, "Invalid MAC address '%s' at "
+				   "line %d in '%s'", pos, line, fname);
+			fclose(f);
+			return -1;
+		}
+
+		if (rem) {
+			hostapd_remove_acl_mac(acl, num, addr);
+			continue;
+		}
+		vlan_id = 0;
+		pos = buf;
+		while (*pos != '\0' && *pos != ' ' && *pos != '\t')
+			pos++;
+		while (*pos == ' ' || *pos == '\t')
+			pos++;
+		if (*pos != '\0')
+			vlan_id = atoi(pos);
+
+		if (hostapd_add_acl_maclist(acl, num, vlan_id, addr) < 0) {
+			fclose(f);
+			return -1;
+		}
+	}
+
+	fclose(f);
+
+	if (*acl)
+		qsort(*acl, *num, sizeof(**acl), hostapd_acl_comp);
+
+	return 0;
+}
+
 
 #endif /* CONFIG_NATIVE_WINDOWS */

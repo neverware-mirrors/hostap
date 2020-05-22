@@ -351,6 +351,160 @@ static int p2p_manager_disconnect(struct hostapd_data *hapd, u16 stype,
 }
 #endif /* CONFIG_P2P_MANAGER */
 
+int hostapd_add_acl_maclist(struct mac_acl_entry **acl, int *num,
+			    int vlan_id, const u8 *addr)
+{
+	struct mac_acl_entry *newacl;
+
+	newacl = os_realloc_array(*acl, *num + 1, sizeof(**acl));
+	if (!newacl) {
+		wpa_printf(MSG_ERROR, "MAC list reallocation failed");
+		return -1;
+	}
+
+	*acl = newacl;
+	os_memcpy((*acl)[*num].addr, addr, ETH_ALEN);
+	os_memset(&(*acl)[*num].vlan_id, 0, sizeof((*acl)[*num].vlan_id));
+	(*acl)[*num].vlan_id = vlan_id;
+	(*num)++;
+
+	return 0;
+}
+
+
+void hostapd_remove_acl_mac(struct mac_acl_entry **acl, int *num,
+			    const u8 *addr)
+{
+	int i = 0;
+
+	while (i < *num) {
+		if (os_memcmp((*acl)[i].addr, addr, ETH_ALEN) == 0) {
+			os_remove_in_array(*acl, *num, sizeof(**acl), i);
+			(*num)--;
+		} else {
+			i++;
+		}
+	}
+}
+
+int hostapd_disassoc_accept_mac(struct hostapd_data *hapd)
+{
+	struct sta_info *sta;
+	int vlan_id;
+
+	if (hapd->conf->macaddr_acl != DENY_UNLESS_ACCEPTED)
+		return 0;
+
+	for (sta = hapd->sta_list; sta; sta = sta->next) {
+		if (!hostapd_maclist_found(hapd->conf->accept_mac,
+					   hapd->conf->num_accept_mac,
+					   sta->addr, &vlan_id) ||
+		    (vlan_id && vlan_id != sta->vlan_id)) {
+#ifdef CONFIG_MESH
+			if (hapd->iface->mconf)
+				return 1;
+#endif /* CONFIG_MESH */
+			ap_sta_disconnect(hapd, sta, sta->addr,
+					  WLAN_REASON_UNSPECIFIED);
+		}
+	}
+	return 0;
+}
+
+int hostapd_disassoc_deny_mac(struct hostapd_data *hapd)
+{
+	struct sta_info *sta;
+	int vlan_id;
+
+	for (sta = hapd->sta_list; sta; sta = sta->next) {
+		if (hostapd_maclist_found(hapd->conf->deny_mac,
+					  hapd->conf->num_deny_mac, sta->addr,
+					  &vlan_id) &&
+		    (!vlan_id || vlan_id == sta->vlan_id)) {
+#ifdef CONFIG_MESH
+			if (hapd->iface->mconf)
+				return 1;
+#endif /* CONFIG_MESH */
+			ap_sta_disconnect(hapd, sta, sta->addr,
+					  WLAN_REASON_UNSPECIFIED);
+		}
+	}
+
+	return 0;
+}
+
+int hostapd_ctrl_iface_acl_del_mac(struct mac_acl_entry **acl, int *num,
+				   const char *txtaddr)
+{
+	u8 addr[ETH_ALEN];
+	int vlan_id;
+
+	if (!(*num))
+		return 0;
+
+	if (hwaddr_aton(txtaddr, addr))
+		return -1;
+
+	if (hostapd_maclist_found(*acl, *num, addr, &vlan_id))
+		hostapd_remove_acl_mac(acl, num, addr);
+
+	return 0;
+}
+
+
+void hostapd_ctrl_iface_acl_clear_list(struct mac_acl_entry **acl,
+				       int *num)
+{
+	while (*num)
+		hostapd_remove_acl_mac(acl, num, (*acl)[0].addr);
+}
+
+
+int hostapd_ctrl_iface_acl_show_mac(struct mac_acl_entry *acl, int num,
+				    char *buf, size_t buflen)
+{
+	int i = 0, len = 0, ret = 0;
+
+	if (!acl)
+		return 0;
+
+	while (i < num) {
+		ret = os_snprintf(buf + len, buflen - len,
+				  MACSTR " VLAN_ID=%d\n",
+				  MAC2STR(acl[i].addr),
+				  acl[i].vlan_id);
+		if (ret < 0 || (size_t) ret >= buflen - len)
+			return len;
+		i++;
+		len += ret;
+	}
+	return len;
+}
+
+
+int hostapd_ctrl_iface_acl_add_mac(struct mac_acl_entry **acl, int *num,
+				   const char *cmd)
+{
+	u8 addr[ETH_ALEN];
+	int vlan_id;
+	int ret = 0, vlanid = 0;
+	const char *pos;
+
+	if (hwaddr_aton(cmd, addr))
+		return -1;
+
+	pos = os_strstr(cmd, "VLAN_ID=");
+	if (pos)
+		vlanid = atoi(pos + 8);
+
+	if (!hostapd_maclist_found(*acl, *num, addr, &vlan_id)) {
+		ret = hostapd_add_acl_maclist(acl, num, vlanid, addr);
+		if (ret != -1 && *acl)
+			qsort(*acl, *num, sizeof(**acl), hostapd_acl_comp);
+	}
+
+	return ret < 0 ? -1 : 0;
+}
 
 int hostapd_ctrl_iface_deauthenticate(struct hostapd_data *hapd,
 				      const char *txtaddr)
