@@ -94,5 +94,10 @@ void wpas_event_dfs_cac_nop_finished(struct wpa_supplicant *wpa_s,
 				     struct dfs_event *radar);
 
 void ap_periodic(struct wpa_supplicant *wpa_s);
+int wpas_ap_acl_del_mac(struct wpa_supplicant *wpa_s, char *buf, bool accept);
+int wpas_ap_acl_add_mac(struct wpa_supplicant *wpa_s, char *buf, bool accept);
+int wpas_ap_acl_show_mac(struct wpa_supplicant *wpa_s, char *reply,
+		const int reply_size, bool accept);
+void wpas_ap_deny_acl_clear_list(struct wpa_supplicant *wpa_s);
 
 #endif /* AP_H */

@@ -10,6 +10,8 @@
  * functions for managing network connections.
  */
 
+#include <stdbool.h>
+
 #include "includes.h"
 
 #include "common.h"
@@ -43,7 +45,6 @@
 #include "ibss_rsn.h"
 #include "sme.h"
 #include "gas_query.h"
-#include "ap.h"
 #include "p2p_supplicant.h"
 #include "wifi_display.h"
 #include "notify.h"
@@ -56,6 +57,7 @@
 #include "wnm_sta.h"
 #include "wpas_kay.h"
 #include "mesh.h"
+#include "ap.h"
 
 const char *const wpa_supplicant_version =
 "wpa_supplicant v" VERSION_STR "\n"

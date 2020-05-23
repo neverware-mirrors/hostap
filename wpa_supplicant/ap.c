@@ -7,6 +7,8 @@
  * See README for more details.
  */
 
+#include <stdbool.h>
+
 #include "utils/includes.h"
 
 #include "utils/common.h"
@@ -1385,6 +1387,72 @@ void wpas_event_dfs_cac_nop_finished(struct wpa_supplicant *wpa_s,
 				 radar->chan_width, radar->cf1, radar->cf2);
 }
 #endif /* NEED_AP_MLME */
+
+#ifdef CONFIG_MESH
+
+int wpas_ap_acl_del_mac(struct wpa_supplicant *wpa_s, char *buf, bool accept)
+{
+	struct hostapd_data *hapd = wpa_s->ifmsh->bss[0];
+
+	if (accept) {
+		if (!hostapd_ctrl_iface_acl_del_mac(&hapd->conf->accept_mac,
+						    &hapd->conf->num_accept_mac,
+						    buf))
+			if (hostapd_disassoc_accept_mac(hapd))
+				return 1;
+	}
+
+	return hostapd_ctrl_iface_acl_del_mac(&hapd->conf->deny_mac,
+					      &hapd->conf->num_deny_mac,
+					      buf);
+}
+
+int wpas_ap_acl_add_mac(struct wpa_supplicant *wpa_s, char *buf, bool accept)
+{
+	struct hostapd_data *hapd = wpa_s->ifmsh->bss[0];
+
+	if (accept) {
+		return hostapd_ctrl_iface_acl_add_mac(&hapd->conf->accept_mac,
+						&hapd->conf->num_accept_mac,
+						buf);
+	} else {
+		if (!hostapd_ctrl_iface_acl_add_mac(&hapd->conf->deny_mac,
+					&hapd->conf->num_deny_mac, buf)) {
+			if (hostapd_disassoc_deny_mac(hapd))
+				return 1;
+			return 0;
+		}
+	}
+
+	return -1;
+}
+
+int wpas_ap_acl_show_mac(struct wpa_supplicant *wpa_s, char *reply,
+			 const int reply_size, bool accept)
+{
+	struct hostapd_data *hapd = wpa_s->ifmsh->bss[0];
+
+	if (accept)
+		return hostapd_ctrl_iface_acl_show_mac(
+					hapd->conf->accept_mac,
+					hapd->conf->num_accept_mac,
+					reply, reply_size);
+
+	return hostapd_ctrl_iface_acl_show_mac(
+				hapd->conf->deny_mac,
+				hapd->conf->num_deny_mac,
+				reply, reply_size);
+}
+
+void wpas_ap_deny_acl_clear_list(struct wpa_supplicant *wpa_s)
+{
+	struct hostapd_data *hapd = wpa_s->ifmsh->bss[0];
+
+	return hostapd_ctrl_iface_acl_clear_list(&hapd->conf->deny_mac,
+						 &hapd->conf->num_deny_mac);
+}
+
+#endif /* CONFIG_MESH */
 
 
 void ap_periodic(struct wpa_supplicant *wpa_s)

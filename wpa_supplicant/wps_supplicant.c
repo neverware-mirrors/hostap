@@ -6,6 +6,8 @@
  * See README for more details.
  */
 
+#include <stdbool.h>
+
 #include "includes.h"
 
 #include "common.h"
@@ -21,6 +23,7 @@
 #include "eap_peer/eap.h"
 #include "eapol_supp/eapol_supp_sm.h"
 #include "rsn_supp/wpa.h"
+#include "ap/hostapd.h"
 #include "wps/wps_attr_parse.h"
 #include "config.h"
 #include "wpa_supplicant_i.h"

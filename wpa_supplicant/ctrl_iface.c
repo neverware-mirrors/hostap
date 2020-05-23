@@ -6,6 +6,8 @@
  * See README for more details.
  */
 
+#include <stdbool.h>
+
 #include "utils/includes.h"
 #ifdef CONFIG_TESTING_OPTIONS
 #include <net/ethernet.h>
@@ -2713,6 +2715,18 @@ static int wpa_supplicant_ctrl_iface_mesh_peer_remove(
 		return -1;
 
 	return wpas_mesh_peer_remove(wpa_s, addr);
+}
+
+static void wpas_ap_accept_acl_clear_list(struct wpa_supplicant *wpa_s)
+{
+	struct hostapd_data *hapd = wpa_s->ifmsh->bss[0];
+	struct mac_acl_entry **acl = &hapd->conf->accept_mac;
+	int *num = &hapd->conf->num_accept_mac;
+
+	while (*num) {
+		wpas_mesh_peer_remove(wpa_s, (*acl)[0].addr);
+		hostapd_remove_acl_mac(acl, num, (*acl)[0].addr);
+	}
 }
 
 #endif /* CONFIG_MESH */
@@ -8302,6 +8316,38 @@ char * wpa_supplicant_ctrl_iface_process(struct wpa_supplicant *wpa_s,
 			reply_len = -1;
 #endif /* CONFIG_IBSS_RSN */
 #ifdef CONFIG_MESH
+	} else if (os_strncmp(buf, "ACCEPT_ACL ", 11) == 0) {
+		if (os_strncmp(buf + 11, "ADD_MAC ", 8) == 0) {
+			wpas_ap_acl_add_mac(wpa_s, buf + 19, 1);
+		} else if (os_strncmp((buf + 11), "DEL_MAC ", 8) == 0) {
+			reply_len = wpas_ap_acl_del_mac(wpa_s, buf + 19, 1);
+			if (reply_len == 1)
+				wpa_supplicant_ctrl_iface_mesh_peer_remove(
+							wpa_s, buf + 19);
+			else if (reply_len)
+				reply_len = -1;
+		} else if (os_strcmp(buf + 11, "SHOW") == 0) {
+			reply_len = wpas_ap_acl_show_mac(wpa_s, reply,
+							 reply_size, 1);
+		} else if (os_strcmp(buf + 11, "CLEAR") == 0) {
+			wpas_ap_accept_acl_clear_list(wpa_s);
+		}
+	} else if (os_strncmp(buf, "DENY_ACL ", 9) == 0) {
+		if (os_strncmp(buf + 9, "ADD_MAC ", 8) == 0) {
+			reply_len = wpas_ap_acl_add_mac(wpa_s, buf + 17, 0);
+			if (reply_len == 1)
+				wpa_supplicant_ctrl_iface_mesh_peer_remove(
+							wpa_s, buf + 17);
+			else if (reply_len)
+				reply_len = -1;
+		} else if (os_strncmp(buf + 9, "DEL_MAC ", 8) == 0) {
+			wpas_ap_acl_del_mac(wpa_s, buf + 17, 0);
+		} else if (os_strcmp(buf + 9, "SHOW") == 0) {
+			reply_len = wpas_ap_acl_show_mac(wpa_s, reply,
+							 reply_size, 0);
+		} else if (os_strcmp(buf + 9, "CLEAR") == 0) {
+			wpas_ap_deny_acl_clear_list(wpa_s);
+		}
 	} else if (os_strncmp(buf, "MESH_INTERFACE_ADD ", 19) == 0) {
 		reply_len = wpa_supplicant_ctrl_iface_mesh_interface_add(
 			wpa_s, buf + 19, reply, reply_size);

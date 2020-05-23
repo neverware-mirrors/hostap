@@ -2029,6 +2029,19 @@ static int wpa_cli_cmd_mesh_peer_remove(struct wpa_ctrl *ctrl, int argc,
 	return wpa_cli_cmd(ctrl, "MESH_PEER_REMOVE", 1, argc, argv);
 }
 
+static int wpa_cli_cmd_accept_macacl(struct wpa_ctrl *ctrl, int argc,
+				     char *argv[])
+{
+	return wpa_cli_cmd(ctrl, "ACCEPT_ACL", 1, argc, argv);
+}
+
+
+static int wpa_cli_cmd_deny_macacl(struct wpa_ctrl *ctrl, int argc,
+				   char *argv[])
+{
+	return wpa_cli_cmd(ctrl, "DENY_ACL", 1, argc, argv);
+}
+
 #endif /* CONFIG_MESH */
 
 
@@ -3167,6 +3180,12 @@ static const struct wpa_cli_cmd wpa_cli_commands[] = {
 	{ "mesh_peer_remove", wpa_cli_cmd_mesh_peer_remove, NULL,
 	  cli_cmd_flag_none,
 	  "<addr> = Remove a mesh peer" },
+	{ "accept_acl", wpa_cli_cmd_accept_macacl, NULL,
+	  cli_cmd_flag_none,
+	  "=Add/Delete/Show/Clear accept MAC ACL" },
+	{ "deny_acl", wpa_cli_cmd_deny_macacl, NULL,
+	  cli_cmd_flag_none,
+	  "=Add/Delete/Show/Clear deny MAC ACL" },
 #endif /* CONFIG_MESH */
 #ifdef CONFIG_P2P
 	{ "p2p_find", wpa_cli_cmd_p2p_find, wpa_cli_complete_p2p_find,

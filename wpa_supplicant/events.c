@@ -6,6 +6,8 @@
  * See README for more details.
  */
 
+#include <stdbool.h>
+
 #include "includes.h"
 
 #include "common.h"
