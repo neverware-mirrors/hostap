@@ -1017,6 +1017,18 @@ struct wpa_ssid {
 	 * FT initial mobility domain association.
 	 */
 	int ft_eap_pmksa_caching;
+
+	/**
+	 * blacklist_out_of_date - Whether the wpa_blacklist is currently considered
+	 * to be out-of-date in regards to this SSID.
+	 *
+	 * When the configs have changed for an SSID, the previous state of the
+	 * wpa_blacklist is no longer relevant in regards to that SSID since the
+	 * updated configs can cause changes in behavior. Thus, we use this value
+	 * to clear the wpa_blacklist after changes have been made to the configs
+	 * of the currently active SSID.
+	 */
+	int blacklist_out_of_date;
 };
 
 #endif /* CONFIG_SSID_H */
