@@ -2956,6 +2956,8 @@ int wpa_config_set(struct wpa_ssid *ssid, const char *var, const char *value,
 		}
 		ret = -1;
 	}
+	if (ret == 0)
+		ssid->blacklist_out_of_date = 1;
 
 	return ret;
 }
