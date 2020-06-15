@@ -1450,6 +1450,48 @@ static int hostapd_cli_cmd_poll_sta(struct wpa_ctrl *ctrl, int argc,
 	return wpa_ctrl_command(ctrl, buf);
 }
 
+static int hostapd_cli_cmd_accept_macacl(struct wpa_ctrl *ctrl, int argc,
+					 char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid ACCEPT ACL command: needs at"
+			"least 1 argument.\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "ACCEPT_ACL %s",
+			  argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long ACCEPT_ACL command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
+static int hostapd_cli_cmd_deny_macacl(struct wpa_ctrl *ctrl, int argc,
+				       char *argv[])
+{
+	char cmd[256];
+	int res;
+
+	if (argc < 1) {
+		printf("Invalid DENY ACL command: needs at"
+			"least 1 argument.\n");
+		return -1;
+	}
+
+	res = os_snprintf(cmd, sizeof(cmd), "DENY_ACL %s",
+			  argv[0]);
+	if (os_snprintf_error(sizeof(cmd), res)) {
+		printf("Too long DENY_ACL command.\n");
+		return -1;
+	}
+	return wpa_ctrl_command(ctrl, cmd);
+}
+
 struct hostapd_cli_cmd {
 	const char *cmd;
 	int (*handler)(struct wpa_ctrl *ctrl, int argc, char *argv[]);
@@ -1528,6 +1570,8 @@ static const struct hostapd_cli_cmd hostapd_cli_commands[] = {
 	{ "set_speed_test", hostapd_cli_cmd_set_speed_test },
 	{ "set_path_metric", hostapd_cli_cmd_set_path_metric },
 	{ "poll_sta", hostapd_cli_cmd_poll_sta},
+	{ "accept_acl", hostapd_cli_cmd_accept_macacl},
+	{ "deny_acl", hostapd_cli_cmd_deny_macacl},
 	{ NULL, NULL }
 };
 
