@@ -30,6 +30,7 @@
 #include "beacon.h"
 #include "hs20.h"
 #include "dfs.h"
+#include "ieee802_11_auth.h"
 
 #ifdef HOSTAPD
 #include "ap/steering.h"
@@ -666,6 +667,11 @@ void handle_probe_req(struct hostapd_data *hapd,
 	int noack;
 	enum ssid_match_result res;
 	u8 ssid[SSID_MAX_LEN + 1];
+	u32 session_timeout, acct_interim_interval;
+	int vlan_id = 0;
+	struct hostapd_sta_wpa_psk_short *psk = NULL;
+	char *identity = NULL;
+	char *radius_cui = NULL;
 #ifdef HOSTAPD
 	struct os_time now;
 	u16 nss = 1;
@@ -684,6 +690,15 @@ void handle_probe_req(struct hostapd_data *hapd,
 		sta_track_add(hapd->iface, mgmt->sa);
 	ie_len = len - (IEEE80211_HDRLEN + sizeof(mgmt->u.probe_req));
 
+	res = hostapd_allowed_address(hapd, mgmt->sa, (u8 *) mgmt, len,
+				      &session_timeout,
+				      &acct_interim_interval, &vlan_id,
+				      &psk, &identity, &radius_cui, 1);
+	if (res == HOSTAPD_ACL_REJECT) {
+		wpa_printf(MSG_INFO, "Ignore Probe Request frame from " MACSTR
+			   " due to ACL reject ", MAC2STR(mgmt->sa));
+		return;
+	}
 	for (i = 0; hapd->probereq_cb && i < hapd->num_probereq_cb; i++)
 		if (hapd->probereq_cb[i].cb(hapd->probereq_cb[i].ctx,
 					    mgmt->sa, mgmt->da, mgmt->bssid,

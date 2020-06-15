@@ -1138,7 +1138,7 @@ static void handle_auth(struct hostapd_data *hapd,
 	res = hostapd_allowed_address(hapd, mgmt->sa, (u8 *) mgmt, len,
 				      &session_timeout,
 				      &acct_interim_interval, &vlan_id,
-				      &psk, &identity, &radius_cui);
+				      &psk, &identity, &radius_cui, 0);
 
 	if (res == HOSTAPD_ACL_REJECT) {
 		wpa_printf(MSG_INFO, "Station " MACSTR " not allowed to authenticate",

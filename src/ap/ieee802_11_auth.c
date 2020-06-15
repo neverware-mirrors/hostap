@@ -224,6 +224,7 @@ static int hostapd_radius_acl_query(struct hostapd_data *hapd, const u8 *addr,
  * @psk: Linked list buffer for returning WPA PSK
  * @identity: Buffer for returning identity (from RADIUS)
  * @radius_cui: Buffer for returning CUI (from RADIUS)
+ * @is_probe_req: Whether this query for a Probe Request frame
  * Returns: HOSTAPD_ACL_ACCEPT, HOSTAPD_ACL_REJECT, or HOSTAPD_ACL_PENDING
  *
  * The caller is responsible for freeing the returned *identity and *radius_cui
@@ -233,7 +234,8 @@ int hostapd_allowed_address(struct hostapd_data *hapd, const u8 *addr,
 			    const u8 *msg, size_t len, u32 *session_timeout,
 			    u32 *acct_interim_interval, int *vlan_id,
 			    struct hostapd_sta_wpa_psk_short **psk,
-			    char **identity, char **radius_cui)
+			    char **identity, char **radius_cui,
+			    int is_probe_req)
 {
 	if (session_timeout)
 		*session_timeout = 0;
@@ -266,6 +268,12 @@ int hostapd_allowed_address(struct hostapd_data *hapd, const u8 *addr,
 		return HOSTAPD_ACL_REJECT;
 #else /* CONFIG_NO_RADIUS */
 		struct hostapd_acl_query_data *query;
+
+		if (is_probe_req) {
+			/* Skip RADIUS queries for Probe Request frames to avoid
+			 * excessive load on the authentication server. */
+			return HOSTAPD_ACL_ACCEPT;
+		};
 
 		/* Check whether ACL cache has an entry for this station */
 		int res = hostapd_acl_cache_get(hapd, addr, session_timeout,
