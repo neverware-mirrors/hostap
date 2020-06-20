@@ -374,6 +374,7 @@ struct wpa_cred {
 #define CFG_CHANGED_P2P_PASSPHRASE_LEN BIT(16)
 #define CFG_CHANGED_SCHED_SCAN_PLANS BIT(17)
 #define CFG_CHANGED_WOWLAN_TRIGGERS BIT(18)
+#define CFG_CHANGED_BGSCAN BIT(19)
 
 /**
  * struct wpa_config - wpa_supplicant configuration data

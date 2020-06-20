@@ -290,6 +290,13 @@ dbus_bool_t set_network_properties(struct wpa_supplicant *wpa_s,
 		else if (os_strcmp(entry.key, "priority") == 0)
 			wpa_config_update_prio_list(wpa_s->conf);
 
+#ifdef CONFIG_BGSCAN
+		if (os_strcmp(entry.key, "bgscan") == 0 &&
+		    wpa_s->current_ssid == ssid &&
+		    wpa_s->wpa_state == WPA_COMPLETED)
+			wpa_supplicant_reset_bgscan(wpa_s);
+#endif /* CONFIG_BGSCAN */
+
 		os_free(value);
 		value = NULL;
 		wpa_dbus_dict_entry_clear(&entry);

@@ -1371,6 +1371,9 @@ int wpas_beacon_rep_scan_process(struct wpa_supplicant *wpa_s,
 				 struct scan_info *info);
 void wpas_clear_beacon_rep_data(struct wpa_supplicant *wpa_s);
 void wpas_flush_fils_hlp_req(struct wpa_supplicant *wpa_s);
+#ifdef CONFIG_BGSCAN
+void wpa_supplicant_reset_bgscan(struct wpa_supplicant *wpa_s);
+#endif /* CONFIG_BGSCAN */
 
 
 /* MBO functions */
