@@ -3406,6 +3406,13 @@ static int wpa_supplicant_ctrl_iface_update_network(
 	else if (os_strcmp(name, "priority") == 0)
 		wpa_config_update_prio_list(wpa_s->conf);
 
+#ifdef CONFIG_BGSCAN
+	if (os_strcmp(name, "bgscan") == 0 &&
+	    wpa_s->current_ssid == ssid &&
+	    wpa_s->wpa_state == WPA_COMPLETED)
+		wpa_supplicant_reset_bgscan(wpa_s);
+#endif /* CONFIG_BGSCAN */
+
 	return 0;
 }
 
