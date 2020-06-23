@@ -1876,6 +1876,59 @@ out:
 
 
 /**
+ * wpas_dbus_handler_roam - Send ROAM command to wpa_supplicant
+ * @message: Pointer to incoming dbus message
+ * @wpa_s: wpa_supplicant structure for a network interface
+ * Returns: NULL on success or dbus error on failure
+ *
+ * Handler function for "Roam" method call of network interface.
+ */
+DBusMessage * wpas_dbus_handler_roam(DBusMessage *message,
+				     struct wpa_supplicant *wpa_s)
+{
+#ifdef CONFIG_NO_SCAN_PROCESSING
+	return wpas_dbus_error_unknown_error(
+		message, "scan processing not included");
+#else /* CONFIG_NO_SCAN_PROCESSING */
+	u8 bssid[ETH_ALEN];
+	struct wpa_bss *bss;
+	struct wpa_ssid *ssid = wpa_s->current_ssid;
+	char *addr;
+
+	if (!dbus_message_get_args(message, NULL, DBUS_TYPE_STRING, &addr,
+				   DBUS_TYPE_INVALID)) {
+		return wpas_dbus_error_invalid_args(message, NULL);
+	}
+
+	if (hwaddr_aton(addr, bssid)) {
+		return wpas_dbus_error_invalid_args(
+			message, "Invalid hardware address format");
+	}
+
+	wpa_printf(MSG_DEBUG, "dbus: ROAM " MACSTR, MAC2STR(bssid));
+
+	if (!ssid) {
+		return dbus_message_new_error(
+			message, WPAS_DBUS_ERROR_NOT_CONNECTED,
+			"This interface is not connected");
+	}
+
+	bss = wpa_bss_get(wpa_s, bssid, ssid->ssid, ssid->ssid_len);
+	if (!bss) {
+		wpa_printf(MSG_DEBUG, "dbus: ROAM: Target BSS not found");
+		return wpas_dbus_error_invalid_args(
+			message, "Target BSS not found");
+	}
+
+	wpa_s->reassociate = 1;
+	wpa_supplicant_connect(wpa_s, bss, ssid);
+
+	return NULL;
+#endif /* CONFIG_NO_SCAN_PROCESSING */
+}
+
+
+/**
  * wpas_dbus_handler_network_reply - Reply to a NetworkRequest signal
  * @message: Pointer to incoming dbus message
  * @wpa_s: wpa_supplicant structure for a network interface
