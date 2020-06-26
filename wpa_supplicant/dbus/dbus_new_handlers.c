@@ -260,8 +260,15 @@ dbus_bool_t set_network_properties(struct wpa_supplicant *wpa_s,
 		} else
 			goto error;
 
-		if (wpa_config_set(ssid, entry.key, value, 0) < 0)
+		ret = wpa_config_set(ssid, entry.key, value, 0);
+		if (ret < 0)
 			goto error;
+		if (ret == 1) {
+			os_free(value);
+			value = NULL;
+			wpa_dbus_dict_entry_clear(&entry);
+			continue;
+		}
 
 		if (os_strcmp(entry.key, "bssid") != 0 &&
 		    os_strcmp(entry.key, "priority") != 0)
