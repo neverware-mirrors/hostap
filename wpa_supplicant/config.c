@@ -4157,13 +4157,31 @@ void wpa_config_debug_dump_networks(struct wpa_config *config)
 #endif /* CONFIG_NO_STDOUT_DEBUG */
 
 
+/**
+ * Structure for global configuration parsing. This data is used to implement a
+ * generic parser for the global interface configuration. The table of variables
+ * is defined below in this file (global_fields[]).
+ */
 struct global_parse_data {
+	/* Configuration variable name */
 	char *name;
+
+	/* Parser function for this variable. The parser functions return 0 or 1
+	 * to indicate success. Value 0 indicates that the parameter value may
+	 * have change while value 1 means that the value did not change.
+	 * Error cases (failure to parse the string) are indicated by returning
+	 * -1. */
 	int (*parser)(const struct global_parse_data *data,
 		      struct wpa_config *config, int line, const char *value);
+
+	/* Getter function to print the variable in text format to buf. */
 	int (*get)(const char *name, struct wpa_config *config, long offset,
 		   char *buf, size_t buflen, int pretty_print);
+
+	/* Variable specific parameters for the parser. */
 	void *param1, *param2, *param3;
+
+	/* Indicates which configuration variable has changed. */
 	unsigned int changed_flag;
 };
 
@@ -4182,8 +4200,10 @@ static int wpa_global_config_parse_int(const struct global_parse_data *data,
 			   line, pos);
 		return -1;
 	}
-	*dst = val;
 
+	if (*dst == val)
+		return 1;
+	*dst = val;
 	wpa_printf(MSG_DEBUG, "%s=%d", data->name, *dst);
 
 	if (data->param2 && *dst < (long) data->param2) {
@@ -4210,7 +4230,7 @@ static int wpa_global_config_parse_str(const struct global_parse_data *data,
 				       struct wpa_config *config, int line,
 				       const char *pos)
 {
-	size_t len;
+	size_t len, prev_len;
 	char **dst, *tmp;
 
 	len = os_strlen(pos);
@@ -4234,11 +4254,22 @@ static int wpa_global_config_parse_str(const struct global_parse_data *data,
 		return -1;
 	}
 
+	dst = (char **) (((u8 *) config) + (long) data->param1);
+	if (*dst)
+		prev_len = os_strlen(*dst);
+	else
+		prev_len = 0;
+
+	/* No change to the previously configured value */
+	if ((*dst == NULL && pos == NULL) ||
+	    (*dst && pos && prev_len == len &&
+	     os_memcmp(*dst, pos, len) == 0))
+		return 1;
+
 	tmp = os_strdup(pos);
 	if (tmp == NULL)
 		return -1;
 
-	dst = (char **) (((u8 *) config) + (long) data->param1);
 	os_free(*dst);
 	*dst = tmp;
 	wpa_printf(MSG_DEBUG, "%s='%s'", data->name, *dst);
@@ -4279,6 +4310,10 @@ static int wpa_global_config_parse_bin(const struct global_parse_data *data,
 		return -1;
 
 	dst = (struct wpabuf **) (((u8 *) config) + (long) data->param1);
+	if (wpabuf_cmp(*dst, tmp) == 0) {
+		wpabuf_free(tmp);
+		return 1;
+	}
 	wpabuf_free(*dst);
 	*dst = tmp;
 	wpa_printf(MSG_DEBUG, "%s", data->name);
@@ -4320,6 +4355,8 @@ static int wpa_global_config_parse_ipv4(const struct global_parse_data *data,
 		return -1;
 
 	dst = (u32 *) (((u8 *) config) + (long) data->param1);
+	if (os_memcmp(dst, &addr.u.v4.s_addr, 4) == 0)
+		return 1;
 	os_memcpy(dst, &addr.u.v4.s_addr, 4);
 	wpa_printf(MSG_DEBUG, "%s = 0x%x", data->name,
 		   WPA_GET_BE32((u8 *) dst));
@@ -4337,6 +4374,8 @@ static int wpa_config_process_country(const struct global_parse_data *data,
 		wpa_printf(MSG_DEBUG, "Invalid country set");
 		return -1;
 	}
+	if (pos[0] == config->country[0] && pos[1] == config->country[1])
+		return 1;
 	config->country[0] = pos[0];
 	config->country[1] = pos[1];
 	wpa_printf(MSG_DEBUG, "country='%c%c'",
@@ -4947,6 +4986,19 @@ const char * wpa_config_get_global_field_name(unsigned int i, int *no_var)
 }
 
 
+/**
+ * wpa_config_process_global - Set a variable in global configuration
+ * @config: Pointer to global configuration data
+ * @pos: Name and value in the format "{name}={value}"
+ * @line: Line number in configuration file or 0 if not used
+ * Returns: 0 on success with possible change in value, 1 on success with no
+ * change to previously configured value, or -1 on failure
+ *
+ * This function can be used to set global configuration variables based on
+ * both the configuration file and management interface input. The value
+ * parameter must be in the same format as the text-based configuration file is
+ * using. For example, strings are using double quotation marks.
+ */
 int wpa_config_process_global(struct wpa_config *config, char *pos, int line)
 {
 	size_t i;
@@ -4959,11 +5011,14 @@ int wpa_config_process_global(struct wpa_config *config, char *pos, int line)
 		    pos[flen] != '=')
 			continue;
 
-		if (field->parser(field, config, line, pos + flen + 1)) {
+		ret = field->parser(field, config, line, pos + flen + 1);
+		if (ret < 0) {
 			wpa_printf(MSG_ERROR, "Line %d: failed to "
 				   "parse '%s'.", line, pos);
 			ret = -1;
 		}
+		if (ret == 1)
+			break;
 		if (field->changed_flag == CFG_CHANGED_NFC_PASSWORD_TOKEN)
 			config->wps_nfc_pw_from_config = 1;
 		config->changed_parameters |= field->changed_flag;
