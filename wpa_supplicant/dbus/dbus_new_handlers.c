@@ -268,6 +268,23 @@ dbus_bool_t set_network_properties(struct wpa_supplicant *wpa_s,
 			continue;
 		}
 
+#ifdef CONFIG_BGSCAN
+		if (os_strcmp(entry.key, "bgscan") == 0) {
+			/*
+			 * Reset the bgscan parameters for the current network
+			 * and continue. There's no need to flush caches for
+			 * bgscan parameter changes.
+			 */
+			if (wpa_s->current_ssid == ssid &&
+			    wpa_s->wpa_state == WPA_COMPLETED)
+				wpa_supplicant_reset_bgscan(wpa_s);
+			os_free(value);
+			value = NULL;
+			wpa_dbus_dict_entry_clear(&entry);
+			continue;
+		}
+#endif /* CONFIG_BGSCAN */
+
 		if (os_strcmp(entry.key, "bssid") != 0 &&
 		    os_strcmp(entry.key, "priority") != 0)
 			wpa_sm_pmksa_cache_flush(wpa_s->wpa, ssid);
@@ -287,13 +304,6 @@ dbus_bool_t set_network_properties(struct wpa_supplicant *wpa_s,
 			wpa_config_update_psk(ssid);
 		else if (os_strcmp(entry.key, "priority") == 0)
 			wpa_config_update_prio_list(wpa_s->conf);
-
-#ifdef CONFIG_BGSCAN
-		if (os_strcmp(entry.key, "bgscan") == 0 &&
-		    wpa_s->current_ssid == ssid &&
-		    wpa_s->wpa_state == WPA_COMPLETED)
-			wpa_supplicant_reset_bgscan(wpa_s);
-#endif /* CONFIG_BGSCAN */
 
 		os_free(value);
 		value = NULL;
