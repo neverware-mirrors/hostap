@@ -1679,9 +1679,26 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 					   struct wpa_bss *current_bss,
 					   struct wpa_bss *selected)
 {
+	/*
+	 * These constants are used to perform calculations to determine
+	 * min_diff, the minimum RSSI difference needed to roam, and
+	 * adjust_factor, the estimated throughput weight, based on the RSSI of
+	 * the current AP.
+	 *
+	 * Currently min_diff and adjust_factor are bounded as follows:
+	 * 4 <= min_diff <= 15, before applying 5GHz and bgscan threshold biases
+	 * 0 <= adjust_factor <= 2.75
+	 */
+	const int low_rssi = -85, high_rssi = -30;
+	const int rssi_bucket_size = 5;
+	const int min_diff_offset = 21, default_min_diff = 5;
+	const double adjust_factor_offset = 17, default_adjust_factor = 4;
+	const double adjust_factor_step = 0.25;
+	const double max_est_ratio = 2;
+
 	int min_diff, diff;
 	int to_2ghz, to_5ghz;
-	int cur_level, sel_level;
+	int cur_level, sel_level, temp_level;
 	int adjust = 0;
 	double adjust_factor, est_ratio;
 	unsigned int cur_est, sel_est;
@@ -1742,58 +1759,54 @@ int wpa_supplicant_need_to_roam_within_ess(struct wpa_supplicant *wpa_s,
 			cur_level, cur_snr, cur_est);
 	}
 
-	to_2ghz = current_bss->freq > 4000 && selected->freq < 4000;
-	to_5ghz = selected->freq > 4000 && current_bss->freq < 4000;
+	to_2ghz = IS_5GHZ(current_bss->freq) && !IS_5GHZ(selected->freq);
+	to_5ghz = IS_5GHZ(selected->freq) && !IS_5GHZ(current_bss->freq);
 
 	/*
-	 * Set the minimum RSSI difference needed to roam (`min_diff`) and the
-	 * estimated throughput weight (`adjust_factor`) based on the RSSI of
-	 * the current AP. At low RSSI (< -70 dBm), we ignore estimated
-	 * throughput gains and only consider RSSI gains. At higher RSSI,
-	 * `adjust_factor` is multiplied by `adjust` (set below according to the
-	 * selected AP's estimated throughput relative to the current AP's
-	 * estimated throughput) to influence the `min_diff`.
+	 * At low RSSI, we ignore estimated throughput gains and only consider
+	 * RSSI gains. At higher RSSI, adjust_factor is multiplied by adjust
+	 * (set below according to the selected AP's estimated throughput
+	 * relative to the current AP's estimated throughput) to influence the
+	 * min_diff.
 	 */
-	if (cur_level < -85) { /* ..-86 dBm */
-		min_diff = 4;
-		adjust_factor = 0;
-	} else if (cur_level < -80) { /* -85..-81 dBm */
-		min_diff = 5;
-		adjust_factor = 0.2;
-	} else if (cur_level < -75) { /* -80..-76 dBm */
-		min_diff = 6;
-		adjust_factor = 0.4;
-	} else if (cur_level < -70) { /* -75..-71 dBm */
-		min_diff = 7;
-		adjust_factor = 0.6;
-	} else if (cur_level < -65) { /* -70..-66 dBm */
-		min_diff = 8;
-		adjust_factor = 0.8;
-	} else if (cur_level < -60) { /* -65..-61 dBm */
-		min_diff = 9;
-		adjust_factor = 1.0;
-	} else if (cur_level < 0) { /* -60..-1 dBm */
-		min_diff = 10;
-		adjust_factor = 1.2;
+	if (cur_level < 0) {
+		temp_level = cur_level;
+		if (temp_level < low_rssi)
+			temp_level = low_rssi;
+		else if (temp_level > high_rssi)
+			temp_level = high_rssi;
+		min_diff = min_diff_offset + temp_level / rssi_bucket_size;
+		adjust_factor = adjust_factor_offset + 
+				temp_level / rssi_bucket_size;
 	} else { /* unspecified units (not in dBm) */
-		min_diff = 5;
-		adjust_factor = 1.0;
+		min_diff = default_min_diff;
+		adjust_factor = default_adjust_factor;
 	}
+	adjust_factor *= adjust_factor_step;
 
 	sel_est = selected->est_throughput;
 	sel_level = selected->level;
 	if (cur_est > sel_est) {
 		adjust = 1;
-		est_ratio = sel_est == 0 ? 2 : (double) cur_est / sel_est;
+		est_ratio = sel_est == 0 ? max_est_ratio :
+					   (double) cur_est / sel_est;
 	} else {
 		adjust = -1;
-		est_ratio = cur_est == 0 ? 2 : (double) sel_est / cur_est;
+		est_ratio = cur_est == 0 ? max_est_ratio :
+					   (double) sel_est / cur_est;
 	}
-	if (est_ratio > 2)
-		est_ratio = 2;
-	adjust *= (int) ((est_ratio - 1) * 10);
-	min_diff += adjust * adjust_factor;
+	if (est_ratio > max_est_ratio)
+		est_ratio = max_est_ratio;
+	adjust *= (est_ratio - 1) * 10;
+	min_diff += (int) (adjust * adjust_factor);
 
+	/*
+	 * Note that the bias we give to 5GHz here is independent of the
+	 * throughput gains we generally see when moving to a 5GHz AP. In other
+	 * words, we should be motivated to move to a 5GHz AP by its
+	 * significantly better estimated throughput as opposed to the fact that
+	 * it's a 5GHz AP.
+	 */
 	if (to_2ghz)
 		min_diff += 2;
 	else if (to_5ghz)
