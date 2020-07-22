@@ -163,7 +163,9 @@ static int wpas_need_to_roam_module_tests()
 	    !check_roam(&wpa_s, &curr, &sel, ROAM_TO_2,
 			-80, -50, 175500, 65000) ||
 	    check_roam(&wpa_s, &curr, &sel, ROAM_SAME_BAND,
-		       -80, -80, 19500, 19500)) {
+		       -80, -80, 19500, 19500) ||
+	    !check_roam(&wpa_s, &curr, &sel, ROAM_TO_5,
+			-40, -50, 65000, 390000)) {
 		wpa_printf(MSG_ERROR, "need_to_roam module test failure");
 		return -1;
 	}
