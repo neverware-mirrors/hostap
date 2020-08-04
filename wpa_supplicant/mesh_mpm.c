@@ -15,6 +15,7 @@
 #include "ap/hostapd.h"
 #include "ap/sta_info.h"
 #include "ap/ieee802_11.h"
+#include "ap/ieee802_11_auth.h"
 #include "wpa_supplicant_i.h"
 #include "driver_i.h"
 #include "mesh_mpm.h"
@@ -1003,6 +1004,11 @@ void mesh_mpm_action_rx(struct wpa_supplicant *wpa_s,
 	const u8 *ies;
 	size_t ie_len;
 	int ret;
+	u32 session_timeout, acct_interim_interval;
+	int vlan_id = 0;
+	struct hostapd_sta_wpa_psk_short *psk = NULL;
+	char *identity = NULL;
+	char *radius_cui = NULL;
 
 	if (mgmt->u.action.category != WLAN_ACTION_SELF_PROTECTED)
 		return;
@@ -1012,6 +1018,18 @@ void mesh_mpm_action_rx(struct wpa_supplicant *wpa_s,
 	    action_field != PLINK_CONFIRM &&
 	    action_field != PLINK_CLOSE)
 		return;
+
+	if (action_field != PLINK_CLOSE) {
+		ret = hostapd_allowed_address(hapd, mgmt->sa, (u8 *) mgmt, len,
+					      &session_timeout,
+					      &acct_interim_interval, &vlan_id,
+					      &psk, &identity, &radius_cui, 0);
+		if (ret == HOSTAPD_ACL_REJECT) {
+			wpa_printf(MSG_DEBUG,
+				   "MPM: Ignore action frame\n");
+			return;
+		}
+	}
 
 	ies = mgmt->u.action.u.slf_prot_action.variable;
 	ie_len = (const u8 *) mgmt + len -

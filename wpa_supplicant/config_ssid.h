@@ -467,6 +467,9 @@ struct wpa_ssid {
 	*/
 	int mesh_rssi_threshold; /*dbm*/
 
+	char *accept_mac_file;
+	char *deny_mac_file;
+	int macaddr_acl;
 	int ht40;
 
 	int vht;
