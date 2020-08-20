@@ -1287,6 +1287,7 @@ void wpa_supplicant_deauthenticate(struct wpa_supplicant *wpa_s,
 
 struct wpa_ssid * wpa_supplicant_add_network(struct wpa_supplicant *wpa_s);
 int wpa_supplicant_remove_network(struct wpa_supplicant *wpa_s, int id);
+int wpa_supplicant_remove_all_networks(struct wpa_supplicant *wpa_s);
 void wpa_supplicant_enable_network(struct wpa_supplicant *wpa_s,
 				   struct wpa_ssid *ssid);
 void wpa_supplicant_disable_network(struct wpa_supplicant *wpa_s,
