@@ -4583,6 +4583,12 @@ void wpa_supplicant_event(void *ctx, enum wpa_event_type event,
 
 		wpa_s->assoc_freq = data->ch_switch.freq;
 		wpa_s->current_ssid->frequency = data->ch_switch.freq;
+		if (wpa_s->current_bss &&
+		    wpa_s->current_bss->freq != data->ch_switch.freq) {
+			wpa_s->current_bss->freq = data->ch_switch.freq;
+			notify_bss_changes(wpa_s, WPA_BSS_FREQ_CHANGED_FLAG,
+					   wpa_s->current_bss);
+		}
 
 #ifdef CONFIG_AP
 		if (wpa_s->current_ssid->mode == WPAS_MODE_AP ||
